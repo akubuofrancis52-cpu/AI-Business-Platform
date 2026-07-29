@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+
+{% block title %}
+Edit Menu Item
+{% endblock %}
+
+{% block content %}
+
+<div class="container mt-5">
+
+    <h1>Edit Menu Item</h1>
+
+    <hr>
+
+    <form method="POST">
+
+        <div class="mb-3">
+            <label>Item Name</label>
+            <input
+                type="text"
+                name="name"
+                class="form-control"
+                value="{{ menu.name }}"
+                required>
+        </div>
+
+        <div class="mb-3">
+            <label>Description</label>
+            <textarea
+                name="description"
+                class="form-control">{{ menu.description }}</textarea>
+        </div>
+
+        <div class="mb-3">
+            <label>Price</label>
+            <input
+                type="number"
+                step="0.01"
+                name="price"
+                class="form-control"
+                value="{{ menu.price }}"
+                required>
+        </div>
+
+        <div class="mb-3">
+            <label>Category</label>
+            <input
+                type="text"
+                name="category"
+                class="form-control"
+                value="{{ menu.category }}">
+        </div>
+
+        <button class="btn btn-success">
+            Save Changes
+        </button>
+
+    </form>
+
+</div>
+
+{% endblock %}

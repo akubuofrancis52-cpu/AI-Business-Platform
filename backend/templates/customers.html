@@ -1,0 +1,299 @@
+{% extends "base.html" %}
+
+{% block title %}
+Customers
+{% endblock %}
+
+
+{% block content %}
+
+<div class="container mt-5">
+
+
+<h1>
+{{ business.name }} Customers
+</h1>
+
+
+<hr>
+
+
+<!-- ADD CUSTOMER -->
+
+<div class="card mb-5">
+
+<div class="card-header bg-primary text-white">
+
+<h4>
+Add New Customer
+</h4>
+
+</div>
+
+
+<div class="card-body">
+
+
+<form method="POST">
+
+
+<div class="mb-3">
+
+<label class="form-label">
+Customer Name
+</label>
+
+<input
+type="text"
+class="form-control"
+name="name"
+placeholder="Enter customer name"
+required>
+
+</div>
+
+
+
+<div class="mb-3">
+
+<label class="form-label">
+Phone Number
+</label>
+
+<input
+type="text"
+class="form-control"
+name="phone"
+placeholder="229XXXXXXXX"
+required>
+
+</div>
+
+
+
+<div class="mb-3">
+
+<label class="form-label">
+Preferred Language
+</label>
+
+
+<select
+class="form-select"
+name="language">
+
+
+<option value="English">
+English
+</option>
+
+
+<option value="French">
+Français
+</option>
+
+
+<option value="Spanish">
+Español
+</option>
+
+
+</select>
+
+
+</div>
+
+
+<button class="btn btn-success">
+
+Add Customer
+
+</button>
+
+
+</form>
+
+
+</div>
+
+</div>
+
+
+
+<!-- CUSTOMER LIST -->
+
+
+<h3>
+Customer List
+</h3>
+
+
+<hr>
+
+
+
+{% if customers %}
+
+
+
+{% for customer in customers %}
+
+
+<div class="card mb-4">
+
+
+<div class="card-body">
+
+
+<div class="d-flex justify-content-between">
+
+
+<div>
+
+
+<h4>
+{{ customer.name or "Unknown Customer" }}
+</h4>
+
+
+<p>
+<strong>Phone:</strong>
+{{ customer.phone }}
+</p>
+
+
+<p>
+<strong>Language:</strong>
+
+<span class="badge bg-info">
+
+{{ customer.language }}
+
+</span>
+
+</p>
+
+
+</div>
+
+
+<div>
+
+
+<a href="/business/{{ business.id }}/customer/{{ customer.id }}"
+class="btn btn-primary">
+
+View Profile
+
+</a>
+
+
+</div>
+
+
+</div>
+
+
+
+<hr>
+
+
+
+<h5>
+Recent Conversations
+</h5>
+
+
+
+{% if customer.conversations %}
+
+
+{% for chat in customer.conversations[-3:] %}
+
+
+
+<div class="bg-light rounded p-3 mb-2">
+
+
+<p>
+
+<strong>
+Customer:
+</strong>
+
+{{ chat.message }}
+
+</p>
+
+
+
+<p>
+
+<strong>
+AI:
+</strong>
+
+{{ chat.response }}
+
+</p>
+
+
+</div>
+
+
+
+{% endfor %}
+
+
+
+{% else %}
+
+
+<p>
+No conversations yet.
+</p>
+
+
+
+{% endif %}
+
+
+
+</div>
+
+
+</div>
+
+
+
+{% endfor %}
+
+
+
+{% else %}
+
+
+<div class="alert alert-info">
+
+No customers yet. Add your first customer above.
+
+</div>
+
+
+{% endif %}
+
+
+
+<a href="/business/{{ business.id }}"
+class="btn btn-secondary">
+
+Back to Business
+
+</a>
+
+
+
+</div>
+
+
+{% endblock %}

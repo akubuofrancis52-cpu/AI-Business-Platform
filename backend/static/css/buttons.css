@@ -1,0 +1,415 @@
+/* ========================================
+   PREMIUM BUTTON SYSTEM
+======================================== */
+
+.btn{
+
+    border:none;
+
+    border-radius:16px;
+
+    font-weight:600;
+
+    padding:12px 24px;
+
+    transition:all .3s ease;
+
+    position:relative;
+
+    overflow:hidden;
+
+    display:inline-flex;
+
+    align-items:center;
+
+    justify-content:center;
+
+    gap:10px;
+
+    text-decoration:none;
+
+}
+
+
+
+/* ========================================
+   Primary
+======================================== */
+
+.btn-primary{
+
+    color:#fff;
+
+    background:linear-gradient(
+        135deg,
+        #2563eb,
+        #7c3aed
+    );
+
+    box-shadow:
+        0 12px 30px rgba(37,99,235,.30);
+
+}
+
+
+
+.btn-primary:hover{
+
+    color:#fff;
+
+    transform:
+        translateY(-4px);
+
+    box-shadow:
+        0 20px 45px rgba(37,99,235,.40);
+
+}
+
+
+
+/* ========================================
+   Success
+======================================== */
+
+.btn-success{
+
+    color:#fff;
+
+    background:linear-gradient(
+        135deg,
+        #10b981,
+        #22c55e
+    );
+
+    box-shadow:
+        0 12px 30px rgba(16,185,129,.30);
+
+}
+
+
+
+.btn-success:hover{
+
+    color:#fff;
+
+    transform:translateY(-4px);
+
+}
+
+
+
+/* ========================================
+   Danger
+======================================== */
+
+.btn-danger{
+
+    color:#fff;
+
+    background:linear-gradient(
+        135deg,
+        #ef4444,
+        #dc2626
+    );
+
+}
+
+
+
+.btn-danger:hover{
+
+    color:#fff;
+
+    transform:translateY(-4px);
+
+}
+
+
+
+/* ========================================
+   Warning
+======================================== */
+
+.btn-warning{
+
+    color:#111827;
+
+    background:linear-gradient(
+        135deg,
+        #facc15,
+        #f59e0b
+    );
+
+}
+
+
+
+.btn-warning:hover{
+
+    color:#111827;
+
+    transform:translateY(-4px);
+
+}
+
+
+
+/* ========================================
+   Dark AI Button
+======================================== */
+
+.btn-dark{
+
+    color:white;
+
+    background:linear-gradient(
+        135deg,
+        #0f172a,
+        #1e293b
+    );
+
+}
+
+
+
+.btn-dark:hover{
+
+    color:white;
+
+    transform:translateY(-4px);
+
+}
+
+
+
+/* ========================================
+   Secondary Glass
+======================================== */
+
+.btn-secondary{
+
+    color:#0f172a;
+
+    background:rgba(255,255,255,.75);
+
+    backdrop-filter:blur(16px);
+
+    border:1px solid rgba(255,255,255,.7);
+
+}
+
+
+
+.btn-secondary:hover{
+
+    color:#111827;
+
+    transform:translateY(-3px);
+
+    background:white;
+
+}
+
+
+
+/* ========================================
+   Outline Button
+======================================== */
+
+.btn-outline-primary{
+
+    color:#2563eb;
+
+    background:transparent;
+
+    border:2px solid #2563eb;
+
+}
+
+
+
+.btn-outline-primary:hover{
+
+    background:#2563eb;
+
+    color:white;
+
+}
+
+
+
+/* ========================================
+   Ripple Effect
+======================================== */
+
+.btn::before{
+
+    content:"";
+
+    position:absolute;
+
+    width:0;
+
+    height:0;
+
+    background:rgba(255,255,255,.25);
+
+    border-radius:50%;
+
+    top:50%;
+
+    left:50%;
+
+    transform:translate(-50%,-50%);
+
+    transition:.6s;
+
+}
+
+
+
+.btn:hover::before{
+
+    width:300px;
+
+    height:300px;
+
+}
+
+
+
+/* ========================================
+   Glow Animation
+======================================== */
+
+.btn-primary::after,
+.btn-success::after,
+.btn-dark::after{
+
+    content:"";
+
+    position:absolute;
+
+    inset:0;
+
+    background:linear-gradient(
+        120deg,
+        transparent,
+        rgba(255,255,255,.30),
+        transparent
+    );
+
+    transform:translateX(-120%);
+
+}
+
+
+
+.btn:hover::after{
+
+    animation:shine .9s;
+
+}
+
+
+
+@keyframes shine{
+
+    to{
+
+        transform:translateX(120%);
+
+    }
+
+}
+
+
+
+/* ========================================
+   Small Buttons
+======================================== */
+
+.btn-sm{
+
+    padding:8px 16px;
+
+    border-radius:12px;
+
+}
+
+
+
+/* ========================================
+   Large Buttons
+======================================== */
+
+.btn-lg{
+
+    padding:16px 34px;
+
+    font-size:1.05rem;
+
+}
+
+
+
+/* ========================================
+   Disabled
+======================================== */
+
+.btn:disabled{
+
+    opacity:.6;
+
+    cursor:not-allowed;
+
+    transform:none;
+
+}
+
+
+
+/* ========================================
+   Floating Action Button
+======================================== */
+
+.fab{
+
+    width:64px;
+
+    height:64px;
+
+    border-radius:50%;
+
+    position:fixed;
+
+    bottom:30px;
+
+    right:30px;
+
+    z-index:1000;
+
+    font-size:1.4rem;
+
+    background:linear-gradient(
+        135deg,
+        #2563eb,
+        #7c3aed
+    );
+
+    color:white;
+
+    box-shadow:
+        0 20px 40px rgba(37,99,235,.35);
+
+}
+
+
+
+.fab:hover{
+
+    transform:
+        translateY(-5px)
+        scale(1.05);
+
+}

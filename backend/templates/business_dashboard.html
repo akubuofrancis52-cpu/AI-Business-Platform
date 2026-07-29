@@ -1,0 +1,375 @@
+{% extends "base.html" %}
+
+{% block title %}
+{{ business.name }}
+{% endblock %}
+
+{% block content %}
+
+<div class="container py-5">
+
+    <!-- HERO -->
+
+    <section class="dashboard-hero mb-5">
+
+        <div class="row align-items-center">
+
+            <div class="col-lg-8">
+
+                <span class="status-badge">
+                    <span class="status-dot"></span>
+                    Business Online
+                </span>
+
+                <h1 class="mt-4">
+
+                    {{ business.name }}
+
+                </h1>
+
+                <p class="mt-3">
+
+                    {{ business.business_type }}
+
+                </p>
+
+                <div class="mt-4">
+
+                    <span class="me-4">
+
+                        📍 {{ business.address }}
+
+                    </span>
+
+                    <span>
+
+                        📞 {{ business.phone }}
+
+                    </span>
+
+                </div>
+
+            </div>
+
+            <div class="col-lg-4 text-center">
+
+                <div class="business-icon mx-auto"
+                     style="width:120px;height:120px;font-size:3rem;">
+
+                    🏪
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </section>
+
+
+    <!-- KPI CARDS -->
+
+    <div class="stats-grid">
+
+        <div class="business-card">
+
+            <div class="kpi">
+
+                {{ menu_items|length }}
+
+            </div>
+
+            <div class="kpi-label">
+
+                Menu Items
+
+            </div>
+
+        </div>
+
+        <div class="business-card">
+
+            <div class="kpi">
+
+                AI
+
+            </div>
+
+            <div class="kpi-label">
+
+                Assistant Ready
+
+            </div>
+
+        </div>
+
+        <div class="business-card">
+
+            <div class="kpi">
+
+                24/7
+
+            </div>
+
+            <div class="kpi-label">
+
+                Automated Ordering
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- QUICK ACTIONS -->
+
+    <h2 class="fw-bold mb-4">
+
+        Quick Actions
+
+    </h2>
+
+    <div class="quick-actions mb-5">
+
+        <a href="/business/{{ business.id }}/menu/create"
+           class="action-card text-decoration-none">
+
+            <div style="font-size:2rem;">🍔</div>
+
+            <h5 class="mt-3">
+
+                Add Menu
+
+            </h5>
+
+        </a>
+
+        <a href="/business/{{ business.id }}/orders"
+           class="action-card text-decoration-none">
+
+            <div style="font-size:2rem;">📦</div>
+
+            <h5 class="mt-3">
+
+                Orders
+
+            </h5>
+
+        </a>
+
+        <a href="/business/{{ business.id }}/customers"
+           class="action-card text-decoration-none">
+
+            <div style="font-size:2rem;">👥</div>
+
+            <h5 class="mt-3">
+
+                Customers
+
+            </h5>
+
+        </a>
+
+        <a href="/business/{{ business.id }}/ai"
+           class="action-card text-decoration-none">
+
+            <div style="font-size:2rem;">🤖</div>
+
+            <h5 class="mt-3">
+
+                AI Playground
+
+            </h5>
+
+        </a>
+
+        <a href="/business/{{ business.id }}/ai-order"
+           class="action-card text-decoration-none">
+
+            <div style="font-size:2rem;">✨</div>
+
+            <h5 class="mt-3">
+
+                AI Orders
+
+            </h5>
+
+        </a>
+
+    </div>
+
+
+    <!-- MENU -->
+
+    <div class="table-header">
+
+        <h2>
+
+            Menu
+
+        </h2>
+
+        <a href="/business/{{ business.id }}/menu/create"
+           class="btn btn-primary">
+
+            Add Menu Item
+
+        </a>
+
+    </div>
+
+
+    {% if menu_items %}
+
+    <table class="table">
+
+        <thead>
+
+            <tr>
+
+                <th>Name</th>
+
+                <th>Category</th>
+
+                <th>Price</th>
+
+                <th>Status</th>
+
+                <th></th>
+
+            </tr>
+
+        </thead>
+
+        <tbody>
+
+            {% for item in menu_items %}
+
+            <tr>
+
+                <td>
+
+                    <strong>
+
+                        {{ item.name }}
+
+                    </strong>
+
+                    <br>
+
+                    <small class="text-muted">
+
+                        {{ item.description }}
+
+                    </small>
+
+                </td>
+
+                <td>
+
+                    {{ item.category }}
+
+                </td>
+
+                <td>
+
+                    ${{ "%.2f"|format(item.price) }}
+
+                </td>
+
+                <td>
+
+                    {% if item.available %}
+
+                    <span class="badge-status badge-completed">
+
+                        Available
+
+                    </span>
+
+                    {% else %}
+
+                    <span class="badge-status badge-cancelled">
+
+                        Unavailable
+
+                    </span>
+
+                    {% endif %}
+
+                </td>
+
+                <td>
+
+                    <a href="/menu/{{ item.id }}/edit"
+                       class="btn btn-outline-primary btn-sm">
+
+                        Edit
+
+                    </a>
+
+                    <a href="/menu/{{ item.id }}/delete"
+                       class="btn btn-outline-danger btn-sm"
+                       onclick="return confirm('Delete this menu item?')">
+
+                        Delete
+
+                    </a>
+
+                </td>
+
+            </tr>
+
+            {% endfor %}
+
+        </tbody>
+
+    </table>
+
+    {% else %}
+
+    <div class="business-card text-center py-5">
+
+        <div style="font-size:4rem;">
+
+            🍽️
+
+        </div>
+
+        <h3 class="mt-4">
+
+            No Menu Items Yet
+
+        </h3>
+
+        <p class="text-muted">
+
+            Start building your restaurant menu.
+
+        </p>
+
+        <a href="/business/{{ business.id }}/menu/create"
+           class="btn btn-primary">
+
+            Add First Menu Item
+
+        </a>
+
+    </div>
+
+    {% endif %}
+
+
+    <div class="divider"></div>
+
+    <a href="/dashboard"
+       class="btn btn-light">
+
+        ← Back to Dashboard
+
+    </a>
+
+</div>
+
+{% endblock %}

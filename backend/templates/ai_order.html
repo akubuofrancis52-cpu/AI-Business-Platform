@@ -1,0 +1,173 @@
+{% extends "base.html" %}
+
+{% block title %}
+AI Order Creator
+{% endblock %}
+
+
+{% block content %}
+
+<div class="container mt-5">
+
+
+<h1>
+{{ business.name }} AI Order Creator
+</h1>
+
+
+<hr>
+
+
+<form method="POST">
+
+
+<!-- CUSTOMER PHONE -->
+
+<div class="mb-3">
+
+<label class="form-label">
+Customer Phone
+</label>
+
+
+<input
+type="text"
+class="form-control"
+name="phone"
+placeholder="229XXXXXXXX"
+required>
+
+
+</div>
+
+
+
+
+<!-- CUSTOMER MESSAGE -->
+
+<div class="mb-3">
+
+<label class="form-label">
+Customer Order Message
+</label>
+
+
+<textarea
+class="form-control"
+name="message"
+rows="4"
+placeholder="Example: I want 2 burgers and a drink"
+required></textarea>
+
+
+</div>
+
+
+
+
+<button class="btn btn-primary">
+
+🤖 Create AI Order
+
+</button>
+
+
+
+<a href="/business/{{ business.id }}"
+class="btn btn-secondary">
+
+Back
+
+</a>
+
+
+</form>
+
+
+
+{% if result %}
+
+
+<hr>
+
+
+<div class="card mt-4">
+
+
+<div class="card-header bg-success text-white">
+
+<h4>
+Order Created Successfully
+</h4>
+
+</div>
+
+
+
+<div class="card-body">
+
+
+
+<h5>
+Detected Items
+</h5>
+
+
+<ul>
+
+
+{% for item in result.order.items %}
+
+
+<li>
+
+{{ item.quantity }}
+x
+{{ item.name }}
+
+</li>
+
+
+{% endfor %}
+
+
+</ul>
+
+
+
+<hr>
+
+
+
+<h4>
+
+Total:
+
+${{ "%.2f"|format(result.total) }}
+
+</h4>
+
+
+
+<p class="text-success">
+
+Order saved to customer profile.
+
+</p>
+
+
+
+</div>
+
+
+</div>
+
+
+{% endif %}
+
+
+
+</div>
+
+
+{% endblock %}

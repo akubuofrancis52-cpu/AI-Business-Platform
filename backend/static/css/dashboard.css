@@ -1,0 +1,576 @@
+/* ========================================
+   PREMIUM DASHBOARD
+======================================== */
+
+/* ===========================
+   Hero Section
+=========================== */
+
+.dashboard-hero{
+
+    position:relative;
+
+    overflow:hidden;
+
+    border-radius:32px;
+
+    padding:50px;
+
+    margin-bottom:35px;
+
+    background:
+        linear-gradient(
+            135deg,
+            rgba(37,99,235,.95),
+            rgba(124,58,237,.92)
+        );
+
+    color:white;
+
+    box-shadow:
+        0 35px 80px rgba(37,99,235,.25);
+
+}
+
+
+
+.dashboard-hero::before{
+
+    content:"";
+
+    position:absolute;
+
+    width:420px;
+
+    height:420px;
+
+    border-radius:50%;
+
+    top:-180px;
+
+    right:-140px;
+
+    background:
+
+        radial-gradient(
+            rgba(255,255,255,.25),
+            transparent
+        );
+
+}
+
+
+
+.dashboard-hero h1{
+
+    color:white;
+
+    font-size:3rem;
+
+    font-weight:800;
+
+    letter-spacing:-2px;
+
+}
+
+
+
+.dashboard-hero p{
+
+    color:rgba(255,255,255,.85);
+
+    max-width:650px;
+
+    font-size:1.1rem;
+
+}
+
+
+
+/* ===========================
+   Statistics Grid
+=========================== */
+
+.stats-grid{
+
+    display:grid;
+
+    grid-template-columns:
+
+        repeat(auto-fit,minmax(260px,1fr));
+
+    gap:25px;
+
+    margin-bottom:40px;
+
+}
+
+
+
+/* ===========================
+   Business Cards
+=========================== */
+
+.business-card{
+
+    position:relative;
+
+    overflow:hidden;
+
+    border-radius:28px;
+
+    padding:30px;
+
+    background:
+
+        rgba(255,255,255,.78);
+
+    backdrop-filter:blur(18px);
+
+    border:1px solid rgba(255,255,255,.6);
+
+    box-shadow:
+        0 20px 45px rgba(15,23,42,.08);
+
+    transition:.35s;
+
+}
+
+
+
+.business-card:hover{
+
+    transform:
+
+        translateY(-8px);
+
+    box-shadow:
+        0 35px 70px rgba(15,23,42,.14);
+
+}
+
+
+
+.business-card::before{
+
+    content:"";
+
+    position:absolute;
+
+    top:0;
+
+    left:0;
+
+    width:100%;
+
+    height:5px;
+
+    background:
+
+        linear-gradient(
+            90deg,
+            #2563eb,
+            #7c3aed,
+            #06b6d4
+        );
+
+}
+
+
+
+/* ===========================
+   Business Icon
+=========================== */
+
+.business-icon{
+
+    width:68px;
+
+    height:68px;
+
+    border-radius:20px;
+
+    display:flex;
+
+    align-items:center;
+
+    justify-content:center;
+
+    background:
+
+        linear-gradient(
+            135deg,
+            #2563eb,
+            #7c3aed
+        );
+
+    color:white;
+
+    font-size:1.8rem;
+
+    margin-bottom:22px;
+
+}
+
+
+
+/* ===========================
+   Quick Actions
+=========================== */
+
+.quick-actions{
+
+    display:grid;
+
+    grid-template-columns:
+
+        repeat(auto-fit,minmax(180px,1fr));
+
+    gap:20px;
+
+    margin-top:35px;
+
+}
+
+
+
+.action-card{
+
+    text-align:center;
+
+    padding:30px 20px;
+
+    border-radius:22px;
+
+    background:white;
+
+    transition:.3s;
+
+    box-shadow:
+        0 12px 30px rgba(15,23,42,.06);
+
+}
+
+
+
+.action-card:hover{
+
+    transform:
+        translateY(-8px);
+
+}
+
+
+
+.action-card i{
+
+    font-size:2rem;
+
+    margin-bottom:18px;
+
+    background:
+        linear-gradient(
+            135deg,
+            #2563eb,
+            #7c3aed
+        );
+
+    -webkit-background-clip:text;
+
+    -webkit-text-fill-color:transparent;
+
+}
+
+
+
+/* ===========================
+   Status Badge
+=========================== */
+
+.status-badge{
+
+    display:inline-flex;
+
+    align-items:center;
+
+    gap:8px;
+
+    padding:8px 16px;
+
+    border-radius:999px;
+
+    background:#dcfce7;
+
+    color:#166534;
+
+    font-weight:700;
+
+}
+
+
+
+.status-dot{
+
+    width:10px;
+
+    height:10px;
+
+    border-radius:50%;
+
+    background:#22c55e;
+
+    animation:pulseStatus 2s infinite;
+
+}
+
+
+
+@keyframes pulseStatus{
+
+    0%{
+
+        transform:scale(1);
+
+        opacity:1;
+
+    }
+
+    50%{
+
+        transform:scale(1.7);
+
+        opacity:.4;
+
+    }
+
+    100%{
+
+        transform:scale(1);
+
+        opacity:1;
+
+    }
+
+}
+
+
+
+/* ===========================
+   KPI Number
+=========================== */
+
+.kpi{
+
+    font-size:3rem;
+
+    font-weight:800;
+
+    letter-spacing:-2px;
+
+    color:#0f172a;
+
+}
+
+
+
+.kpi-label{
+
+    color:#64748b;
+
+    font-weight:600;
+
+}
+
+
+
+/* ===========================
+   Activity Feed
+=========================== */
+
+.activity-feed{
+
+    background:white;
+
+    border-radius:24px;
+
+    padding:30px;
+
+    box-shadow:
+        0 20px 45px rgba(15,23,42,.06);
+
+}
+
+
+
+.activity-item{
+
+    display:flex;
+
+    align-items:flex-start;
+
+    gap:16px;
+
+    padding:18px 0;
+
+    border-bottom:1px solid #eef2f7;
+
+}
+
+
+
+.activity-item:last-child{
+
+    border-bottom:none;
+
+}
+
+
+
+.activity-avatar{
+
+    width:48px;
+
+    height:48px;
+
+    border-radius:50%;
+
+    background:
+        linear-gradient(
+            135deg,
+            #2563eb,
+            #7c3aed
+        );
+
+    display:flex;
+
+    align-items:center;
+
+    justify-content:center;
+
+    color:white;
+
+    font-weight:700;
+
+}
+
+
+
+/* ===========================
+   AI Widget
+=========================== */
+
+.ai-widget{
+
+    position:relative;
+
+    overflow:hidden;
+
+    border-radius:28px;
+
+    padding:35px;
+
+    color:white;
+
+    background:
+        linear-gradient(
+            135deg,
+            #0f172a,
+            #1e293b
+        );
+
+}
+
+
+
+.ai-widget::before{
+
+    content:"";
+
+    position:absolute;
+
+    width:260px;
+
+    height:260px;
+
+    border-radius:50%;
+
+    background:
+
+        radial-gradient(
+            rgba(37,99,235,.45),
+            transparent
+        );
+
+    right:-80px;
+
+    top:-80px;
+
+}
+
+
+
+/* ===========================
+   Dashboard Fade
+=========================== */
+
+.dashboard-hero,
+.business-card,
+.stat-card,
+.activity-feed,
+.ai-widget{
+
+    animation:
+
+        dashboardFade .7s ease;
+
+}
+
+
+
+@keyframes dashboardFade{
+
+    from{
+
+        opacity:0;
+
+        transform:translateY(30px);
+
+    }
+
+    to{
+
+        opacity:1;
+
+        transform:translateY(0);
+
+    }
+
+}
+
+
+
+/* ===========================
+   Responsive
+=========================== */
+
+@media(max-width:768px){
+
+.dashboard-hero{
+
+padding:35px;
+
+}
+
+.dashboard-hero h1{
+
+font-size:2.2rem;
+
+}
+
+.kpi{
+
+font-size:2.2rem;
+
+}
+
+}

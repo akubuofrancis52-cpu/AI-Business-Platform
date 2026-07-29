@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+
+{% block title %}
+Orders
+{% endblock %}
+
+{% block content %}
+
+<div class="container mt-5">
+
+<h1>{{ business.name }} Orders</h1>
+
+<hr>
+
+<a href="/business/{{ business.id }}/orders/create"
+class="btn btn-success mb-3">
+Create Order
+</a>
+
+<a href="/business/{{ business.id }}"
+class="btn btn-secondary mb-3">
+Back
+</a>
+
+{% if orders %}
+
+<table class="table table-striped">
+
+<thead>
+
+<tr>
+
+<th>Customer</th>
+
+<th>Phone</th>
+
+<th>Total</th>
+
+<th>Status</th>
+
+</tr>
+
+</thead>
+
+<tbody>
+
+{% for order in orders %}
+
+<tr>
+
+<td>{{ order.customer_name }}</td>
+
+<td>{{ order.customer_phone }}</td>
+
+<td>${{ "%.2f"|format(order.total_price) }}</td>
+
+<td>
+
+<span class="badge bg-warning text-dark">
+{{ order.status }}
+</span>
+
+</td>
+
+</tr>
+
+{% endfor %}
+
+</tbody>
+
+</table>
+
+{% else %}
+
+<div class="alert alert-info">
+No orders yet.
+</div>
+
+{% endif %}
+
+</div>
+
+{% endblock %}

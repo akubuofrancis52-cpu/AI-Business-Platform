@@ -1,0 +1,158 @@
+{% extends "base.html" %}
+
+{% block title %}
+Customer Profile
+{% endblock %}
+
+
+{% block content %}
+
+<div class="container mt-5">
+
+<h1>
+Customer Profile
+</h1>
+
+<hr>
+
+
+<h3>
+{{ customer.name }}
+</h3>
+
+
+<p>
+<strong>Phone:</strong>
+{{ customer.phone }}
+</p>
+
+
+<p>
+<strong>Language:</strong>
+{{ customer.language }}
+</p>
+
+
+<hr>
+
+
+<h3>
+Orders
+</h3>
+
+
+{% if customer.orders %}
+
+<table class="table table-striped">
+
+<thead>
+
+<tr>
+<th>ID</th>
+<th>Status</th>
+<th>Total</th>
+</tr>
+
+</thead>
+
+
+<tbody>
+
+{% for order in customer.orders %}
+
+<tr>
+
+<td>
+{{ order.id }}
+</td>
+
+
+<td>
+{{ order.status }}
+</td>
+
+
+<td>
+${{ "%.2f"|format(order.total_price) }}
+</td>
+
+
+</tr>
+
+{% endfor %}
+
+</tbody>
+
+</table>
+
+
+{% else %}
+
+<p>
+No orders yet.
+</p>
+
+{% endif %}
+
+
+
+<hr>
+
+
+<h3>
+AI Conversations
+</h3>
+
+
+{% if customer.conversations %}
+
+
+{% for chat in customer.conversations %}
+
+<div class="card mb-3">
+
+<div class="card-body">
+
+
+<p>
+<strong>Customer:</strong>
+{{ chat.message }}
+</p>
+
+
+<p>
+<strong>AI:</strong>
+{{ chat.response }}
+</p>
+
+
+</div>
+
+</div>
+
+
+{% endfor %}
+
+
+{% else %}
+
+<p>
+No AI conversations yet.
+</p>
+
+{% endif %}
+
+
+
+<a href="/business/{{ business.id }}/customers"
+class="btn btn-secondary">
+
+Back to Customers
+
+</a>
+
+
+</div>
+
+
+{% endblock %}

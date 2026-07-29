@@ -1,0 +1,501 @@
+/* ========================================
+   GLOBAL ANIMATIONS
+======================================== */
+
+/* ===========================
+   Page Load
+=========================== */
+
+body{
+
+    animation:pageFade .6s ease;
+
+}
+
+@keyframes pageFade{
+
+    from{
+
+        opacity:0;
+
+    }
+
+    to{
+
+        opacity:1;
+
+    }
+
+}
+
+
+
+/* ===========================
+   Section Fade
+=========================== */
+
+.fade-up{
+
+    animation:fadeUp .7s ease both;
+
+}
+
+@keyframes fadeUp{
+
+    from{
+
+        opacity:0;
+
+        transform:translateY(35px);
+
+    }
+
+    to{
+
+        opacity:1;
+
+        transform:translateY(0);
+
+    }
+
+}
+
+
+
+/* ===========================
+   Zoom
+=========================== */
+
+.zoom-in{
+
+    animation:zoomIn .5s ease;
+
+}
+
+@keyframes zoomIn{
+
+    from{
+
+        opacity:0;
+
+        transform:scale(.95);
+
+    }
+
+    to{
+
+        opacity:1;
+
+        transform:scale(1);
+
+    }
+
+}
+
+
+
+/* ===========================
+   Floating Elements
+=========================== */
+
+.float{
+
+    animation:floatSoft 6s ease-in-out infinite;
+
+}
+
+@keyframes floatSoft{
+
+    0%{
+
+        transform:translateY(0);
+
+    }
+
+    50%{
+
+        transform:translateY(-10px);
+
+    }
+
+    100%{
+
+        transform:translateY(0);
+
+    }
+
+}
+
+
+
+/* ===========================
+   Pulse
+=========================== */
+
+.pulse{
+
+    animation:pulse 2s infinite;
+
+}
+
+@keyframes pulse{
+
+    0%{
+
+        transform:scale(1);
+
+    }
+
+    50%{
+
+        transform:scale(1.05);
+
+    }
+
+    100%{
+
+        transform:scale(1);
+
+    }
+
+}
+
+
+
+/* ===========================
+   Glow
+=========================== */
+
+.glow{
+
+    animation:glow 3s infinite alternate;
+
+}
+
+@keyframes glow{
+
+    from{
+
+        box-shadow:
+        0 0 10px rgba(37,99,235,.20);
+
+    }
+
+    to{
+
+        box-shadow:
+        0 0 35px rgba(124,58,237,.35);
+
+    }
+
+}
+
+
+
+/* ===========================
+   Shimmer
+=========================== */
+
+.shimmer{
+
+    position:relative;
+
+    overflow:hidden;
+
+}
+
+.shimmer::before{
+
+    content:"";
+
+    position:absolute;
+
+    inset:0;
+
+    background:
+
+        linear-gradient(
+
+            90deg,
+
+            transparent,
+
+            rgba(255,255,255,.5),
+
+            transparent
+
+        );
+
+    transform:translateX(-100%);
+
+    animation:shimmer 2.2s infinite;
+
+}
+
+@keyframes shimmer{
+
+    100%{
+
+        transform:translateX(100%);
+
+    }
+
+}
+
+
+
+/* ===========================
+   Skeleton Loader
+=========================== */
+
+.skeleton{
+
+    background:
+
+        linear-gradient(
+
+            90deg,
+
+            #eceff4,
+
+            #ffffff,
+
+            #eceff4
+
+        );
+
+    background-size:300% 100%;
+
+    animation:skeleton 1.5s infinite;
+
+    border-radius:12px;
+
+}
+
+@keyframes skeleton{
+
+    0%{
+
+        background-position:100%;
+
+    }
+
+    100%{
+
+        background-position:-100%;
+
+    }
+
+}
+
+
+
+/* ===========================
+   Button Press
+=========================== */
+
+.btn:active{
+
+    transform:scale(.97);
+
+}
+
+
+
+/* ===========================
+   Link Hover
+=========================== */
+
+a{
+
+    transition:.25s ease;
+
+}
+
+
+
+/* ===========================
+   Image Hover
+=========================== */
+
+img{
+
+    transition:.35s ease;
+
+}
+
+img:hover{
+
+    transform:scale(1.02);
+
+}
+
+
+
+/* ===========================
+   Table Rows
+=========================== */
+
+.table tbody tr{
+
+    animation:tableFade .4s ease;
+
+}
+
+@keyframes tableFade{
+
+    from{
+
+        opacity:0;
+
+        transform:translateY(15px);
+
+    }
+
+    to{
+
+        opacity:1;
+
+        transform:translateY(0);
+
+    }
+
+}
+
+
+
+/* ===========================
+   Notification
+=========================== */
+
+.notification{
+
+    animation:slideDown .45s ease;
+
+}
+
+@keyframes slideDown{
+
+    from{
+
+        opacity:0;
+
+        transform:translateY(-30px);
+
+    }
+
+    to{
+
+        opacity:1;
+
+        transform:translateY(0);
+
+    }
+
+}
+
+
+
+/* ===========================
+   Badge Bounce
+=========================== */
+
+.badge{
+
+    animation:badgeBounce .4s ease;
+
+}
+
+@keyframes badgeBounce{
+
+    0%{
+
+        transform:scale(.8);
+
+    }
+
+    60%{
+
+        transform:scale(1.08);
+
+    }
+
+    100%{
+
+        transform:scale(1);
+
+    }
+
+}
+
+
+
+/* ===========================
+   Scroll Reveal
+=========================== */
+
+.reveal{
+
+    opacity:0;
+
+    transform:translateY(40px);
+
+    transition:
+        opacity .8s ease,
+        transform .8s ease;
+
+}
+
+.reveal.active{
+
+    opacity:1;
+
+    transform:translateY(0);
+
+}
+
+
+
+/* ===========================
+   Gradient Text
+=========================== */
+
+.gradient-text{
+
+    background:
+
+        linear-gradient(
+            135deg,
+            #2563eb,
+            #7c3aed,
+            #06b6d4
+        );
+
+    -webkit-background-clip:text;
+
+    -webkit-text-fill-color:transparent;
+
+}
+
+
+
+/* ===========================
+   Premium Divider
+=========================== */
+
+.divider{
+
+    height:1px;
+
+    background:
+
+        linear-gradient(
+            90deg,
+            transparent,
+            rgba(100,116,139,.25),
+            transparent
+        );
+
+    margin:40px 0;
+
+}

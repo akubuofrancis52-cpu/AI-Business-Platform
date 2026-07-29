@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+
+{% block title %}
+Create Business
+{% endblock %}
+
+{% block content %}
+
+<h1>Create Your Business</h1>
+
+<form method="POST">
+
+    <label>Business Name</label><br>
+    <input type="text" name="name" required><br><br>
+
+    <label>Business Type</label><br>
+    <select name="business_type">
+        <option>Restaurant</option>
+        <option>Salon</option>
+        <option>Hotel</option>
+        <option>Pharmacy</option>
+        <option>Store</option>
+    </select>
+
+    <br><br>
+
+    <label>Address</label><br>
+    <input type="text" name="address">
+
+    <br><br>
+
+    <label>Phone</label><br>
+    <input type="text" name="phone">
+
+    <br><br>
+
+    <button type="submit">Create Business</button>
+
+</form>
+
+{% endblock %}

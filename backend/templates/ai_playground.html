@@ -1,0 +1,433 @@
+{% extends "base.html" %}
+
+{% block title %}
+AI Playground
+{% endblock %}
+
+
+{% block content %}
+
+<div class="container py-5">
+
+<div class="chat-container">
+
+<div class="chat-window shadow-lg">
+
+
+<!-- HEADER -->
+
+<div class="chat-header">
+
+<div class="chat-title">
+
+<div class="ai-avatar">
+🤖
+</div>
+
+
+<div>
+
+<h2 class="mb-1">
+{{ business.name }} AI
+</h2>
+
+
+<div class="chat-subtitle">
+Restaurant Assistant • Powered by AI
+</div>
+
+
+</div>
+
+</div>
+
+
+
+<div class="status-badge">
+
+<span class="status-dot"></span>
+
+Online
+
+</div>
+
+
+</div>
+
+
+
+
+
+<!-- QUICK ACTIONS -->
+
+<div class="chat-chips">
+
+
+<button
+type="button"
+class="chat-chip"
+onclick="sendQuickMessage('Show me today\\'s menu')">
+
+🍽️ Today's Menu
+
+</button>
+
+
+
+
+<button
+type="button"
+class="chat-chip"
+onclick="sendQuickMessage('Recommend a meal for me')">
+
+⭐ Recommend Meal
+
+</button>
+
+
+
+
+<button
+type="button"
+class="chat-chip"
+onclick="sendQuickMessage('I want to place an order')">
+
+🛒 Place Order
+
+</button>
+
+
+
+
+<button
+type="button"
+class="chat-chip"
+onclick="sendQuickMessage('What are your opening hours?')">
+
+🕒 Opening Hours
+
+</button>
+
+
+
+
+<button
+type="button"
+class="chat-chip"
+onclick="sendQuickMessage('What drinks are available?')">
+
+🥤 Drinks
+
+</button>
+
+
+</div>
+
+
+
+
+
+<hr class="divider">
+
+
+
+
+
+
+<!-- CHAT MESSAGES -->
+
+
+<div class="messages" id="messages">
+
+
+
+{% if response %}
+
+
+
+<div class="message user-message">
+
+
+<div class="message-avatar">
+
+YOU
+
+</div>
+
+
+<div class="message-content">
+
+
+{{ request.form["message"] }}
+
+
+<div class="time">
+Just now
+</div>
+
+
+</div>
+
+
+</div>
+
+
+
+
+
+<div class="message ai-message">
+
+
+<div class="message-avatar">
+
+AI
+
+</div>
+
+
+<div class="message-content">
+
+
+{{ response }}
+
+
+<div class="time">
+Just now
+</div>
+
+
+</div>
+
+
+</div>
+
+
+
+{% else %}
+
+
+
+
+<div class="message ai-message">
+
+
+<div class="message-avatar">
+
+AI
+
+</div>
+
+
+
+<div class="message-content">
+
+
+👋 Welcome!
+
+
+<br><br>
+
+
+I'm your restaurant AI assistant.
+
+
+<br><br>
+
+
+I can help with:
+
+<ul>
+
+<li>Menu questions</li>
+
+<li>Food recommendations</li>
+
+<li>Customer support</li>
+
+<li>Order simulation</li>
+
+</ul>
+
+
+Test your AI before connecting it to WhatsApp.
+
+
+</div>
+
+
+</div>
+
+
+
+{% endif %}
+
+
+
+
+</div>
+
+
+
+
+
+
+
+<!-- INPUT FORM -->
+
+
+<form method="POST">
+
+
+<div class="mb-3">
+
+
+<label>
+Customer Phone
+</label>
+
+
+<input
+
+type="text"
+
+class="form-control"
+
+name="phone"
+
+placeholder="+229 01 XX XX XX XX"
+
+required>
+
+
+</div>
+
+
+
+
+
+
+<div class="chat-input">
+
+
+<textarea
+
+name="message"
+
+class="form-control"
+
+placeholder="Ask your AI assistant..."
+
+required></textarea>
+
+
+
+
+
+<button
+
+class="btn btn-primary chat-send"
+
+type="submit">
+
+➜
+
+</button>
+
+
+
+</div>
+
+
+</form>
+
+
+
+
+
+
+
+<hr class="divider">
+
+
+
+
+
+
+<!-- NAVIGATION -->
+
+
+<div class="d-flex justify-content-between">
+
+
+<a
+
+href="/business/{{ business.id }}"
+
+class="btn btn-light">
+
+← Business Dashboard
+
+</a>
+
+
+
+
+<a
+
+href="/business/{{ business.id }}/ai-order"
+
+class="btn btn-dark">
+
+AI Order Demo →
+
+</a>
+
+
+</div>
+
+
+
+
+
+
+</div>
+
+</div>
+
+</div>
+
+
+
+
+
+
+
+<script>
+
+
+function sendQuickMessage(message){
+
+
+const box = document.querySelector(
+"textarea[name='message']"
+);
+
+
+
+box.value = message;
+
+
+
+box.closest("form").submit();
+
+
+
+}
+
+
+
+</script>
+
+
+
+{% endblock %}
