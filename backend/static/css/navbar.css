@@ -1,60 +1,82 @@
+/* ==========================
+   BOTIFY GLASS NAVBAR
+========================== */
+
+
 .navbar {
 
-position: sticky;
+
+position:sticky;
 
 top:20px;
 
 z-index:1000;
 
-width:calc(100% - 60px);
 
-margin:0 auto 20px;
+width:
+
+calc(100% - 70px);
+
+
+margin:
+
+0 auto 25px;
 
 
 background:
 
-rgba(255,255,255,0.55);
+rgba(255,255,255,0.45);
+
 
 
 backdrop-filter:
 
-blur(30px);
+blur(35px);
+
 
 
 -webkit-backdrop-filter:
 
-blur(30px);
+blur(35px);
 
 
 
 border:
 
-1px solid rgba(255,255,255,0.4);
+1px solid
+
+rgba(255,255,255,0.55);
 
 
 
 border-radius:
 
-28px;
+32px;
 
 
 
 box-shadow:
 
-0 20px 50px rgba(0,0,0,0.08);
+
+0 25px 70px
+
+rgba(0,0,0,0.10);
 
 
 
 padding:
 
-16px 30px;
+15px 28px;
+
 
 
 transition:
 
-0.3s ease;
+all .35s ease;
+
 
 }
+
 
 
 
@@ -62,9 +84,17 @@ transition:
 .navbar:hover {
 
 
+transform:
+
+translateY(-2px);
+
+
 box-shadow:
 
-0 25px 60px rgba(0,0,0,0.12);
+
+0 35px 90px
+
+rgba(0,122,255,0.15);
 
 
 }
@@ -73,20 +103,34 @@ box-shadow:
 
 
 
+
+/* ==========================
+   CONTAINER
+========================== */
+
+
 .nav-container {
 
-max-width:1300px;
+
+max-width:
+
+1400px;
+
 
 margin:auto;
 
 
 display:flex;
 
+
 justify-content:space-between;
+
 
 align-items:center;
 
+
 }
+
 
 
 
@@ -98,15 +142,25 @@ align-items:center;
 
 display:flex;
 
+
 align-items:center;
 
-gap:14px;
+
+gap:12px;
 
 
 }
 
 
 
+
+
+
+
+
+/* ==========================
+   BOTIFY BRAND
+========================== */
 
 
 .brand {
@@ -114,45 +168,60 @@ gap:14px;
 
 display:flex;
 
+
 align-items:center;
 
-gap:12px;
+
+margin-right:20px;
 
 
 text-decoration:none;
 
-color:#111;
-
-
-margin-right:15px;
-
 
 }
-
-
-
-
-
-.brand-icon {
-
-
-font-size:32px;
-
-
-}
-
-
 
 
 
 .brand-text {
 
 
-font-size:20px;
+font-family:
 
-font-weight:700;
+-apple-system,
+BlinkMacSystemFont,
+"SF Pro Display",
+"Helvetica Neue",
+Arial,
+sans-serif;
 
-line-height:1;
+
+
+font-size:
+
+28px;
+
+
+font-weight:
+
+700;
+
+
+
+letter-spacing:
+
+-1.5px;
+
+
+
+color:
+
+#007AFF;
+
+
+
+animation:
+
+brandFloat 5s ease-in-out infinite;
 
 
 }
@@ -166,11 +235,28 @@ line-height:1;
 
 display:block;
 
-font-size:11px;
 
-opacity:.5;
+font-size:
 
-margin-top:5px;
+11px;
+
+
+letter-spacing:
+
+0;
+
+
+font-weight:
+
+500;
+
+
+color:
+
+rgba(0,0,0,.45);
+
+
+margin-top:4px;
 
 
 }
@@ -179,26 +265,62 @@ margin-top:5px;
 
 
 
+@keyframes brandFloat {
+
+
+0%,100%{
+
+
+transform:
+
+translateY(0);
+
+
+}
+
+
+
+50%{
+
+
+transform:
+
+translateY(-3px);
+
+
+}
+
+
+}
+
+
+
+
+
+
+
+
+/* ==========================
+   NAV BUTTONS
+========================== */
+
+
 .apple-nav-btn {
 
 
 display:flex;
 
+
 align-items:center;
 
-gap:6px;
 
-
-
-text-decoration:none;
-
-color:#111;
+justify-content:center;
 
 
 
 padding:
 
-12px 22px;
+12px 24px;
 
 
 
@@ -208,35 +330,129 @@ border-radius:
 
 
 
+
 background:
+
 
 rgba(255,255,255,0.65);
 
 
 
+
 border:
 
-1px solid rgba(255,255,255,0.7);
+
+1px solid
+
+rgba(255,255,255,.8);
+
+
+
+
+color:
+
+#111827;
+
+
+
+font-size:
+
+14px;
+
+
+
+font-weight:
+
+600;
+
+
+
+text-decoration:none;
+
 
 
 
 box-shadow:
 
-0 8px 25px rgba(0,0,0,0.06);
 
+0 10px 30px
 
+rgba(0,0,0,.06);
 
-font-weight:600;
-
-
-
-font-size:14px;
 
 
 
 transition:
 
-all .25s ease;
+all .3s cubic-bezier(.2,.8,.2,1);
+
+
+
+position:relative;
+
+
+overflow:hidden;
+
+
+}
+
+
+
+
+
+.apple-nav-btn::before {
+
+
+content:"";
+
+
+position:absolute;
+
+
+inset:0;
+
+
+
+background:
+
+
+linear-gradient(
+
+120deg,
+
+transparent,
+
+rgba(255,255,255,.7),
+
+transparent
+
+);
+
+
+
+transform:
+
+translateX(-120%);
+
+
+
+transition:
+
+.5s;
+
+
+}
+
+
+
+
+
+.apple-nav-btn:hover::before {
+
+
+transform:
+
+translateX(120%);
 
 
 }
@@ -250,25 +466,27 @@ all .25s ease;
 
 transform:
 
-translateY(-3px);
-
-
-
-background:
-
-rgba(255,255,255,0.9);
+translateY(-4px)
+scale(1.03);
 
 
 
 box-shadow:
 
-0 15px 35px rgba(0,0,0,0.12);
+
+0 18px 45px
+
+rgba(0,122,255,.18);
 
 
 }
 
 
 
+
+
+
+/* PRIMARY BUTTON */
 
 
 .apple-nav-btn.primary {
@@ -276,22 +494,57 @@ box-shadow:
 
 background:
 
-#111;
+#007AFF;
 
 
 color:white;
 
 
+
+border:
+
+none;
+
+
+
+box-shadow:
+
+
+0 15px 40px
+
+rgba(0,122,255,.35);
+
+
 }
 
 
 
+
+
+.apple-nav-btn.primary:hover {
+
+
+background:
+
+#0066d6;
+
+
+}
+
+
+
+
+
+
+/* LOGOUT */
 
 
 .apple-nav-btn.danger {
 
 
-color:#ff3b30;
+color:
+
+#ff3b30;
 
 
 }
@@ -300,7 +553,37 @@ color:#ff3b30;
 
 
 
-@media(max-width:800px){
+.apple-nav-btn.danger:hover {
+
+
+background:
+
+rgba(255,59,48,.08);
+
+
+box-shadow:
+
+
+0 15px 40px
+
+rgba(255,59,48,.18);
+
+
+}
+
+
+
+
+
+
+
+
+/* ==========================
+   MOBILE
+========================== */
+
+
+@media(max-width:900px){
 
 
 .navbar{
@@ -311,12 +594,9 @@ width:
 calc(100% - 30px);
 
 
-top:10px;
+top:
 
-
-padding:
-
-15px;
+10px;
 
 
 }
@@ -326,9 +606,14 @@ padding:
 .nav-container{
 
 
-flex-direction:column;
+flex-direction:
 
-gap:15px;
+column;
+
+
+gap:
+
+18px;
 
 
 }
@@ -339,12 +624,39 @@ gap:15px;
 .nav-right{
 
 
-flex-wrap:wrap;
+width:100%;
+
 
 justify-content:center;
 
 
+flex-wrap:wrap;
+
+
 }
+
+
+
+.brand{
+
+
+margin-right:0;
+
+
+}
+
+
+
+.apple-nav-btn{
+
+
+padding:
+
+10px 18px;
+
+
+}
+
 
 
 }

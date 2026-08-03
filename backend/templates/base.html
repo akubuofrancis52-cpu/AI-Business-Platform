@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+
 <html lang="en">
 
 <head>
@@ -7,269 +8,221 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-
 <title>
 {% block title %}
-AI Business Platform
+Botify
 {% endblock %}
 </title>
 
-
+<!-- APPLE STYLE FONT -->
 
 <style>
 
 body {
-
-font-family:
--apple-system,
-BlinkMacSystemFont,
-"SF Pro Display",
-"SF Pro Text",
-"Helvetica Neue",
-Arial,
-sans-serif;
-
+    font-family:
+        -apple-system,
+        BlinkMacSystemFont,
+        "SF Pro Display",
+        "SF Pro Text",
+        "Helvetica Neue",
+        Arial,
+        sans-serif;
 }
 
 </style>
 
+<!-- MAIN CSS -->
 
-
-<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-
+<link
+    rel="stylesheet"
+    href="{{ url_for('static', filename='css/style.css') }}"
+>
 
 {% block extra_css %}
 {% endblock %}
 
-
 </head>
-
-
 
 <body>
 
+<!-- BOTIFY INTRO ANIMATION -->
 
+<div id="intro-screen">
 
+```
+<div class="botify-glow"></div>
 
-<!-- Animated Background -->
+<div class="botify-logo">
+    botify
+</div>
+```
+
+</div>
+
+<!-- LIQUID ANIMATED BACKGROUND -->
 
 <div class="background">
 
+```
 <div class="floating-circle circle-one"></div>
 
 <div class="floating-circle circle-two"></div>
 
 <div class="floating-circle circle-three"></div>
+```
 
 </div>
 
-
-
-
-
-
-<!-- Premium Apple Style Navigation -->
+<!-- PREMIUM GLASS NAVBAR -->
 
 <nav class="navbar">
 
+```
 <div class="nav-container">
 
 
+    <!-- LEFT -->
 
-<!-- LEFT SIDE -->
+    <div class="nav-left">
 
-<div class="nav-left">
+        <a href="/" class="brand">
 
+            <div class="brand-text">
 
+                botify
 
-<a href="/" class="brand">
+                <span>
+                    AI Business Platform
+                </span>
 
+            </div>
 
-<div class="brand-icon">
-
-🤖
-
-</div>
-
-
-
-<div class="brand-text">
-
-AI Business
-
-<span>
-Platform
-</span>
-
-</div>
+        </a>
 
 
-</a>
+        <a href="/" class="apple-nav-btn">
+            Home
+        </a>
 
 
+        {% if not session.get("user_id") %}
+
+        <a href="/login" class="apple-nav-btn">
+            Login
+        </a>
 
 
+        <a href="/register" class="apple-nav-btn primary">
+            Get Started
+        </a>
 
-<a href="/" class="apple-nav-btn">
+        {% endif %}
 
-⌂ Home
-
-</a>
-
-
-
+    </div>
 
 
+    <!-- RIGHT -->
 
-{% if not session.get("user_id") %}
+    <div class="nav-right">
 
+        {% if session.get("user_id") %}
 
-
-<a href="/login" class="apple-nav-btn">
-
-Login
-
-</a>
-
+        <a href="/dashboard" class="apple-nav-btn">
+            Dashboard
+        </a>
 
 
+        <a href="/logout" class="apple-nav-btn danger">
+            Logout
+        </a>
 
-<a href="/register" class="apple-nav-btn primary">
+        {% endif %}
 
-Get Started
-
-</a>
-
-
-
-{% endif %}
-
-
+    </div>
 
 </div>
-
-
-
-
-
-
-
-<!-- RIGHT SIDE -->
-
-<div class="nav-right">
-
-
-
-{% if session.get("user_id") %}
-
-
-
-<a href="/dashboard" class="apple-nav-btn">
-
-▣ Dashboard
-
-</a>
-
-
-
-
-
-<a href="/logout" class="apple-nav-btn danger">
-
-↪ Logout
-
-</a>
-
-
-
-{% endif %}
-
-
-
-</div>
-
-
-
-</div>
+```
 
 </nav>
 
-
-
-
-
-
-
-
-<!-- MAIN CONTENT -->
+<!-- PAGE CONTENT -->
 
 <main class="page-content">
 
-
+```
 {% block content %}
-
 {% endblock %}
-
+```
 
 </main>
 
-
-
-
-
-
-
-<!-- LOADER -->
+<!-- PREMIUM LOADER -->
 
 <div id="loader" class="loader hidden">
 
-
+```
 <div class="loader-circle"></div>
 
+<div class="loader-text">
+    Loading...
+</div>
+```
 
 </div>
 
-
-
-
-
-
-
-
 <script>
 
+/* ==========================
+   PAGE LOADER
+========================== */
 
-function showLoader(){
+function showLoader() {
 
+    const loader = document.getElementById("loader");
 
-const loader=document.getElementById("loader");
-
-
-if(loader){
-
-loader.classList.remove("hidden");
-
-}
-
+    if (loader) {
+        loader.classList.remove("hidden");
+    }
 
 }
 
 
+/* ==========================
+   HIDE LOADER AFTER PAGE LOAD
+========================== */
+
+window.addEventListener("load", function () {
+
+    document.body.classList.add("loaded");
+
+    const loader = document.getElementById("loader");
+
+    if (loader) {
+        loader.classList.add("hidden");
+    }
+
+});
+
+
+/* ==========================
+   SAFETY FALLBACK
+========================== */
+
+setTimeout(function () {
+
+    const loader = document.getElementById("loader");
+
+    if (loader) {
+        loader.classList.add("hidden");
+    }
+
+}, 5000);
 
 </script>
 
-
-
-
-
-
 {% block scripts %}
-
 {% endblock %}
 
-
-
 </body>
-
 
 </html>

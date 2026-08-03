@@ -4,296 +4,509 @@
 Customers
 {% endblock %}
 
-
 {% block content %}
 
-<div class="container mt-5">
+<div class="container py-5">
+
+    <!-- HEADER -->
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+
+        <div>
+
+            <div class="text-muted mb-2">
+                Customer CRM
+            </div>
+
+            <h1 class="fw-bold mb-2">
+                {{ business.name }} Customers
+            </h1>
+
+            <p class="text-muted mb-0">
+                Manage customers, orders and AI conversations.
+            </p>
+
+        </div>
+
+        <a
+            href="/business/{{ business.id }}"
+            class="btn btn-outline-secondary"
+        >
+            ← Dashboard
+        </a>
+
+    </div>
 
 
-<h1>
-{{ business.name }} Customers
-</h1>
+    <!-- CRM STATS -->
+
+    <div class="row g-4 mb-5">
+
+        <div class="col-md-4">
+
+            <div class="card border-0 shadow-sm h-100">
+
+                <div class="card-body">
+
+                    <div class="text-muted small">
+                        Total Customers
+                    </div>
+
+                    <div class="display-6 fw-bold mt-2">
+                        {{ total_customers }}
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
 
 
-<hr>
+        <div class="col-md-4">
+
+            <div class="card border-0 shadow-sm h-100">
+
+                <div class="card-body">
+
+                    <div class="text-muted small">
+                        Customers With Orders
+                    </div>
+
+                    <div class="display-6 fw-bold mt-2">
+                        {{ customers_with_orders }}
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
 
 
-<!-- ADD CUSTOMER -->
+        <div class="col-md-4">
 
-<div class="card mb-5">
+            <div class="card border-0 shadow-sm h-100">
 
-<div class="card-header bg-primary text-white">
+                <div class="card-body">
 
-<h4>
-Add New Customer
-</h4>
+                    <div class="text-muted small">
+                        Customer Revenue
+                    </div>
+
+                    <div class="display-6 fw-bold mt-2">
+                        {{ "{:,.0f}".format(total_revenue) }}
+                        FCFA
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- ADD CUSTOMER -->
+
+    <div class="card border-0 shadow-sm mb-5">
+
+        <div class="card-body p-4">
+
+            <div class="d-flex justify-content-between align-items-center mb-4">
+
+                <div>
+
+                    <h4 class="fw-bold mb-1">
+                        Add Customer
+                    </h4>
+
+                    <p class="text-muted mb-0">
+                        Add a customer to your CRM.
+                    </p>
+
+                </div>
+
+            </div>
+
+
+            <form
+                method="POST"
+                class="row g-3"
+            >
+
+                <div class="col-md-4">
+
+                    <label class="form-label">
+                        Customer Name
+                    </label>
+
+                    <input
+                        type="text"
+                        name="name"
+                        class="form-control"
+                        placeholder="John Doe"
+                    >
+
+                </div>
+
+
+                <div class="col-md-4">
+
+                    <label class="form-label">
+                        Phone Number
+                    </label>
+
+                    <input
+                        type="text"
+                        name="phone"
+                        class="form-control"
+                        placeholder="229XXXXXXXX"
+                        required
+                    >
+
+                </div>
+
+
+                <div class="col-md-2">
+
+                    <label class="form-label">
+                        Language
+                    </label>
+
+                    <select
+                        name="language"
+                        class="form-select"
+                    >
+
+                        <option value="English">
+                            English
+                        </option>
+
+                        <option value="French">
+                            Français
+                        </option>
+
+                        <option value="Spanish">
+                            Español
+                        </option>
+
+                    </select>
+
+                </div>
+
+
+                <div class="col-md-2 d-flex align-items-end">
+
+                    <button
+                        type="submit"
+                        class="btn btn-primary w-100"
+                    >
+                        Add Customer
+                    </button>
+
+                </div>
+
+            </form>
+
+        </div>
+
+    </div>
+
+
+    <!-- SEARCH -->
+
+    <div class="card border-0 shadow-sm mb-4">
+
+        <div class="card-body p-4">
+
+            <form
+                method="GET"
+                class="row g-3"
+            >
+
+                <div class="col-md-10">
+
+                    <input
+                        type="text"
+                        name="search"
+                        value="{{ search }}"
+                        class="form-control form-control-lg"
+                        placeholder="Search by customer name or phone..."
+                    >
+
+                </div>
+
+                <div class="col-md-2">
+
+                    <button
+                        type="submit"
+                        class="btn btn-dark btn-lg w-100"
+                    >
+                        Search
+                    </button>
+
+                </div>
+
+            </form>
+
+        </div>
+
+    </div>
+
+
+    <!-- CUSTOMER LIST -->
+
+    <div class="d-flex justify-content-between align-items-center mb-3">
+
+        <div>
+
+            <h3 class="fw-bold mb-1">
+                Customers
+            </h3>
+
+            <p class="text-muted mb-0">
+                {{ customers|length }} customer{% if customers|length != 1 %}s{% endif %}
+                shown
+            </p>
+
+        </div>
+
+    </div>
+
+
+    {% if customers %}
+
+        <div class="row g-4">
+
+            {% for customer in customers %}
+
+                {% set stats = customer_stats[customer.id] %}
+
+                <div class="col-lg-6">
+
+                    <div class="card border-0 shadow-sm h-100">
+
+                        <div class="card-body p-4">
+
+                            <div class="d-flex justify-content-between">
+
+                                <div>
+
+                                    <h4 class="fw-bold mb-1">
+
+                                        {{ customer.name or "Unknown Customer" }}
+
+                                    </h4>
+
+                                    <div class="text-muted">
+
+                                        {{ customer.phone }}
+
+                                    </div>
+
+                                </div>
+
+
+                                <div>
+
+                                    {% if customer.language == "French" %}
+
+                                        <span class="badge bg-primary">
+                                            FR
+                                        </span>
+
+                                    {% elif customer.language == "Spanish" %}
+
+                                        <span class="badge bg-warning text-dark">
+                                            ES
+                                        </span>
+
+                                    {% else %}
+
+                                        <span class="badge bg-success">
+                                            EN
+                                        </span>
+
+                                    {% endif %}
+
+                                </div>
+
+                            </div>
+
+
+                            <hr class="my-4">
+
+
+                            <!-- CUSTOMER METRICS -->
+
+                            <div class="row g-3 mb-4">
+
+                                <div class="col-6">
+
+                                    <div class="bg-light rounded p-3">
+
+                                        <div class="text-muted small">
+                                            Orders
+                                        </div>
+
+                                        <div class="fs-4 fw-bold">
+                                            {{ stats.orders }}
+                                        </div>
+
+                                    </div>
+
+                                </div>
+
+
+                                <div class="col-6">
+
+                                    <div class="bg-light rounded p-3">
+
+                                        <div class="text-muted small">
+                                            Spent
+                                        </div>
+
+                                        <div class="fs-5 fw-bold">
+                                            {{ "{:,.0f}".format(stats.spent) }}
+                                            FCFA
+                                        </div>
+
+                                    </div>
+
+                                </div>
+
+                            </div>
+
+
+                            <!-- ACTIVITY -->
+
+                            <div class="mb-4">
+
+                                <div class="text-muted small mb-1">
+                                    Latest Activity
+                                </div>
+
+                                {% if customer.conversations %}
+
+                                    {% set latest_chat = customer.conversations[-1] %}
+
+                                    <div class="small">
+
+                                        <strong>
+                                            AI conversation
+                                        </strong>
+
+                                        <div class="text-muted mt-1">
+                                            {{ latest_chat.message[:100] }}
+                                            {% if latest_chat.message|length > 100 %}
+                                                ...
+                                            {% endif %}
+                                        </div>
+
+                                    </div>
+
+                                {% elif stats.last_order %}
+
+                                    <div class="small">
+
+                                        <strong>
+                                            Latest order
+                                        </strong>
+
+                                        <div class="text-muted mt-1">
+
+                                            #{{ stats.last_order.id }}
+
+                                            ·
+
+                                            {{ stats.last_order.status }}
+
+                                        </div>
+
+                                    </div>
+
+                                {% else %}
+
+                                    <div class="text-muted small">
+                                        No activity yet.
+                                    </div>
+
+                                {% endif %}
+
+                            </div>
+
+
+                            <div class="d-flex gap-2">
+
+                                <a
+                                    href="/business/{{ business.id }}/customer/{{ customer.id }}"
+                                    class="btn btn-primary flex-grow-1"
+                                >
+                                    View Customer
+                                </a>
+
+                                <a
+                                    href="tel:{{ customer.phone }}"
+                                    class="btn btn-outline-secondary"
+                                >
+                                    Call
+                                </a>
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            {% endfor %}
+
+        </div>
+
+    {% else %}
+
+        <div class="card border-0 shadow-sm">
+
+            <div class="card-body text-center py-5">
+
+                <div style="font-size: 4rem;">
+                    👥
+                </div>
+
+                <h3 class="fw-bold mt-3">
+                    No customers found
+                </h3>
+
+                {% if search %}
+
+                    <p class="text-muted">
+                        No customer matches "{{ search }}".
+                    </p>
+
+                    <a
+                        href="/business/{{ business.id }}/customers"
+                        class="btn btn-outline-primary"
+                    >
+                        Clear Search
+                    </a>
+
+                {% else %}
+
+                    <p class="text-muted">
+                        Add your first customer to start building your CRM.
+                    </p>
+
+                {% endif %}
+
+            </div>
+
+        </div>
+
+    {% endif %}
 
 </div>
-
-
-<div class="card-body">
-
-
-<form method="POST">
-
-
-<div class="mb-3">
-
-<label class="form-label">
-Customer Name
-</label>
-
-<input
-type="text"
-class="form-control"
-name="name"
-placeholder="Enter customer name"
-required>
-
-</div>
-
-
-
-<div class="mb-3">
-
-<label class="form-label">
-Phone Number
-</label>
-
-<input
-type="text"
-class="form-control"
-name="phone"
-placeholder="229XXXXXXXX"
-required>
-
-</div>
-
-
-
-<div class="mb-3">
-
-<label class="form-label">
-Preferred Language
-</label>
-
-
-<select
-class="form-select"
-name="language">
-
-
-<option value="English">
-English
-</option>
-
-
-<option value="French">
-Français
-</option>
-
-
-<option value="Spanish">
-Español
-</option>
-
-
-</select>
-
-
-</div>
-
-
-<button class="btn btn-success">
-
-Add Customer
-
-</button>
-
-
-</form>
-
-
-</div>
-
-</div>
-
-
-
-<!-- CUSTOMER LIST -->
-
-
-<h3>
-Customer List
-</h3>
-
-
-<hr>
-
-
-
-{% if customers %}
-
-
-
-{% for customer in customers %}
-
-
-<div class="card mb-4">
-
-
-<div class="card-body">
-
-
-<div class="d-flex justify-content-between">
-
-
-<div>
-
-
-<h4>
-{{ customer.name or "Unknown Customer" }}
-</h4>
-
-
-<p>
-<strong>Phone:</strong>
-{{ customer.phone }}
-</p>
-
-
-<p>
-<strong>Language:</strong>
-
-<span class="badge bg-info">
-
-{{ customer.language }}
-
-</span>
-
-</p>
-
-
-</div>
-
-
-<div>
-
-
-<a href="/business/{{ business.id }}/customer/{{ customer.id }}"
-class="btn btn-primary">
-
-View Profile
-
-</a>
-
-
-</div>
-
-
-</div>
-
-
-
-<hr>
-
-
-
-<h5>
-Recent Conversations
-</h5>
-
-
-
-{% if customer.conversations %}
-
-
-{% for chat in customer.conversations[-3:] %}
-
-
-
-<div class="bg-light rounded p-3 mb-2">
-
-
-<p>
-
-<strong>
-Customer:
-</strong>
-
-{{ chat.message }}
-
-</p>
-
-
-
-<p>
-
-<strong>
-AI:
-</strong>
-
-{{ chat.response }}
-
-</p>
-
-
-</div>
-
-
-
-{% endfor %}
-
-
-
-{% else %}
-
-
-<p>
-No conversations yet.
-</p>
-
-
-
-{% endif %}
-
-
-
-</div>
-
-
-</div>
-
-
-
-{% endfor %}
-
-
-
-{% else %}
-
-
-<div class="alert alert-info">
-
-No customers yet. Add your first customer above.
-
-</div>
-
-
-{% endif %}
-
-
-
-<a href="/business/{{ business.id }}"
-class="btn btn-secondary">
-
-Back to Business
-
-</a>
-
-
-
-</div>
-
 
 {% endblock %}

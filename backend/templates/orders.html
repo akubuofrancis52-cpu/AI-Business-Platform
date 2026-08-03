@@ -1,82 +1,667 @@
 {% extends "base.html" %}
 
 {% block title %}
-Orders
+Orders • {{ business.name }}
 {% endblock %}
+
 
 {% block content %}
 
-<div class="container mt-5">
+<style>
 
-<h1>{{ business.name }} Orders</h1>
+.orders-page {
+    max-width: 1250px;
+    margin: 0 auto;
+    padding: 35px 0 60px;
+}
 
-<hr>
+.orders-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 20px;
+    margin-bottom: 25px;
+}
 
-<a href="/business/{{ business.id }}/orders/create"
-class="btn btn-success mb-3">
-Create Order
-</a>
+.orders-header h1 {
+    margin: 0;
+    font-size: 32px;
+    font-weight: 800;
+    letter-spacing: -0.04em;
+    color: #111827;
+}
 
-<a href="/business/{{ business.id }}"
-class="btn btn-secondary mb-3">
-Back
-</a>
+.orders-header p {
+    margin: 6px 0 0;
+    color: #6b7280;
+    font-size: 14px;
+}
 
-{% if orders %}
+.order-stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 24px;
+}
 
-<table class="table table-striped">
+.order-stat {
+    padding: 18px;
+    border-radius: 18px;
+    background: rgba(255,255,255,.78);
+    border: 1px solid rgba(0,0,0,.06);
+    box-shadow: 0 12px 30px rgba(15,23,42,.05);
+    backdrop-filter: blur(14px);
+}
 
-<thead>
+.order-stat-label {
+    color: #6b7280;
+    font-size: 11px;
+    font-weight: 700;
+}
 
-<tr>
+.order-stat-value {
+    margin-top: 5px;
+    color: #111827;
+    font-size: 27px;
+    font-weight: 800;
+}
 
-<th>Customer</th>
+.orders-list {
+    display: grid;
+    gap: 14px;
+}
 
-<th>Phone</th>
+.order-card {
+    padding: 20px;
+    border-radius: 22px;
+    background: rgba(255,255,255,.88);
+    border: 1px solid rgba(0,0,0,.06);
+    box-shadow: 0 16px 40px rgba(15,23,42,.06);
+}
 
-<th>Total</th>
+.order-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 15px;
+}
 
-<th>Status</th>
+.order-number {
+    font-size: 17px;
+    font-weight: 800;
+    color: #111827;
+}
 
-</tr>
+.order-customer {
+    margin-top: 4px;
+    color: #6b7280;
+    font-size: 13px;
+}
 
-</thead>
+.status-badge-custom {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 7px 11px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 800;
+}
 
-<tbody>
+.status-dot-custom {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+}
 
-{% for order in orders %}
+.status-pending {
+    background: #fff7ed;
+    color: #c2410c;
+}
 
-<tr>
+.status-pending .status-dot-custom {
+    background: #f97316;
+}
 
-<td>{{ order.customer_name }}</td>
+.status-preparing {
+    background: #eff6ff;
+    color: #1d4ed8;
+}
 
-<td>{{ order.customer_phone }}</td>
+.status-preparing .status-dot-custom {
+    background: #3b82f6;
+}
 
-<td>${{ "%.2f"|format(order.total_price) }}</td>
+.status-ready {
+    background: #ecfdf3;
+    color: #15803d;
+}
 
-<td>
+.status-ready .status-dot-custom {
+    background: #22c55e;
+}
 
-<span class="badge bg-warning text-dark">
-{{ order.status }}
-</span>
+.status-completed {
+    background: #f3f4f6;
+    color: #374151;
+}
 
-</td>
+.status-completed .status-dot-custom {
+    background: #6b7280;
+}
 
-</tr>
+.status-cancelled {
+    background: #fef2f2;
+    color: #b91c1c;
+}
 
-{% endfor %}
+.status-cancelled .status-dot-custom {
+    background: #ef4444;
+}
 
-</tbody>
+.order-divider {
+    height: 1px;
+    background: #f1f5f9;
+    margin: 17px 0;
+}
 
-</table>
+.order-items {
+    display: grid;
+    gap: 8px;
+}
 
-{% else %}
+.order-item-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 15px;
+    padding: 10px 0;
+}
 
-<div class="alert alert-info">
-No orders yet.
-</div>
+.item-name {
+    font-size: 13px;
+    font-weight: 700;
+    color: #1f2937;
+}
 
-{% endif %}
+.item-meta {
+    margin-top: 2px;
+    color: #98a2b3;
+    font-size: 11px;
+}
+
+.item-subtotal {
+    color: #111827;
+    font-size: 13px;
+    font-weight: 750;
+}
+
+.order-bottom {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 15px;
+    margin-top: 17px;
+    padding-top: 15px;
+    border-top: 1px solid #f1f5f9;
+}
+
+.order-total span {
+    display: block;
+    color: #98a2b3;
+    font-size: 10px;
+    font-weight: 700;
+}
+
+.order-total strong {
+    display: block;
+    margin-top: 3px;
+    color: #111827;
+    font-size: 21px;
+    font-weight: 850;
+}
+
+.status-form {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.status-select {
+    min-width: 135px;
+    border-radius: 11px;
+    border: 1px solid #e5e7eb;
+    padding: 9px 11px;
+    background: white;
+    font-size: 12px;
+    font-weight: 650;
+}
+
+.status-update-btn {
+    border: 0;
+    border-radius: 11px;
+    padding: 9px 13px;
+    background: #111827;
+    color: white;
+    font-size: 12px;
+    font-weight: 750;
+    cursor: pointer;
+}
+
+.status-update-btn:hover {
+    background: #1f2937;
+}
+
+.empty-orders {
+    text-align: center;
+    padding: 70px 20px;
+    border-radius: 22px;
+    background: rgba(255,255,255,.75);
+    border: 1px solid rgba(0,0,0,.06);
+}
+
+.empty-orders-icon {
+    font-size: 38px;
+    margin-bottom: 12px;
+}
+
+.empty-orders h3 {
+    margin: 0;
+    color: #111827;
+    font-size: 19px;
+}
+
+.empty-orders p {
+    margin: 7px 0 0;
+    color: #6b7280;
+    font-size: 13px;
+}
+
+@media (max-width: 900px) {
+
+    .order-stats {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+}
+
+@media (max-width: 650px) {
+
+    .orders-page {
+        padding: 20px 10px 40px;
+    }
+
+    .orders-header {
+        flex-direction: column;
+    }
+
+    .order-top {
+        flex-direction: column;
+    }
+
+    .order-bottom {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .status-form {
+        width: 100%;
+    }
+
+    .status-select {
+        flex: 1;
+    }
+
+}
+
+</style>
+
+
+<div class="container-fluid">
+
+    <div class="orders-page">
+
+
+        <!-- HEADER -->
+
+        <div class="orders-header">
+
+            <div>
+
+                <h1>
+                    Orders
+                </h1>
+
+                <p>
+                    Manage orders for {{ business.name }}
+                </p>
+
+            </div>
+
+
+            <div>
+
+                <a
+                    href="/business/{{ business.id }}/orders/create"
+                    class="btn btn-primary"
+                >
+                    + New Order
+                </a>
+
+            </div>
+
+        </div>
+
+
+        <!-- STATS -->
+
+        {% set pending_count = orders | selectattr("status", "equalto", "Pending") | list | length %}
+
+        {% set preparing_count = orders | selectattr("status", "equalto", "Preparing") | list | length %}
+
+        {% set ready_count = orders | selectattr("status", "equalto", "Ready") | list | length %}
+
+        {% set completed_count = orders | selectattr("status", "equalto", "Completed") | list | length %}
+
+
+        <div class="order-stats">
+
+            <div class="order-stat">
+
+                <div class="order-stat-label">
+                    Pending
+                </div>
+
+                <div class="order-stat-value">
+                    {{ pending_count }}
+                </div>
+
+            </div>
+
+
+            <div class="order-stat">
+
+                <div class="order-stat-label">
+                    Preparing
+                </div>
+
+                <div class="order-stat-value">
+                    {{ preparing_count }}
+                </div>
+
+            </div>
+
+
+            <div class="order-stat">
+
+                <div class="order-stat-label">
+                    Ready
+                </div>
+
+                <div class="order-stat-value">
+                    {{ ready_count }}
+                </div>
+
+            </div>
+
+
+            <div class="order-stat">
+
+                <div class="order-stat-label">
+                    Completed
+                </div>
+
+                <div class="order-stat-value">
+                    {{ completed_count }}
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <!-- ORDERS -->
+
+        {% if orders %}
+
+        <div class="orders-list">
+
+            {% for order in orders %}
+
+            <article class="order-card">
+
+
+                <!-- TOP -->
+
+                <div class="order-top">
+
+                    <div>
+
+                        <div class="order-number">
+                            Order #{{ order.id }}
+                        </div>
+
+                        <div class="order-customer">
+                            {{ order.customer_name }}
+                            •
+                            {{ order.customer_phone }}
+                        </div>
+
+                    </div>
+
+
+                    {% if order.status == "Pending" %}
+
+                    <div class="status-badge-custom status-pending">
+                        <span class="status-dot-custom"></span>
+                        Pending
+                    </div>
+
+                    {% elif order.status == "Preparing" %}
+
+                    <div class="status-badge-custom status-preparing">
+                        <span class="status-dot-custom"></span>
+                        Preparing
+                    </div>
+
+                    {% elif order.status == "Ready" %}
+
+                    <div class="status-badge-custom status-ready">
+                        <span class="status-dot-custom"></span>
+                        Ready
+                    </div>
+
+                    {% elif order.status == "Completed" %}
+
+                    <div class="status-badge-custom status-completed">
+                        <span class="status-dot-custom"></span>
+                        Completed
+                    </div>
+
+                    {% else %}
+
+                    <div class="status-badge-custom status-cancelled">
+                        <span class="status-dot-custom"></span>
+                        {{ order.status }}
+                    </div>
+
+                    {% endif %}
+
+                </div>
+
+
+                <div class="order-divider"></div>
+
+
+                <!-- ITEMS -->
+
+                <div class="order-items">
+
+                    {% if order.items %}
+
+                        {% for item in order.items %}
+
+                        <div class="order-item-row">
+
+                            <div>
+
+                                <div class="item-name">
+                                    {{ item.name }}
+                                </div>
+
+                                <div class="item-meta">
+                                    {{ item.quantity }}
+                                    ×
+                                    {{ "{:,.0f}".format(item.price) }}
+                                    FCFA
+                                </div>
+
+                            </div>
+
+
+                            <div class="item-subtotal">
+
+                                {{ "{:,.0f}".format(item.subtotal) }}
+                                FCFA
+
+                            </div>
+
+                        </div>
+
+                        {% endfor %}
+
+                    {% else %}
+
+                        <div class="item-meta">
+                            No item details available for this order.
+                        </div>
+
+                    {% endif %}
+
+                </div>
+
+
+                <!-- BOTTOM -->
+
+                <div class="order-bottom">
+
+                    <div class="order-total">
+
+                        <span>
+                            TOTAL
+                        </span>
+
+                        <strong>
+                            {{ "{:,.0f}".format(order.total_price) }}
+                            FCFA
+                        </strong>
+
+                    </div>
+
+
+                    <form
+                        method="POST"
+                        action="/business/{{ business.id }}/orders/{{ order.id }}/status"
+                        class="status-form"
+                    >
+
+                        <select
+                            name="status"
+                            class="status-select"
+                        >
+
+                            <option
+                                value="Pending"
+                                {% if order.status == "Pending" %}selected{% endif %}
+                            >
+                                Pending
+                            </option>
+
+                            <option
+                                value="Preparing"
+                                {% if order.status == "Preparing" %}selected{% endif %}
+                            >
+                                Preparing
+                            </option>
+
+                            <option
+                                value="Ready"
+                                {% if order.status == "Ready" %}selected{% endif %}
+                            >
+                                Ready
+                            </option>
+
+                            <option
+                                value="Completed"
+                                {% if order.status == "Completed" %}selected{% endif %}
+                            >
+                                Completed
+                            </option>
+
+                            <option
+                                value="Cancelled"
+                                {% if order.status == "Cancelled" %}selected{% endif %}
+                            >
+                                Cancelled
+                            </option>
+
+                        </select>
+
+
+                        <button
+                            type="submit"
+                            class="status-update-btn"
+                        >
+                            Update
+                        </button>
+
+                    </form>
+
+                </div>
+
+
+            </article>
+
+            {% endfor %}
+
+        </div>
+
+        {% else %}
+
+        <div class="empty-orders">
+
+            <div class="empty-orders-icon">
+                🛒
+            </div>
+
+            <h3>
+                No orders yet
+            </h3>
+
+            <p>
+                Orders created by your AI assistant will appear here.
+            </p>
+
+        </div>
+
+        {% endif %}
+
+
+        <!-- BACK -->
+
+        <div class="mt-4">
+
+            <a
+                href="/business/{{ business.id }}"
+                class="btn btn-light"
+            >
+                ← Dashboard
+            </a>
+
+        </div>
+
+
+    </div>
 
 </div>
 

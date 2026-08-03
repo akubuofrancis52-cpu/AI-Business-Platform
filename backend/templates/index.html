@@ -1,31 +1,1038 @@
 {% extends "base.html" %}
 
-{% block title %}
-Home
+{% block title %}Botify — AI Business Platform{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --bp-text: #0b1220;
+        --bp-muted: #667085;
+        --bp-line: rgba(15, 23, 42, 0.08);
+        --bp-card: rgba(255, 255, 255, 0.74);
+        --bp-blue: #1677ff;
+        --bp-indigo: #5b5cf0;
+        --bp-cyan: #22d3ee;
+        --bp-green: #16a34a;
+    }
+
+    .bp-home {
+        position: relative;
+        overflow: hidden;
+    }
+
+    .bp-home::before,
+    .bp-home::after {
+        content: "";
+        position: absolute;
+        pointer-events: none;
+        border-radius: 50%;
+        filter: blur(70px);
+        opacity: .45;
+        z-index: 0;
+    }
+
+    .bp-home::before {
+        width: 360px;
+        height: 360px;
+        top: 40px;
+        right: -100px;
+        background: rgba(91, 92, 240, .23);
+        animation: bpFloatA 9s ease-in-out infinite;
+    }
+
+    .bp-home::after {
+        width: 320px;
+        height: 320px;
+        top: 420px;
+        left: -120px;
+        background: rgba(34, 211, 238, .20);
+        animation: bpFloatB 11s ease-in-out infinite;
+    }
+
+    .bp-container {
+        position: relative;
+        z-index: 2;
+        width: min(1180px, calc(100% - 32px));
+        margin: 0 auto;
+    }
+
+    .bp-hero {
+        min-height: calc(100vh - 96px);
+        display: grid;
+        grid-template-columns: minmax(0, 1.02fr) minmax(460px, .98fr);
+        align-items: center;
+        gap: 48px;
+        padding: 64px 0 56px;
+    }
+
+    .bp-eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px;
+        border: 1px solid rgba(22, 119, 255, .16);
+        background: rgba(255,255,255,.62);
+        border-radius: 999px;
+        color: #2450a8;
+        font-size: 12px;
+        font-weight: 750;
+        backdrop-filter: blur(14px);
+        box-shadow: 0 8px 24px rgba(15, 23, 42, .05);
+    }
+
+    .bp-pulse {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #22c55e;
+        box-shadow: 0 0 0 5px rgba(34, 197, 94, .10);
+        animation: bpPulse 1.9s ease-in-out infinite;
+    }
+
+    .bp-hero-title {
+        margin: 18px 0 16px;
+        max-width: 700px;
+        font-size: clamp(48px, 6vw, 82px);
+        line-height: .96;
+        letter-spacing: -.06em;
+        font-weight: 800;
+        color: var(--bp-text);
+    }
+
+    .bp-gradient-text {
+        background: linear-gradient(120deg, #0b1220 0%, #1e5eff 47%, #7c3aed 100%);
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+    }
+
+    .bp-hero-copy {
+        max-width: 620px;
+        color: var(--bp-muted);
+        font-size: 18px;
+        line-height: 1.7;
+    }
+
+    .bp-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-top: 28px;
+    }
+
+    .bp-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 9px;
+        min-height: 48px;
+        padding: 0 18px;
+        border-radius: 14px;
+        font-size: 14px;
+        font-weight: 750;
+        transition: transform .18s ease, box-shadow .18s ease, background .18s ease;
+    }
+
+    .bp-btn:hover {
+        transform: translateY(-2px);
+    }
+
+    .bp-btn-primary {
+        color: white;
+        background: linear-gradient(135deg, #0f7bff, #5b5cf0);
+        box-shadow: 0 14px 30px rgba(37, 99, 235, .22);
+    }
+
+    .bp-btn-primary:hover {
+        box-shadow: 0 18px 38px rgba(37, 99, 235, .28);
+    }
+
+    .bp-btn-secondary {
+        color: #1f2937;
+        background: rgba(255,255,255,.68);
+        border: 1px solid var(--bp-line);
+        backdrop-filter: blur(14px);
+    }
+
+    .bp-trust {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 14px 22px;
+        margin-top: 26px;
+        color: #7b8494;
+        font-size: 12px;
+    }
+
+    .bp-trust span {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+    }
+
+    .bp-trust-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: #94a3b8;
+    }
+
+    .bp-hero-visual {
+        position: relative;
+        min-height: 560px;
+    }
+
+    .bp-glow-orb {
+        position: absolute;
+        width: 280px;
+        height: 280px;
+        top: 80px;
+        right: 40px;
+        border-radius: 50%;
+        background: radial-gradient(circle, rgba(59,130,246,.18), transparent 68%);
+        filter: blur(10px);
+        animation: bpFloatA 8s ease-in-out infinite;
+    }
+
+    .bp-dashboard {
+        position: absolute;
+        inset: 50px 0 0 0;
+        padding: 16px;
+        border: 1px solid rgba(255,255,255,.72);
+        border-radius: 28px;
+        background: linear-gradient(135deg, rgba(255,255,255,.78), rgba(248,250,252,.58));
+        box-shadow: 0 32px 90px rgba(15,23,42,.13);
+        backdrop-filter: blur(24px);
+        transform: perspective(1300px) rotateY(-7deg) rotateX(3deg);
+        animation: bpDashboardFloat 6.5s ease-in-out infinite;
+    }
+
+    .bp-dashboard-top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 8px 6px 16px;
+    }
+
+    .bp-window-dots {
+        display: flex;
+        gap: 6px;
+    }
+
+    .bp-window-dots span {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #cbd5e1;
+    }
+
+    .bp-live {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        color: #15803d;
+        font-size: 10px;
+        font-weight: 800;
+        letter-spacing: .05em;
+        text-transform: uppercase;
+    }
+
+    .bp-live::before {
+        content: "";
+        width: 6px;
+        height: 6px;
+        background: #22c55e;
+        border-radius: 50%;
+        box-shadow: 0 0 0 4px rgba(34,197,94,.10);
+    }
+
+    .bp-dashboard-grid {
+        display: grid;
+        grid-template-columns: 1.18fr .82fr;
+        gap: 12px;
+    }
+
+    .bp-panel {
+        border: 1px solid rgba(15,23,42,.06);
+        background: rgba(255,255,255,.72);
+        border-radius: 18px;
+        padding: 15px;
+        box-shadow: 0 10px 30px rgba(15,23,42,.05);
+    }
+
+    .bp-panel-title {
+        color: #475467;
+        font-size: 11px;
+        font-weight: 750;
+    }
+
+    .bp-value {
+        margin-top: 4px;
+        color: #0f172a;
+        font-size: 28px;
+        font-weight: 800;
+        letter-spacing: -.03em;
+    }
+
+    .bp-growth {
+        margin-top: 2px;
+        color: var(--bp-green);
+        font-size: 11px;
+        font-weight: 700;
+    }
+
+    .bp-chart {
+        position: relative;
+        height: 180px;
+        margin-top: 12px;
+        overflow: hidden;
+        border-radius: 14px;
+        background: linear-gradient(180deg, rgba(59,130,246,.04), rgba(59,130,246,0));
+    }
+
+    .bp-chart svg {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+    }
+
+    .bp-chart-grid {
+        stroke: rgba(15,23,42,.08);
+        stroke-width: 1;
+    }
+
+    .bp-chart-line {
+        fill: none;
+        stroke: #3b82f6;
+        stroke-width: 3.2;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        stroke-dasharray: 760;
+        stroke-dashoffset: 760;
+        animation: bpDrawChart 2.2s .4s ease forwards;
+    }
+
+    .bp-chart-fill {
+        fill: url(#bpFill);
+        opacity: .8;
+    }
+
+    .bp-mini-list {
+        display: grid;
+        gap: 10px;
+    }
+
+    .bp-mini-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 10px 0;
+        border-bottom: 1px solid rgba(15,23,42,.06);
+    }
+
+    .bp-mini-row:last-child {
+        border-bottom: 0;
+    }
+
+    .bp-mini-left {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        min-width: 0;
+    }
+
+    .bp-mini-icon {
+        width: 28px;
+        height: 28px;
+        display: grid;
+        place-items: center;
+        border-radius: 9px;
+        background: #f1f5f9;
+        font-size: 13px;
+        flex-shrink: 0;
+    }
+
+    .bp-mini-text strong,
+    .bp-mini-text span {
+        display: block;
+    }
+
+    .bp-mini-text strong {
+        color: #1f2937;
+        font-size: 11px;
+    }
+
+    .bp-mini-text span {
+        color: #98a2b3;
+        font-size: 9px;
+        margin-top: 1px;
+    }
+
+    .bp-mini-number {
+        color: #111827;
+        font-size: 11px;
+        font-weight: 800;
+    }
+
+    .bp-chat-card {
+        position: absolute;
+        left: -34px;
+        bottom: -18px;
+        width: 270px;
+        padding: 15px;
+        border-radius: 22px;
+        border: 1px solid rgba(255,255,255,.82);
+        background: rgba(255,255,255,.78);
+        box-shadow: 0 26px 55px rgba(15,23,42,.14);
+        backdrop-filter: blur(20px);
+        animation: bpChatFloat 5.4s ease-in-out infinite;
+    }
+
+    .bp-chat-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding-bottom: 11px;
+        border-bottom: 1px solid rgba(15,23,42,.06);
+    }
+
+    .bp-chat-user {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .bp-chat-avatar {
+        width: 30px;
+        height: 30px;
+        display: grid;
+        place-items: center;
+        border-radius: 10px;
+        color: white;
+        font-size: 10px;
+        font-weight: 800;
+        background: linear-gradient(135deg, #111827, #475467);
+    }
+
+    .bp-chat-user strong {
+        display: block;
+        font-size: 11px;
+        color: #111827;
+    }
+
+    .bp-chat-user span {
+        display: block;
+        font-size: 9px;
+        color: #98a2b3;
+    }
+
+    .bp-chat-messages {
+        display: grid;
+        gap: 8px;
+        margin-top: 11px;
+    }
+
+    .bp-bubble {
+        max-width: 84%;
+        padding: 8px 10px;
+        border-radius: 11px;
+        font-size: 10px;
+        line-height: 1.45;
+    }
+
+    .bp-bubble.ai {
+        background: #f1f5f9;
+        color: #344054;
+        border-top-left-radius: 5px;
+    }
+
+    .bp-bubble.user {
+        margin-left: auto;
+        background: #2563eb;
+        color: white;
+        border-top-right-radius: 5px;
+    }
+
+    .bp-section {
+        padding: 90px 0;
+    }
+
+    .bp-section-head {
+        text-align: center;
+        max-width: 720px;
+        margin: 0 auto 42px;
+    }
+
+    .bp-kicker {
+        color: #2563eb;
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: .1em;
+        text-transform: uppercase;
+    }
+
+    .bp-section-title {
+        margin-top: 9px;
+        color: var(--bp-text);
+        font-size: clamp(34px, 4vw, 52px);
+        letter-spacing: -.045em;
+        line-height: 1;
+    }
+
+    .bp-section-copy {
+        margin-top: 12px;
+        color: var(--bp-muted);
+        font-size: 15px;
+        line-height: 1.7;
+    }
+
+    .bp-stats {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 12px;
+        margin-top: 34px;
+    }
+
+    .bp-stat {
+        padding: 18px;
+        border-radius: 18px;
+        border: 1px solid rgba(255,255,255,.82);
+        background: rgba(255,255,255,.62);
+        box-shadow: 0 16px 36px rgba(15,23,42,.055);
+        backdrop-filter: blur(16px);
+    }
+
+    .bp-stat-label {
+        color: #7a8698;
+        font-size: 11px;
+        font-weight: 700;
+    }
+
+    .bp-stat-value {
+        margin-top: 4px;
+        color: #111827;
+        font-size: 31px;
+        font-weight: 800;
+        letter-spacing: -.04em;
+    }
+
+    .bp-features {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 14px;
+    }
+
+    .bp-feature {
+        padding: 22px;
+        border-radius: 22px;
+        border: 1px solid rgba(255,255,255,.82);
+        background: rgba(255,255,255,.64);
+        box-shadow: 0 18px 45px rgba(15,23,42,.06);
+        backdrop-filter: blur(16px);
+        transition: transform .2s ease, box-shadow .2s ease;
+    }
+
+    .bp-feature:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 26px 55px rgba(15,23,42,.10);
+    }
+
+    .bp-feature-icon {
+        width: 42px;
+        height: 42px;
+        display: grid;
+        place-items: center;
+        border-radius: 13px;
+        background: linear-gradient(135deg, rgba(37,99,235,.10), rgba(124,58,237,.10));
+        font-size: 18px;
+    }
+
+    .bp-feature h3 {
+        margin-top: 16px;
+        color: #111827;
+        font-size: 16px;
+    }
+
+    .bp-feature p {
+        margin-top: 7px;
+        color: var(--bp-muted);
+        font-size: 13px;
+        line-height: 1.65;
+    }
+
+    .bp-cta {
+        position: relative;
+        overflow: hidden;
+        padding: 42px;
+        border-radius: 28px;
+        background: linear-gradient(135deg, #0f172a, #1e3a8a 58%, #4c1d95);
+        box-shadow: 0 28px 70px rgba(30,64,175,.22);
+    }
+
+    .bp-cta::after {
+        content: "";
+        position: absolute;
+        width: 300px;
+        height: 300px;
+        top: -100px;
+        right: -70px;
+        border-radius: 50%;
+        background: rgba(96,165,250,.18);
+        filter: blur(20px);
+    }
+
+    .bp-cta-content {
+        position: relative;
+        z-index: 1;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 24px;
+    }
+
+    .bp-cta h2 {
+        color: white;
+        font-size: clamp(30px, 4vw, 46px);
+        letter-spacing: -.045em;
+        line-height: 1;
+    }
+
+    .bp-cta p {
+        margin-top: 9px;
+        max-width: 650px;
+        color: rgba(255,255,255,.68);
+        font-size: 14px;
+        line-height: 1.65;
+    }
+
+    .bp-cta .bp-btn-secondary {
+        background: rgba(255,255,255,.10);
+        color: white;
+        border-color: rgba(255,255,255,.16);
+    }
+
+    @keyframes bpPulse {
+        0%, 100% { transform: scale(1); opacity: 1; }
+        50% { transform: scale(1.18); opacity: .72; }
+    }
+
+    @keyframes bpFloatA {
+        0%, 100% { transform: translate3d(0,0,0); }
+        50% { transform: translate3d(-18px,22px,0); }
+    }
+
+    @keyframes bpFloatB {
+        0%, 100% { transform: translate3d(0,0,0); }
+        50% { transform: translate3d(20px,-16px,0); }
+    }
+
+    @keyframes bpDashboardFloat {
+        0%, 100% { transform: perspective(1300px) rotateY(-7deg) rotateX(3deg) translate3d(0,0,0); }
+        50% { transform: perspective(1300px) rotateY(-7deg) rotateX(3deg) translate3d(0,-9px,0); }
+    }
+
+    @keyframes bpChatFloat {
+        0%, 100% { transform: translate3d(0,0,0) rotate(-1deg); }
+        50% { transform: translate3d(0,-10px,0) rotate(0deg); }
+    }
+
+    @keyframes bpDrawChart {
+        to { stroke-dashoffset: 0; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .bp-home *, .bp-home *::before, .bp-home *::after {
+            animation-duration: .01ms !important;
+            animation-iteration-count: 1 !important;
+            scroll-behavior: auto !important;
+        }
+    }
+
+    @media (max-width: 1050px) {
+        .bp-hero {
+            grid-template-columns: 1fr;
+            padding-top: 44px;
+        }
+
+        .bp-hero-copy,
+        .bp-hero-title {
+            max-width: 760px;
+        }
+
+        .bp-hero-visual {
+            min-height: 560px;
+        }
+
+        .bp-stats {
+            grid-template-columns: repeat(2, 1fr);
+        }
+    }
+
+    @media (max-width: 760px) {
+        .bp-container {
+            width: min(100% - 20px, 1180px);
+        }
+
+        .bp-hero {
+            min-height: auto;
+            gap: 24px;
+            padding: 36px 0 30px;
+        }
+
+        .bp-hero-title {
+            font-size: clamp(42px, 13vw, 62px);
+        }
+
+        .bp-hero-copy {
+            font-size: 16px;
+        }
+
+        .bp-hero-visual {
+            min-height: 430px;
+        }
+
+        .bp-dashboard {
+            inset: 15px 0 0;
+            transform: none;
+            animation: bpChatFloat 6s ease-in-out infinite;
+        }
+
+        .bp-dashboard-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .bp-chat-card {
+            left: 8px;
+            bottom: -15px;
+            width: 250px;
+        }
+
+        .bp-stats,
+        .bp-features {
+            grid-template-columns: 1fr;
+        }
+
+        .bp-section {
+            padding: 68px 0;
+        }
+
+        .bp-cta {
+            padding: 28px 22px;
+        }
+
+        .bp-cta-content {
+            align-items: flex-start;
+            flex-direction: column;
+        }
+    }
+</style>
 {% endblock %}
 
 {% block content %}
 
-<div class="text-center">
+<div class="bp-home">
 
-<h1 class="display-3">
-AI Business Platform
-</h1>
+    <div class="bp-container">
 
-<p class="lead">
+        <!-- HERO -->
+        <section class="bp-hero">
 
-One platform.
+            <div>
 
-Unlimited businesses.
+                <div class="bp-eyebrow">
+                    <span class="bp-pulse"></span>
+                    AI AUTOMATION FOR MODERN BUSINESSES
+                </div>
 
-Powered by AI.
+                <h1 class="bp-hero-title">
+                    Turn your business into an <span class="bp-gradient-text">AI-powered operation.</span>
+                </h1>
 
-</p>
+                <p class="bp-hero-copy">
+                    Botify helps restaurants and growing businesses automate customer conversations,
+                    orders, support and repetitive work with intelligent AI agents.
+                </p>
 
-<a href="/login" class="btn btn-primary btn-lg">
-Get Started
-</a>
+                <div class="bp-actions">
+                    <a href="/register" class="bp-btn bp-btn-primary">
+                        Start Building <span>→</span>
+                    </a>
+
+                    <a href="/login" class="bp-btn bp-btn-secondary">
+                        Open Dashboard
+                    </a>
+                </div>
+
+                <div class="bp-trust">
+                    <span><i class="bp-trust-dot"></i> AI-powered conversations</span>
+                    <span><i class="bp-trust-dot"></i> Order automation</span>
+                    <span><i class="bp-trust-dot"></i> Multi-business ready</span>
+                </div>
+
+            </div>
+
+            <!-- PRODUCT PREVIEW -->
+            <div class="bp-hero-visual">
+
+                <div class="bp-glow-orb"></div>
+
+                <div class="bp-dashboard">
+
+                    <div class="bp-dashboard-top">
+                        <div class="bp-window-dots">
+                            <span></span><span></span><span></span>
+                        </div>
+                        <div class="bp-live">Live AI workspace</div>
+                    </div>
+
+                    <div class="bp-dashboard-grid">
+
+                        <div class="bp-panel">
+                            <div class="bp-panel-title">Revenue</div>
+                            <div class="bp-value">$12,430</div>
+                            <div class="bp-growth">↗ 34.8% this month</div>
+
+                            <div class="bp-chart">
+                                <svg viewBox="0 0 520 180" preserveAspectRatio="none" aria-hidden="true">
+                                    <defs>
+                                        <linearGradient id="bpFill" x1="0" x2="0" y1="0" y2="1">
+                                            <stop offset="0%" stop-color="#3b82f6" stop-opacity=".28" />
+                                            <stop offset="100%" stop-color="#3b82f6" stop-opacity="0" />
+                                        </linearGradient>
+                                    </defs>
+
+                                    <line class="bp-chart-grid" x1="0" y1="30" x2="520" y2="30" />
+                                    <line class="bp-chart-grid" x1="0" y1="90" x2="520" y2="90" />
+                                    <line class="bp-chart-grid" x1="0" y1="150" x2="520" y2="150" />
+
+                                    <path class="bp-chart-fill" d="M0,152 C70,145 92,132 130,138 C180,147 206,86 258,102 C302,115 330,74 372,84 C420,96 432,47 470,58 C490,64 505,38 520,28 L520,180 L0,180 Z" />
+                                    <path class="bp-chart-line" d="M0,152 C70,145 92,132 130,138 C180,147 206,86 258,102 C302,115 330,74 372,84 C420,96 432,47 470,58 C490,64 505,38 520,28" />
+                                </svg>
+                            </div>
+                        </div>
+
+                        <div class="bp-panel">
+                            <div class="bp-panel-title">AI activity</div>
+                            <div class="bp-value">1,247</div>
+                            <div class="bp-growth">↗ conversations handled</div>
+
+                            <div class="bp-mini-list" style="margin-top:12px;">
+
+                                <div class="bp-mini-row">
+                                    <div class="bp-mini-left">
+                                        <div class="bp-mini-icon">🍔</div>
+                                        <div class="bp-mini-text">
+                                            <strong>Orders</strong>
+                                            <span>Processed today</span>
+                                        </div>
+                                    </div>
+                                    <div class="bp-mini-number">523</div>
+                                </div>
+
+                                <div class="bp-mini-row">
+                                    <div class="bp-mini-left">
+                                        <div class="bp-mini-icon">💬</div>
+                                        <div class="bp-mini-text">
+                                            <strong>Messages</strong>
+                                            <span>Handled by AI</span>
+                                        </div>
+                                    </div>
+                                    <div class="bp-mini-number">4.8k</div>
+                                </div>
+
+                                <div class="bp-mini-row">
+                                    <div class="bp-mini-left">
+                                        <div class="bp-mini-icon">⭐</div>
+                                        <div class="bp-mini-text">
+                                            <strong>Satisfaction</strong>
+                                            <span>Customer rating</span>
+                                        </div>
+                                    </div>
+                                    <div class="bp-mini-number">98%</div>
+                                </div>
+
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <div class="bp-panel" style="margin-top:12px;">
+                        <div class="bp-panel-title">Quick actions</div>
+                        <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;">
+                            <span style="padding:7px 10px;border-radius:999px;background:#eff6ff;color:#2563eb;font-size:10px;font-weight:750;">🍽 Menu</span>
+                            <span style="padding:7px 10px;border-radius:999px;background:#f5f3ff;color:#7c3aed;font-size:10px;font-weight:750;">🛒 Orders</span>
+                            <span style="padding:7px 10px;border-radius:999px;background:#ecfdf3;color:#15803d;font-size:10px;font-weight:750;">👥 Customers</span>
+                            <span style="padding:7px 10px;border-radius:999px;background:#fff7ed;color:#c2410c;font-size:10px;font-weight:750;">📊 Analytics</span>
+                        </div>
+                    </div>
+
+                </div>
+
+                <div class="bp-chat-card">
+
+                    <div class="bp-chat-head">
+                        <div class="bp-chat-user">
+                            <div class="bp-chat-avatar">AI</div>
+                            <div>
+                                <strong>Restaurant AI</strong>
+                                <span>Online now</span>
+                            </div>
+                        </div>
+                        <span style="font-size:10px;color:#16a34a;font-weight:800;">LIVE</span>
+                    </div>
+
+                    <div class="bp-chat-messages">
+                        <div class="bp-bubble user">Hi 👋 I'd like two burgers.</div>
+                        <div class="bp-bubble ai">Absolutely. Would you like fries and a drink with that?</div>
+                        <div class="bp-bubble user">Yes, add both.</div>
+                        <div class="bp-bubble ai">Done. Your order is ready for confirmation.</div>
+                    </div>
+
+                </div>
+
+            </div>
+
+        </section>
+
+
+        <!-- STATS -->
+        <section class="bp-section" style="padding-top:22px;">
+            <div class="bp-stats">
+
+                <div class="bp-stat">
+                    <div class="bp-stat-label">AI conversations</div>
+                    <div class="bp-stat-value" data-count="1247">0</div>
+                </div>
+
+                <div class="bp-stat">
+                    <div class="bp-stat-label">Orders automated</div>
+                    <div class="bp-stat-value" data-count="523">0</div>
+                </div>
+
+                <div class="bp-stat">
+                    <div class="bp-stat-label">Customer satisfaction</div>
+                    <div class="bp-stat-value" data-count="98" data-suffix="%">0</div>
+                </div>
+
+                <div class="bp-stat">
+                    <div class="bp-stat-label">Businesses ready</div>
+                    <div class="bp-stat-value" data-count="24" data-suffix="+">0</div>
+                </div>
+
+            </div>
+        </section>
+
+
+        <!-- FEATURES -->
+        <section class="bp-section">
+
+            <div class="bp-section-head">
+                <div class="bp-kicker">Everything in one place</div>
+                <h2 class="bp-section-title">Built to make business feel effortless.</h2>
+                <p class="bp-section-copy">
+                    One platform for conversations, customers, orders and AI-powered automation.
+                </p>
+            </div>
+
+            <div class="bp-features">
+
+                <article class="bp-feature">
+                    <div class="bp-feature-icon">🤖</div>
+                    <h3>AI customer assistant</h3>
+                    <p>Answer questions, recommend products and support customers around the clock.</p>
+                </article>
+
+                <article class="bp-feature">
+                    <div class="bp-feature-icon">🛒</div>
+                    <h3>Order automation</h3>
+                    <p>Turn natural-language requests into structured orders your team can process.</p>
+                </article>
+
+                <article class="bp-feature">
+                    <div class="bp-feature-icon">📊</div>
+                    <h3>Business analytics</h3>
+                    <p>Track orders, customers, activity and revenue from a single intelligent workspace.</p>
+                </article>
+
+                <article class="bp-feature">
+                    <div class="bp-feature-icon">💬</div>
+                    <h3>Conversation memory</h3>
+                    <p>Keep context between conversations so customers feel like they're talking to a real team member.</p>
+                </article>
+
+                <article class="bp-feature">
+                    <div class="bp-feature-icon">🌍</div>
+                    <h3>Multilingual support</h3>
+                    <p>Serve customers in the languages your business actually needs, including English, French and Spanish.</p>
+                </article>
+
+                <article class="bp-feature">
+                    <div class="bp-feature-icon">⚡</div>
+                    <h3>Fast workflows</h3>
+                    <p>Create repeatable AI workflows that save staff time and keep customer service consistent.</p>
+                </article>
+
+            </div>
+
+        </section>
+
+
+        <!-- CTA -->
+        <section class="bp-section" style="padding-top:12px;padding-bottom:100px;">
+
+            <div class="bp-cta">
+
+                <div class="bp-cta-content">
+
+                    <div>
+                        <h2>Build your first AI employee.</h2>
+                        <p>
+                            Start with your business, connect your menu and let Botify handle the repetitive work.
+                        </p>
+                    </div>
+
+                    <div style="display:flex;flex-wrap:wrap;gap:10px;">
+                        <a href="/register" class="bp-btn bp-btn-primary">Get Started →</a>
+                        <a href="/login" class="bp-btn bp-btn-secondary">Sign In</a>
+                    </div>
+
+                </div>
+
+            </div>
+
+        </section>
+
+    </div>
 
 </div>
 
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+    const counters = document.querySelectorAll('[data-count]');
+
+    counters.forEach(counter => {
+        const target = Number(counter.dataset.count || 0);
+        const suffix = counter.dataset.suffix || '';
+        const duration = 1200;
+        const start = performance.now();
+
+        function tick(now) {
+            const progress = Math.min((now - start) / duration, 1);
+            const eased = 1 - Math.pow(1 - progress, 3);
+            const value = Math.floor(target * eased);
+            counter.textContent = value.toLocaleString() + suffix;
+
+            if (progress < 1) {
+                requestAnimationFrame(tick);
+            }
+        }
+
+        requestAnimationFrame(tick);
+    });
+})();
+</script>
 {% endblock %}

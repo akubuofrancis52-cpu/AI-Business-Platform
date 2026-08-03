@@ -1,296 +1,607 @@
 /* ========================================
-   PREMIUM ANIMATED BACKGROUND
+   BOTIFY LIQUID GLASS BACKGROUND
 ======================================== */
 
-body{
 
-    background:
-    radial-gradient(circle at top left,#dbeafe 0%,transparent 35%),
-    radial-gradient(circle at bottom right,#ede9fe 0%,transparent 35%),
-    linear-gradient(
-        135deg,
-        #f8fafc,
-        #eef4ff,
-        #f7f7fb
-    );
 
-    background-size:cover;
+body {
 
-    background-attachment:fixed;
+
+background:
+
+radial-gradient(
+circle at 15% 20%,
+rgba(0,122,255,.20),
+transparent 35%
+),
+
+
+radial-gradient(
+circle at 85% 80%,
+rgba(139,92,246,.20),
+transparent 40%
+),
+
+
+linear-gradient(
+135deg,
+#f8fafc,
+#eef6ff,
+#ffffff
+);
+
+
+
+background-attachment:fixed;
+
+
+overflow-x:hidden;
+
+
 
 }
 
 
 
-/* ===========================
-   Background Container
-=========================== */
 
-.background{
 
-    position:fixed;
+/* ========================================
+   ANIMATED BACKGROUND LAYER
+======================================== */
 
-    inset:0;
 
-    overflow:hidden;
+.background {
 
-    z-index:-10;
+
+position:fixed;
+
+
+inset:0;
+
+
+overflow:hidden;
+
+
+z-index:-10;
+
+
+
+pointer-events:none;
+
 
 }
 
 
 
-/* ===========================
-   Floating Blobs
-=========================== */
 
-.blob{
 
-    position:absolute;
 
-    border-radius:50%;
 
-    filter:blur(90px);
+/* ========================================
+   LIQUID BLOBS
+======================================== */
 
-    opacity:.55;
 
-    animation:float 28s ease-in-out infinite;
+.floating-circle,
+.blob {
+
+
+position:absolute;
+
+
+border-radius:50%;
+
+
+
+filter:
+
+blur(90px);
+
+
+
+opacity:.55;
+
+
+
+animation:
+
+liquidMove 25s ease-in-out infinite;
+
+
 
 }
 
 
 
-.blob1{
 
-    width:550px;
 
-    height:550px;
+.circle-one,
+.blob1 {
 
-    background:#60a5fa;
 
-    top:-180px;
+width:
 
-    left:-140px;
+600px;
+
+
+height:
+
+600px;
+
+
+
+background:
+
+linear-gradient(
+135deg,
+#007AFF,
+#60a5fa
+);
+
+
+
+top:
+
+-220px;
+
+
+
+left:
+
+-180px;
+
 
 }
 
 
 
-.blob2{
 
-    width:480px;
 
-    height:480px;
 
-    background:#a78bfa;
+.circle-two,
+.blob2 {
 
-    top:45%;
 
-    right:-120px;
+width:
 
-    animation-duration:35s;
+520px;
+
+
+height:
+
+520px;
+
+
+
+background:
+
+linear-gradient(
+135deg,
+#8b5cf6,
+#c084fc
+);
+
+
+
+right:
+
+-160px;
+
+
+
+top:
+
+35%;
+
+
+
+animation-duration:
+
+35s;
+
 
 }
 
 
 
-.blob3{
 
-    width:420px;
 
-    height:420px;
 
-    background:#22d3ee;
+.circle-three,
+.blob3 {
 
-    bottom:-140px;
 
-    left:35%;
+width:
 
-    animation-duration:42s;
+450px;
+
+
+height:
+
+450px;
+
+
+
+background:
+
+linear-gradient(
+135deg,
+#06b6d4,
+#22d3ee
+);
+
+
+
+bottom:
+
+-180px;
+
+
+
+left:
+
+35%;
+
+
+
+animation-duration:
+
+45s;
+
 
 }
 
 
 
-/* ===========================
-   Premium Grid
-=========================== */
 
-.grid-overlay{
 
-    position:absolute;
 
-    inset:0;
 
-    background-image:
 
-    linear-gradient(
-        rgba(255,255,255,.28) 1px,
-        transparent 1px
-    ),
+/* ========================================
+   LIQUID MOTION
+======================================== */
 
-    linear-gradient(
-        90deg,
-        rgba(255,255,255,.28) 1px,
-        transparent 1px
-    );
 
-    background-size:60px 60px;
+@keyframes liquidMove {
 
-    opacity:.25;
+
+
+0% {
+
+
+transform:
+
+translate(
+0,
+0
+)
+scale(1);
+
+
 
 }
 
 
 
-/* ===========================
-   Noise Texture
-=========================== */
+25% {
 
-body::before{
 
-    content:"";
+transform:
 
-    position:fixed;
+translate(
+80px,
+-60px
+)
+scale(1.1);
 
-    inset:0;
 
-    opacity:.03;
-
-    pointer-events:none;
-
-    background-image:
-
-    radial-gradient(circle,#000 1px,transparent 1px);
-
-    background-size:18px 18px;
 
 }
 
 
 
-/* ===========================
-   Animated Glow
-=========================== */
+50% {
 
-body::after{
 
-    content:"";
+transform:
 
-    position:fixed;
+translate(
+-40px,
+-100px
+)
+scale(.95);
 
-    width:700px;
 
-    height:700px;
-
-    background:
-
-    radial-gradient(
-
-        rgba(37,99,235,.18),
-
-        transparent 70%
-
-    );
-
-    top:50%;
-
-    left:50%;
-
-    transform:translate(-50%,-50%);
-
-    animation:pulseGlow 12s ease infinite;
-
-    pointer-events:none;
 
 }
 
 
 
-/* ===========================
-   Floating Animation
-=========================== */
+75% {
 
-@keyframes float{
 
-    0%{
+transform:
 
-        transform:
-        translate(0,0)
-        scale(1);
+translate(
+-80px,
+40px
+)
+scale(1.05);
 
-    }
 
-    25%{
-
-        transform:
-        translate(35px,-45px)
-        scale(1.06);
-
-    }
-
-    50%{
-
-        transform:
-        translate(-30px,-80px)
-        scale(.95);
-
-    }
-
-    75%{
-
-        transform:
-        translate(-45px,20px)
-        scale(1.04);
-
-    }
-
-    100%{
-
-        transform:
-        translate(0,0)
-        scale(1);
-
-    }
 
 }
 
 
 
-/* ===========================
-   Glow Pulse
-=========================== */
+100% {
 
-@keyframes pulseGlow{
 
-    0%{
+transform:
 
-        transform:
-        translate(-50%,-50%)
-        scale(.9);
+translate(
+0,
+0
+)
+scale(1);
 
-        opacity:.35;
 
-    }
 
-    50%{
+}
 
-        transform:
-        translate(-50%,-50%)
-        scale(1.25);
 
-        opacity:.75;
 
-    }
+}
 
-    100%{
 
-        transform:
-        translate(-50%,-50%)
-        scale(.9);
 
-        opacity:.35;
 
-    }
+
+
+
+
+
+/* ========================================
+   GLASS GRID
+======================================== */
+
+
+.grid-overlay {
+
+
+position:absolute;
+
+
+inset:0;
+
+
+
+background-image:
+
+
+linear-gradient(
+rgba(255,255,255,.25) 1px,
+transparent 1px
+),
+
+
+
+linear-gradient(
+90deg,
+rgba(255,255,255,.25) 1px,
+transparent 1px
+);
+
+
+
+background-size:
+
+80px 80px;
+
+
+
+opacity:
+
+.18;
+
+
+
+mask-image:
+
+linear-gradient(
+to bottom,
+transparent,
+black,
+transparent
+);
+
+
+
+}
+
+
+
+
+
+
+
+
+/* ========================================
+   PREMIUM NOISE
+======================================== */
+
+
+body::before {
+
+
+content:"";
+
+
+position:fixed;
+
+
+inset:0;
+
+
+
+pointer-events:none;
+
+
+
+opacity:.035;
+
+
+
+background-image:
+
+
+radial-gradient(
+#000 1px,
+transparent 1px
+);
+
+
+
+background-size:
+
+20px 20px;
+
+
+}
+
+
+
+
+
+
+
+
+
+/* ========================================
+   CENTER AURORA GLOW
+======================================== */
+
+
+body::after {
+
+
+content:"";
+
+
+position:fixed;
+
+
+
+width:
+
+900px;
+
+
+
+height:
+
+900px;
+
+
+
+left:
+
+50%;
+
+
+
+top:
+
+50%;
+
+
+
+transform:
+
+translate(-50%,-50%);
+
+
+
+background:
+
+
+radial-gradient(
+
+circle,
+
+rgba(0,122,255,.15),
+
+transparent 65%
+
+);
+
+
+
+filter:
+
+blur(40px);
+
+
+
+animation:
+
+auroraPulse 12s infinite ease-in-out;
+
+
+
+pointer-events:none;
+
+
+}
+
+
+
+
+
+
+
+@keyframes auroraPulse {
+
+
+
+0% {
+
+
+opacity:.3;
+
+
+scale:.8;
+
+
+}
+
+
+
+50% {
+
+
+opacity:.8;
+
+
+scale:1.15;
+
+
+}
+
+
+
+100% {
+
+
+opacity:.3;
+
+
+scale:.8;
+
+
+}
+
+
 
 }

@@ -791,7 +791,10 @@ AI Playground • {{ business.name }}
                     <!-- COMPOSER -->
                     <div class="composer-card">
 
-                        <form id="chatForm">
+                        <form
+                            method="POST"
+                            id="chatForm"
+                            onsubmit="showTyping(); disableSendButton();">
 
                             <label class="composer-label">
                                 Customer phone
@@ -964,99 +967,82 @@ AI Playground • {{ business.name }}
         ? aiShell.dataset.businessId
         : "";
 
-    const chatForm = document.getElementById("chatForm");
-    const messageBox = document.getElementById("messageBox");
-    const phoneInput = document.getElementById("phoneInput");
-    const sendButton = document.getElementById("sendButton");
-    const messages = document.getElementById("messages");
-    const typing = document.getElementById("typing");
-    const agentActions = document.getElementById("agentActions");
+    function sendQuickMessage(message) {
 
+        const messageBox = document.getElementById("messageBox");
+        const phoneInput = document.getElementById("phoneInput");
 
-    function scrollMessages() {
-        if (!messages) {
+        if (!messageBox) {
             return;
         }
 
-        requestAnimationFrame(() => {
-            messages.scrollTop = messages.scrollHeight;
-        });
-    }
+        messageBox.value = message;
 
-
-    function escapeHtml(value) {
-        const div = document.createElement("div");
-        div.textContent = value ?? "";
-        return div.innerHTML;
-    }
-
-
-    function addMessage(role, content, timeText = "Just now") {
-        if (!messages) {
+        if (!phoneInput || !phoneInput.value.trim()) {
+            phoneInput?.focus();
             return;
         }
 
-        const row = document.createElement("div");
-        row.className = `message-row ${role}`;
-
-        const avatar = role === "user" ? "YOU" : "AI";
-
-        row.innerHTML = `
-            <div class="message">
-                <div class="message-avatar">${avatar}</div>
-                <div>
-                    <div class="bubble">${escapeHtml(content)}</div>
-                    <div class="message-time">${escapeHtml(timeText)}</div>
-                </div>
-            </div>
-        `;
-
-        messages.appendChild(row);
-        scrollMessages();
+        document.getElementById("chatForm")?.requestSubmit();
     }
 
 
     function showTyping() {
+
+        const typing = document.getElementById("typing");
+        const messages = document.getElementById("messages");
+
         if (typing) {
             typing.style.display = "flex";
         }
 
-        scrollMessages();
-    }
-
-
-    function hideTyping() {
-        if (typing) {
-            typing.style.display = "none";
+        if (messages) {
+            requestAnimationFrame(() => {
+                messages.scrollTop = messages.scrollHeight;
+            });
         }
     }
 
 
-    function setSending(isSending) {
-        if (!sendButton) {
+    function disableSendButton() {
+
+        const button = document.getElementById("sendButton");
+
+        if (!button) {
             return;
         }
 
-        sendButton.disabled = isSending;
-        sendButton.innerHTML = isSending ? "…" : "↑";
+        button.disabled = true;
+        button.innerHTML = "…";
     }
 
 
-    function setAgentStatus(text) {
+    function setAgentBusy(isBusy) {
+
         const badge = document.querySelector(".ai-agent-badge");
 
         if (!badge) {
             return;
         }
 
-        badge.lastChild.textContent = ` ${text}`;
+        badge.lastChild.textContent =
+            isBusy
+                ? " Agent Working"
+                : " Agent Ready";
     }
 
 
     function handleAgentAction(result) {
-        if (!result || result.type !== "frontend_action") {
+
+        if (!result) {
             return false;
         }
+
+        if (result.type !== "frontend_action") {
+            return false;
+        }
+
+        const action = result.action;
 
         const routes = {
             open_dashboard:
@@ -1078,10 +1064,8 @@ AI Playground • {{ business.name }}
                 `/business/${businessId}/settings`
         };
 
-        const url = routes[result.action];
-
-        if (url) {
-            window.location.href = url;
+        if (routes[action]) {
+            window.location.href = routes[action];
             return true;
         }
 
@@ -1089,149 +1073,30 @@ AI Playground • {{ business.name }}
     }
 
 
-    async function sendMessage(messageOverride = null) {
-        const message = (
-            messageOverride ??
-            messageBox?.value ??
-            ""
-        ).trim();
+    function showAgentResult(message) {
 
-        const phone = (
-            phoneInput?.value ??
-            ""
-        ).trim();
+        const actions = document.getElementById("agentActions");
 
-        if (!message) {
-            messageBox?.focus();
+        if (!actions || !message) {
             return;
         }
 
-        if (!phone) {
-            phoneInput?.focus();
-            return;
+        const existing =
+            document.getElementById("agentResult");
+
+        if (existing) {
+            existing.remove();
         }
 
-        if (!businessId) {
-            addMessage(
-                "ai",
-                "I couldn't determine which business this chat belongs to."
-            );
-            return;
-        }
+        const card = document.createElement("div");
 
-        addMessage("user", message);
+        card.id = "agentResult";
+        card.className = "agent-result-card";
+        card.textContent = message;
 
-        if (messageBox) {
-            messageBox.value = "";
-        }
-
-        showTyping();
-        setSending(true);
-        setAgentStatus("Agent Working");
-
-        try {
-            const response = await fetch(
-                "/api/agent/chat",
-                {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                        "Accept": "application/json"
-                    },
-                    credentials: "same-origin",
-                    body: JSON.stringify({
-                        business_id: Number(businessId),
-                        phone: phone,
-                        message: message
-                    })
-                }
-            );
-
-            let data = null;
-
-            try {
-                data = await response.json();
-            } catch {
-                data = null;
-            }
-
-            if (!response.ok || !data) {
-                throw new Error(
-                    data?.error ||
-                    data?.message ||
-                    "The AI request failed."
-                );
-            }
-
-            if (data.message) {
-                addMessage(
-                    "ai",
-                    data.message
-                );
-            } else if (data.type === "frontend_action") {
-                addMessage(
-                    "ai",
-                    "Done."
-                );
-            } else {
-                addMessage(
-                    "ai",
-                    "The agent completed the request."
-                );
-            }
-
-            if (data.type === "frontend_action") {
-                setTimeout(() => {
-                    handleAgentAction(data);
-                }, 250);
-            }
-
-        } catch (error) {
-            addMessage(
-                "ai",
-                error?.message ||
-                "I couldn't connect to the AI agent. Please try again."
-            );
-
-        } finally {
-            hideTyping();
-            setSending(false);
-            setAgentStatus("Agent Ready");
-            messageBox?.focus();
-            scrollMessages();
-        }
-    }
-
-
-    function sendQuickMessage(message) {
-        sendMessage(message);
-    }
-
-
-    if (chatForm) {
-        chatForm.addEventListener(
-            "submit",
-            function(event) {
-                event.preventDefault();
-                sendMessage();
-            }
-        );
-    }
-
-
-    if (messageBox) {
-        messageBox.addEventListener(
-            "keydown",
-            function(event) {
-
-                if (
-                    event.key === "Enter" &&
-                    !event.shiftKey
-                ) {
-                    event.preventDefault();
-                    sendMessage();
-                }
-            }
+        actions.parentNode.insertBefore(
+            card,
+            actions.nextSibling
         );
     }
 
@@ -1244,19 +1109,58 @@ AI Playground • {{ business.name }}
                 "click",
                 () => {
 
+                    const action =
+                        button.dataset.agentAction;
+
                     handleAgentAction({
                         type: "frontend_action",
-                        action: button.dataset.agentAction
+                        action: action
                     });
+
                 }
             );
+
         });
 
+
+    const messageBox =
+        document.getElementById("messageBox");
+
+    if (messageBox) {
+
+        messageBox.addEventListener(
+            "keydown",
+            function(event) {
+
+                if (
+                    event.key === "Enter"
+                    && !event.shiftKey
+                ) {
+
+                    event.preventDefault();
+
+                    document
+                        .getElementById("chatForm")
+                        ?.requestSubmit();
+
+                }
+
+            }
+        );
+
+    }
+
+
+    const messages =
+        document.getElementById("messages");
 
     if (messages) {
+
         requestAnimationFrame(() => {
-            messages.scrollTop = messages.scrollHeight;
+            messages.scrollTop =
+                messages.scrollHeight;
         });
+
     }
 </script>
 
