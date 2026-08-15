@@ -1,34 +1,36 @@
 import json
+import logging
 
 from services.ai.openai_provider import OpenAIProvider
-from services.ai.prompt_builder import build_restaurant_prompt
 from services.ai.menu_intelligence import resolve_menu_object
 
 from models.menu import Menu
 
 
-# ==========================
+logger = logging.getLogger(__name__)
+
+
+# ============================================================
 # JSON EXTRACTION
-# ==========================
+# ============================================================
 
 def _extract_json(response):
-    """
-    Safely extract JSON from the AI response.
-
-    Handles:
-    - normal JSON
-    - markdown JSON blocks
-    - JSON embedded in additional text
-    """
 
     if not response:
         return None
 
-    response = response.strip()
+    response = str(
+        response
+    ).strip()
 
     # Remove markdown fences
     response = response.replace(
         "```json",
+        ""
+    )
+
+    response = response.replace(
+        "```JSON",
         ""
     )
 
@@ -42,9 +44,12 @@ def _extract_json(response):
     # Direct JSON
     try:
 
-        return json.loads(
+        data = json.loads(
             response
         )
+
+        if isinstance(data, dict):
+            return data
 
     except json.JSONDecodeError:
         pass
@@ -61,11 +66,14 @@ def _extract_json(response):
 
         try:
 
-            return json.loads(
+            data = json.loads(
                 response[
                     start:end + 1
                 ]
             )
+
+            if isinstance(data, dict):
+                return data
 
         except json.JSONDecodeError:
             pass
@@ -73,36 +81,45 @@ def _extract_json(response):
     return None
 
 
-# ==========================
+# ============================================================
 # EXTRACT ORDER
-# ==========================
+# ============================================================
 
 def extract_order(
     business_id,
     customer_message
 ):
-    """
-    AI identifies what the customer wants.
 
-    Python/database handles:
-    - menu validation
-    - smart menu resolution
-    - real prices
-    - subtotals
-    - total calculation
-    """
+    customer_message = str(
+        customer_message or ""
+    ).strip()
 
-    # ==========================
-    # LOAD MENU ONCE
-    # ==========================
+    if not customer_message:
 
-    menu_items = Menu.query.filter_by(
-        business_id=business_id,
-        available=True
-    ).order_by(
-        Menu.category.asc(),
-        Menu.name.asc()
-    ).all()
+        return {
+            "items": [],
+            "total": 0.0,
+            "currency": "FCFA",
+            "status": "pending",
+            "unmatched": []
+        }
+
+    # ========================================================
+    # LOAD REAL MENU
+    # ========================================================
+
+    menu_items = (
+        Menu.query
+        .filter_by(
+            business_id=business_id,
+            available=True
+        )
+        .order_by(
+            Menu.category.asc(),
+            Menu.name.asc()
+        )
+        .all()
+    )
 
     if not menu_items:
 
@@ -114,83 +131,135 @@ def extract_order(
             "unmatched": []
         }
 
-    # ==========================
-    # AI PROMPT
-    # ==========================
-
-    ai = OpenAIProvider()
-
-    prompt = build_restaurant_prompt(
-        business_id,
-        customer_message
-    )
+    # ========================================================
+    # MENU NAMES
+    # ========================================================
 
     menu_names = [
         item.name
         for item in menu_items
     ]
 
-    prompt += f"""
+    menu_text = "\n".join(
+        f"- {name}"
+        for name in menu_names
+    )
 
-ORDER EXTRACTION MODE
+    # ========================================================
+    # DEDICATED EXTRACTION PROMPT
+    # ========================================================
 
-Your ONLY job is to identify the products
-the customer explicitly wants to order.
+    prompt = f"""
+You are a restaurant order extraction engine.
 
-AVAILABLE MENU ITEM NAMES:
+Your ONLY job is to identify the food or drink items
+that the customer explicitly wants to order.
 
-{json.dumps(
-    menu_names,
-    ensure_ascii=False
-)}
+You are NOT the customer-facing assistant.
 
-RULES:
+Do not greet the customer.
 
-1. Extract only products the customer requested.
-2. Never invent a product.
-3. Quantity must be an integer.
-4. "one" means 1.
+Do not explain anything.
+
+Do not recommend anything.
+
+Do not calculate prices.
+
+Do not calculate totals.
+
+Return ONLY valid JSON.
+
+============================================================
+AVAILABLE MENU ITEMS
+============================================================
+
+{menu_text}
+
+============================================================
+RULES
+============================================================
+
+1. Only use menu items from the available menu list.
+
+2. Never invent a menu item.
+
+3. If the customer mentions a product that cannot be
+   matched to a real menu item, put it in "unmatched".
+
+4. Quantity must be an integer.
+
 5. If quantity is not specified, use 1.
-6. Use the closest real menu item name.
-7. Never create a new menu item.
-8. Do not calculate prices.
-9. Do not calculate totals.
-10. Return ONLY valid JSON.
-11. Do not include explanations.
-12. Do not include markdown.
 
-FORMAT:
+6. "a", "an", and "one" mean quantity 1.
+
+7. "two", "2", etc. mean quantity 2.
+
+8. Handle normal spelling mistakes when the intended
+   menu item is clear.
+
+9. Use the exact menu item name in the output.
+
+10. If the customer is NOT actually requesting a food
+    or drink item, return an empty items list.
+
+11. Do not create products from descriptions.
+
+12. Do not create products that are not on the menu.
+
+13. Do not include explanations.
+
+14. Do not use markdown.
+
+15. Do not write anything outside the JSON object.
+
+============================================================
+REQUIRED FORMAT
+============================================================
 
 {{
     "items": [
         {{
-            "name": "Chicken Burger",
-            "quantity": 2
+            "name": "Exact Menu Item Name",
+            "quantity": 1
         }}
-    ]
+    ],
+    "unmatched": []
 }}
 
-CUSTOMER MESSAGE:
+============================================================
+CUSTOMER MESSAGE
+============================================================
 
 {customer_message}
 """
 
-    # ==========================
-    # CALL AI
-    # ==========================
+    # ========================================================
+    # AI CALL
+    # ========================================================
+
+    ai = OpenAIProvider()
 
     response = ai.generate(
-        prompt
+        prompt,
+        temperature=0,
+        max_tokens=300,
+    )
+
+    logger.info(
+        "Order extraction response: %s",
+        response
     )
 
     data = _extract_json(
         response
     )
 
-    if not isinstance(
-        data,
-        dict
-    ):
+    if not isinstance(data, dict):
+
+        logger.error(
+            "Invalid order extraction response: %r",
+            response
+        )
 
         raise ValueError(
             "AI returned invalid order JSON."
@@ -201,23 +270,31 @@ CUSTOMER MESSAGE:
         []
     )
 
+    ai_unmatched = data.get(
+        "unmatched",
+        []
+    )
+
     if not isinstance(
         ai_items,
         list
     ):
 
-        raise ValueError(
-            "Invalid items format."
-        )
+        ai_items = []
+
+    if not isinstance(
+        ai_unmatched,
+        list
+    ):
+
+        ai_unmatched = []
 
     validated_items = []
     unmatched = []
 
-    total = 0.0
-
-    # ==========================
+    # ========================================================
     # VALIDATE EACH ITEM
-    # ==========================
+    # ========================================================
 
     for item in ai_items:
 
@@ -237,9 +314,9 @@ CUSTOMER MESSAGE:
         if not name:
             continue
 
-        # --------------------------
+        # ====================================================
         # QUANTITY
-        # --------------------------
+        # ====================================================
 
         try:
 
@@ -260,9 +337,9 @@ CUSTOMER MESSAGE:
         if quantity < 1:
             quantity = 1
 
-        # --------------------------
-        # SMART MENU RESOLUTION
-        # --------------------------
+        # ====================================================
+        # REAL MENU RESOLUTION
+        # ====================================================
 
         menu = resolve_menu_object(
             business_id,
@@ -278,12 +355,12 @@ CUSTOMER MESSAGE:
 
             continue
 
-        # --------------------------
+        # ====================================================
         # REAL DATABASE PRICE
-        # --------------------------
+        # ====================================================
 
         price = float(
-            menu.price
+            menu.price or 0
         )
 
         subtotal = (
@@ -291,37 +368,50 @@ CUSTOMER MESSAGE:
         )
 
         validated_items.append({
-
             "name": menu.name,
-
             "quantity": quantity,
-
             "price": price,
-
             "subtotal": float(
                 subtotal
             )
-
         })
 
-        total += subtotal
+    # ========================================================
+    # AI UNMATCHED
+    # ========================================================
 
-    # ==========================
-    # RETURN
-    # ==========================
+    for item in ai_unmatched:
+
+        item = str(
+            item
+        ).strip()
+
+        if (
+            item
+            and item not in unmatched
+        ):
+
+            unmatched.append(
+                item
+            )
+
+    # ========================================================
+    # REAL TOTAL
+    # ========================================================
+
+    total = sum(
+        item["subtotal"]
+        for item in validated_items
+    )
+
+    # ========================================================
+    # RESULT
+    # ========================================================
 
     return {
-
         "items": validated_items,
-
-        "total": float(
-            total
-        ),
-
+        "total": float(total),
         "currency": "FCFA",
-
         "status": "pending",
-
         "unmatched": unmatched
-
     }

@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}Support Inbox • Botify{% endblock %}
+{% block content %}
+<section class="page-shell">
+  <div class="page-hero glass-deep shadow-soft">
+    <span class="eyebrow-pill"><span class="eyebrow-dot peach"></span>Admin support</span>
+    <h1>Support inbox</h1>
+    <p>Review, manage and resolve Botify customer requests.</p>
+  </div>
+
+  <div class="support-filter glass shadow-soft">
+    <a class="{% if not current_status %}active{% endif %}" href="{{ url_for('admin_support') }}">All</a>
+    <a class="{% if current_status == 'Open' %}active{% endif %}" href="{{ url_for('admin_support', status='Open') }}">Open</a>
+    <a class="{% if current_status == 'In Progress' %}active{% endif %}" href="{{ url_for('admin_support', status='In Progress') }}">In Progress</a>
+    <a class="{% if current_status == 'Resolved' %}active{% endif %}" href="{{ url_for('admin_support', status='Resolved') }}">Resolved</a>
+  </div>
+
+  <div class="glass-deep shadow-soft support-ticket-list">
+    {% if tickets %}
+      {% for ticket in tickets %}
+      <article class="support-ticket-row admin-ticket-row">
+        <div>
+          <span class="ticket-id">#{{ ticket.id }}</span>
+          <h3>{{ ticket.subject }}</h3>
+          <p><strong>{{ ticket.name }}</strong> · {{ ticket.email }}</p>
+          <p>{{ ticket.message }}</p>
+          <small>{{ ticket.created_at.strftime('%d %b %Y, %H:%M') }}</small>
+        </div>
+        <form method="POST" action="{{ url_for('update_support_ticket_status', ticket_id=ticket.id) }}" class="ticket-actions">
+          <select name="status" aria-label="Ticket status">
+            {% for status in ['Open', 'In Progress', 'Resolved'] %}
+              <option value="{{ status }}" {% if ticket.status == status %}selected{% endif %}>{{ status }}</option>
+            {% endfor %}
+          </select>
+          <button class="btn-dark" type="submit">Update</button>
+        </form>
+      </article>
+      {% endfor %}
+    {% else %}
+      <div class="empty-state">
+        <h3>No tickets found</h3>
+        <p>Your support inbox is clear for this filter.</p>
+      </div>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

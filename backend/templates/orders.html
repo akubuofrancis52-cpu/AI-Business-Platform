@@ -1,372 +1,109 @@
+```html
 {% extends "base.html" %}
 
 {% block title %}
 Orders • {{ business.name }}
 {% endblock %}
 
-
 {% block content %}
-
-<style>
-
-.orders-page {
-    max-width: 1250px;
-    margin: 0 auto;
-    padding: 35px 0 60px;
-}
-
-.orders-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    gap: 20px;
-    margin-bottom: 25px;
-}
-
-.orders-header h1 {
-    margin: 0;
-    font-size: 32px;
-    font-weight: 800;
-    letter-spacing: -0.04em;
-    color: #111827;
-}
-
-.orders-header p {
-    margin: 6px 0 0;
-    color: #6b7280;
-    font-size: 14px;
-}
-
-.order-stats {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 12px;
-    margin-bottom: 24px;
-}
-
-.order-stat {
-    padding: 18px;
-    border-radius: 18px;
-    background: rgba(255,255,255,.78);
-    border: 1px solid rgba(0,0,0,.06);
-    box-shadow: 0 12px 30px rgba(15,23,42,.05);
-    backdrop-filter: blur(14px);
-}
-
-.order-stat-label {
-    color: #6b7280;
-    font-size: 11px;
-    font-weight: 700;
-}
-
-.order-stat-value {
-    margin-top: 5px;
-    color: #111827;
-    font-size: 27px;
-    font-weight: 800;
-}
-
-.orders-list {
-    display: grid;
-    gap: 14px;
-}
-
-.order-card {
-    padding: 20px;
-    border-radius: 22px;
-    background: rgba(255,255,255,.88);
-    border: 1px solid rgba(0,0,0,.06);
-    box-shadow: 0 16px 40px rgba(15,23,42,.06);
-}
-
-.order-top {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    gap: 15px;
-}
-
-.order-number {
-    font-size: 17px;
-    font-weight: 800;
-    color: #111827;
-}
-
-.order-customer {
-    margin-top: 4px;
-    color: #6b7280;
-    font-size: 13px;
-}
-
-.status-badge-custom {
-    display: inline-flex;
-    align-items: center;
-    gap: 7px;
-    padding: 7px 11px;
-    border-radius: 999px;
-    font-size: 11px;
-    font-weight: 800;
-}
-
-.status-dot-custom {
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-}
-
-.status-pending {
-    background: #fff7ed;
-    color: #c2410c;
-}
-
-.status-pending .status-dot-custom {
-    background: #f97316;
-}
-
-.status-preparing {
-    background: #eff6ff;
-    color: #1d4ed8;
-}
-
-.status-preparing .status-dot-custom {
-    background: #3b82f6;
-}
-
-.status-ready {
-    background: #ecfdf3;
-    color: #15803d;
-}
-
-.status-ready .status-dot-custom {
-    background: #22c55e;
-}
-
-.status-completed {
-    background: #f3f4f6;
-    color: #374151;
-}
-
-.status-completed .status-dot-custom {
-    background: #6b7280;
-}
-
-.status-cancelled {
-    background: #fef2f2;
-    color: #b91c1c;
-}
-
-.status-cancelled .status-dot-custom {
-    background: #ef4444;
-}
-
-.order-divider {
-    height: 1px;
-    background: #f1f5f9;
-    margin: 17px 0;
-}
-
-.order-items {
-    display: grid;
-    gap: 8px;
-}
-
-.order-item-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 15px;
-    padding: 10px 0;
-}
-
-.item-name {
-    font-size: 13px;
-    font-weight: 700;
-    color: #1f2937;
-}
-
-.item-meta {
-    margin-top: 2px;
-    color: #98a2b3;
-    font-size: 11px;
-}
-
-.item-subtotal {
-    color: #111827;
-    font-size: 13px;
-    font-weight: 750;
-}
-
-.order-bottom {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 15px;
-    margin-top: 17px;
-    padding-top: 15px;
-    border-top: 1px solid #f1f5f9;
-}
-
-.order-total span {
-    display: block;
-    color: #98a2b3;
-    font-size: 10px;
-    font-weight: 700;
-}
-
-.order-total strong {
-    display: block;
-    margin-top: 3px;
-    color: #111827;
-    font-size: 21px;
-    font-weight: 850;
-}
-
-.status-form {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.status-select {
-    min-width: 135px;
-    border-radius: 11px;
-    border: 1px solid #e5e7eb;
-    padding: 9px 11px;
-    background: white;
-    font-size: 12px;
-    font-weight: 650;
-}
-
-.status-update-btn {
-    border: 0;
-    border-radius: 11px;
-    padding: 9px 13px;
-    background: #111827;
-    color: white;
-    font-size: 12px;
-    font-weight: 750;
-    cursor: pointer;
-}
-
-.status-update-btn:hover {
-    background: #1f2937;
-}
-
-.empty-orders {
-    text-align: center;
-    padding: 70px 20px;
-    border-radius: 22px;
-    background: rgba(255,255,255,.75);
-    border: 1px solid rgba(0,0,0,.06);
-}
-
-.empty-orders-icon {
-    font-size: 38px;
-    margin-bottom: 12px;
-}
-
-.empty-orders h3 {
-    margin: 0;
-    color: #111827;
-    font-size: 19px;
-}
-
-.empty-orders p {
-    margin: 7px 0 0;
-    color: #6b7280;
-    font-size: 13px;
-}
-
-@media (max-width: 900px) {
-
-    .order-stats {
-        grid-template-columns: repeat(2, 1fr);
-    }
-
-}
-
-@media (max-width: 650px) {
-
-    .orders-page {
-        padding: 20px 10px 40px;
-    }
-
-    .orders-header {
-        flex-direction: column;
-    }
-
-    .order-top {
-        flex-direction: column;
-    }
-
-    .order-bottom {
-        align-items: stretch;
-        flex-direction: column;
-    }
-
-    .status-form {
-        width: 100%;
-    }
-
-    .status-select {
-        flex: 1;
-    }
-
-}
-
-</style>
-
 
 <div class="container-fluid">
 
-    <div class="orders-page">
+    <div class="orders-page motion-page">
 
-
-        <!-- HEADER -->
+        <!-- ==========================================================
+             HEADER
+        =========================================================== -->
 
         <div class="orders-header">
 
             <div>
-
                 <h1>
                     Orders
                 </h1>
 
                 <p>
-                    Manage orders for {{ business.name }}
+                    Manage orders and payment status for {{ business.name }}
                 </p>
-
             </div>
 
-
             <div>
-
                 <a
                     href="/business/{{ business.id }}/orders/create"
                     class="btn btn-primary"
                 >
                     + New Order
                 </a>
-
             </div>
 
         </div>
 
 
-        <!-- STATS -->
+        <!-- ==========================================================
+             STATS
+        =========================================================== -->
 
-        {% set pending_count = orders | selectattr("status", "equalto", "Pending") | list | length %}
+        {% set pending_count =
+            orders
+            | selectattr("status", "equalto", "Pending")
+            | list
+            | length
+        %}
 
-        {% set preparing_count = orders | selectattr("status", "equalto", "Preparing") | list | length %}
+        {% set preparing_count =
+            orders
+            | selectattr("status", "equalto", "Preparing")
+            | list
+            | length
+        %}
 
-        {% set ready_count = orders | selectattr("status", "equalto", "Ready") | list | length %}
+        {% set ready_count =
+            orders
+            | selectattr("status", "equalto", "Ready")
+            | list
+            | length
+        %}
 
-        {% set completed_count = orders | selectattr("status", "equalto", "Completed") | list | length %}
+        {% set completed_count =
+            orders
+            | selectattr("status", "equalto", "Completed")
+            | list
+            | length
+        %}
+
+        {% set cancelled_count =
+            orders
+            | selectattr("status", "equalto", "Cancelled")
+            | list
+            | length
+        %}
+
+        {% set paid_count = namespace(value=0) %}
+
+        {% set unpaid_count = namespace(value=0) %}
+
+        {% for order in orders %}
+
+            {% if order.payment_status|default("Unpaid")|lower == "paid" %}
+
+                {% set paid_count.value =
+                    paid_count.value + 1
+                %}
+
+            {% else %}
+
+                {% set unpaid_count.value =
+                    unpaid_count.value + 1
+                %}
+
+            {% endif %}
+
+        {% endfor %}
 
 
         <div class="order-stats">
 
-            <div class="order-stat">
+            <div class="order-stat float-card">
 
                 <div class="order-stat-label">
                     Pending
@@ -379,7 +116,7 @@ Orders • {{ business.name }}
             </div>
 
 
-            <div class="order-stat">
+            <div class="order-stat float-card">
 
                 <div class="order-stat-label">
                     Preparing
@@ -392,7 +129,7 @@ Orders • {{ business.name }}
             </div>
 
 
-            <div class="order-stat">
+            <div class="order-stat float-card">
 
                 <div class="order-stat-label">
                     Ready
@@ -405,14 +142,14 @@ Orders • {{ business.name }}
             </div>
 
 
-            <div class="order-stat">
+            <div class="order-stat float-card">
 
                 <div class="order-stat-label">
-                    Completed
+                    Paid Orders
                 </div>
 
                 <div class="order-stat-value">
-                    {{ completed_count }}
+                    {{ paid_count.value }}
                 </div>
 
             </div>
@@ -420,7 +157,42 @@ Orders • {{ business.name }}
         </div>
 
 
-        <!-- ORDERS -->
+        <!-- ==========================================================
+             PAYMENT NOTICE
+        =========================================================== -->
+
+        <div
+            class="payment-info-banner"
+            style="
+                margin:20px 0;
+                padding:16px 20px;
+                border-radius:14px;
+                background:rgba(255,255,255,0.72);
+                border:1px solid rgba(0,0,0,0.06);
+            "
+        >
+
+            <div style="font-weight:700;">
+                Revenue is payment-based
+            </div>
+
+            <div
+                style="
+                    margin-top:4px;
+                    opacity:.7;
+                    font-size:14px;
+                "
+            >
+                Orders only count toward revenue after their payment
+                has been successfully recorded.
+            </div>
+
+        </div>
+
+
+        <!-- ==========================================================
+             ORDERS
+        =========================================================== -->
 
         {% if orders %}
 
@@ -428,10 +200,16 @@ Orders • {{ business.name }}
 
             {% for order in orders %}
 
-            <article class="order-card">
+            {% set payment_status =
+                order.payment_status|default("Unpaid")
+            %}
 
 
-                <!-- TOP -->
+            <article class="order-card flip-card">
+
+                <!-- ==================================================
+                     TOP
+                =================================================== -->
 
                 <div class="order-top">
 
@@ -442,50 +220,86 @@ Orders • {{ business.name }}
                         </div>
 
                         <div class="order-customer">
+
                             {{ order.customer_name }}
-                            •
+
+                            <span>
+                                •
+                            </span>
+
                             {{ order.customer_phone }}
+
                         </div>
 
+
+                        {% if order.created_at %}
+
+                        <div
+                            class="item-meta"
+                            style="margin-top:5px;"
+                        >
+                            {{ order.created_at.strftime(
+                                "%d %b %Y, %H:%M"
+                            ) }}
+                        </div>
+
+                        {% endif %}
+
                     </div>
 
 
-                    {% if order.status == "Pending" %}
+                    <!-- ORDER STATUS -->
 
-                    <div class="status-badge-custom status-pending">
-                        <span class="status-dot-custom"></span>
-                        Pending
+                    <div>
+
+                        {% if order.status == "Pending" %}
+
+                        <div class="status-badge-custom status-pending">
+                            <span class="status-dot-custom"></span>
+                            Pending
+                        </div>
+
+                        {% elif order.status == "Preparing" %}
+
+                        <div class="status-badge-custom status-preparing">
+                            <span class="status-dot-custom"></span>
+                            Preparing
+                        </div>
+
+                        {% elif order.status == "Ready" %}
+
+                        <div class="status-badge-custom status-ready">
+                            <span class="status-dot-custom"></span>
+                            Ready
+                        </div>
+
+                        {% elif order.status == "Completed" %}
+
+                        <div class="status-badge-custom status-completed">
+                            <span class="status-dot-custom"></span>
+                            Completed
+                        </div>
+
+                        {% elif order.status == "Cancelled" %}
+
+                        <div class="status-badge-custom status-cancelled">
+                            <span class="status-dot-custom"></span>
+                            Cancelled
+                        </div>
+
+                        {% else %}
+
+                        <div class="status-badge-custom">
+
+                            <span class="status-dot-custom"></span>
+
+                            {{ order.status }}
+
+                        </div>
+
+                        {% endif %}
+
                     </div>
-
-                    {% elif order.status == "Preparing" %}
-
-                    <div class="status-badge-custom status-preparing">
-                        <span class="status-dot-custom"></span>
-                        Preparing
-                    </div>
-
-                    {% elif order.status == "Ready" %}
-
-                    <div class="status-badge-custom status-ready">
-                        <span class="status-dot-custom"></span>
-                        Ready
-                    </div>
-
-                    {% elif order.status == "Completed" %}
-
-                    <div class="status-badge-custom status-completed">
-                        <span class="status-dot-custom"></span>
-                        Completed
-                    </div>
-
-                    {% else %}
-
-                    <div class="status-badge-custom status-cancelled">
-                        <span class="status-dot-custom"></span>
-                        {{ order.status }}
-                    </div>
-
-                    {% endif %}
 
                 </div>
 
@@ -493,7 +307,164 @@ Orders • {{ business.name }}
                 <div class="order-divider"></div>
 
 
-                <!-- ITEMS -->
+                <!-- ==================================================
+                     PAYMENT STATUS
+                =================================================== -->
+
+                <div
+                    style="
+                        display:flex;
+                        justify-content:space-between;
+                        align-items:center;
+                        gap:15px;
+                        margin-bottom:18px;
+                    "
+                >
+
+                    <div>
+
+                        <div
+                            style="
+                                font-size:12px;
+                                text-transform:uppercase;
+                                letter-spacing:.08em;
+                                opacity:.55;
+                                font-weight:700;
+                            "
+                        >
+                            Payment
+                        </div>
+
+
+                        <div
+                            style="
+                                margin-top:4px;
+                                font-weight:700;
+                            "
+                        >
+
+                            {% if payment_status|lower == "paid" %}
+
+                            <span style="color:#16803c;">
+                                ✓ Paid
+                            </span>
+
+                            {% elif payment_status|lower == "refunded" %}
+
+                            <span style="color:#b42318;">
+                                ↩ Refunded
+                            </span>
+
+                            {% elif payment_status|lower == "failed" %}
+
+                            <span style="color:#b42318;">
+                                ✕ Payment Failed
+                            </span>
+
+                            {% else %}
+
+                            <span style="color:#a15c00;">
+                                ○ Unpaid
+                            </span>
+
+                            {% endif %}
+
+                        </div>
+
+                    </div>
+
+
+                    {% if order.payment_method %}
+
+                    <div style="text-align:right;">
+
+                        <div
+                            style="
+                                font-size:12px;
+                                text-transform:uppercase;
+                                letter-spacing:.08em;
+                                opacity:.55;
+                                font-weight:700;
+                            "
+                        >
+                            Method
+                        </div>
+
+                        <div
+                            style="
+                                margin-top:4px;
+                                font-weight:600;
+                            "
+                        >
+                            {{ order.payment_method }}
+                        </div>
+
+                    </div>
+
+                    {% endif %}
+
+                </div>
+
+
+                <!-- ==================================================
+                     PAYMENT TOKEN / TRANSACTION INFO
+                =================================================== -->
+
+                {% if order.payment_transaction_id %}
+
+                <div
+                    style="
+                        margin-bottom:18px;
+                        padding:10px 12px;
+                        border-radius:10px;
+                        background:rgba(0,0,0,.035);
+                        font-size:13px;
+                    "
+                >
+
+                    Transaction:
+
+                    <strong>
+                        {{ order.payment_transaction_id }}
+                    </strong>
+
+                </div>
+
+                {% endif %}
+
+
+                <!-- ==================================================
+                     PAID TIMESTAMP
+                =================================================== -->
+
+                {% if order.paid_at %}
+
+                <div
+                    style="
+                        margin-bottom:18px;
+                        padding:10px 12px;
+                        border-radius:10px;
+                        background:rgba(22,128,60,.07);
+                        font-size:13px;
+                    "
+                >
+
+                    Payment received
+
+                    <strong>
+                        {{ order.paid_at.strftime(
+                            "%d %b %Y, %H:%M"
+                        ) }}
+                    </strong>
+
+                </div>
+
+                {% endif %}
+
+
+                <!-- ==================================================
+                     ITEMS
+                =================================================== -->
 
                 <div class="order-items">
 
@@ -510,10 +481,17 @@ Orders • {{ business.name }}
                                 </div>
 
                                 <div class="item-meta">
+
                                     {{ item.quantity }}
+
                                     ×
-                                    {{ "{:,.0f}".format(item.price) }}
+
+                                    {{ "{:,.0f}".format(
+                                        item.price or 0
+                                    ) }}
+
                                     FCFA
+
                                 </div>
 
                             </div>
@@ -521,7 +499,10 @@ Orders • {{ business.name }}
 
                             <div class="item-subtotal">
 
-                                {{ "{:,.0f}".format(item.subtotal) }}
+                                {{ "{:,.0f}".format(
+                                    item.subtotal or 0
+                                ) }}
+
                                 FCFA
 
                             </div>
@@ -541,7 +522,9 @@ Orders • {{ business.name }}
                 </div>
 
 
-                <!-- BOTTOM -->
+                <!-- ==================================================
+                     TOTAL + STATUS
+                =================================================== -->
 
                 <div class="order-bottom">
 
@@ -552,12 +535,19 @@ Orders • {{ business.name }}
                         </span>
 
                         <strong>
-                            {{ "{:,.0f}".format(order.total_price) }}
+
+                            {{ "{:,.0f}".format(
+                                order.total_price or 0
+                            ) }}
+
                             FCFA
+
                         </strong>
 
                     </div>
 
+
+                    <!-- STATUS UPDATE -->
 
                     <form
                         method="POST"
@@ -572,35 +562,49 @@ Orders • {{ business.name }}
 
                             <option
                                 value="Pending"
-                                {% if order.status == "Pending" %}selected{% endif %}
+                                {% if order.status == "Pending" %}
+                                selected
+                                {% endif %}
                             >
                                 Pending
                             </option>
 
+
                             <option
                                 value="Preparing"
-                                {% if order.status == "Preparing" %}selected{% endif %}
+                                {% if order.status == "Preparing" %}
+                                selected
+                                {% endif %}
                             >
                                 Preparing
                             </option>
 
+
                             <option
                                 value="Ready"
-                                {% if order.status == "Ready" %}selected{% endif %}
+                                {% if order.status == "Ready" %}
+                                selected
+                                {% endif %}
                             >
                                 Ready
                             </option>
 
+
                             <option
                                 value="Completed"
-                                {% if order.status == "Completed" %}selected{% endif %}
+                                {% if order.status == "Completed" %}
+                                selected
+                                {% endif %}
                             >
                                 Completed
                             </option>
 
+
                             <option
                                 value="Cancelled"
-                                {% if order.status == "Cancelled" %}selected{% endif %}
+                                {% if order.status == "Cancelled" %}
+                                selected
+                                {% endif %}
                             >
                                 Cancelled
                             </option>
@@ -620,13 +624,139 @@ Orders • {{ business.name }}
                 </div>
 
 
+                <!-- ==================================================
+                     PAYMENT ACTION
+                =================================================== -->
+
+                {% if payment_status|lower != "paid"
+                      and order.status != "Cancelled" %}
+
+                <div
+                    style="
+                        margin-top:16px;
+                        padding-top:16px;
+                        border-top:1px solid rgba(0,0,0,.06);
+                    "
+                >
+
+                    <div
+                        style="
+                            display:flex;
+                            justify-content:space-between;
+                            align-items:center;
+                            gap:15px;
+                            flex-wrap:wrap;
+                        "
+                    >
+
+                        <div>
+
+                            <strong>
+                                Payment required
+                            </strong>
+
+                            <div
+                                style="
+                                    font-size:13px;
+                                    opacity:.65;
+                                    margin-top:3px;
+                                "
+                            >
+                                Create a secure PayDunya payment
+                                request for this order.
+                            </div>
+
+                        </div>
+
+
+                        <!-- ==================================================
+                             PAYDUNYA BUTTON
+                        =================================================== -->
+
+                        <a
+                            href="/business/{{ business.id }}/orders/{{ order.id }}/paydunya"
+                            class="status-update-btn"
+                            style="
+                                text-decoration:none;
+                                display:inline-flex;
+                                align-items:center;
+                                justify-content:center;
+                                cursor:pointer;
+                                gap:7px;
+                            "
+                        >
+
+                            <span>
+                                ₣
+                            </span>
+
+                            Pay with PayDunya
+
+                        </a>
+
+                    </div>
+
+                </div>
+
+
+                {% elif payment_status|lower == "paid" %}
+
+                <!-- ==================================================
+                     PAYMENT CONFIRMED
+                =================================================== -->
+
+                <div
+                    style="
+                        margin-top:16px;
+                        padding-top:16px;
+                        border-top:1px solid rgba(0,0,0,.06);
+                        color:#16803c;
+                        font-size:14px;
+                        font-weight:600;
+                    "
+                >
+
+                    ✓ Payment confirmed — included in revenue
+
+                </div>
+
+
+                {% elif order.status == "Cancelled" %}
+
+                <!-- ==================================================
+                     CANCELLED ORDER
+                =================================================== -->
+
+                <div
+                    style="
+                        margin-top:16px;
+                        padding-top:16px;
+                        border-top:1px solid rgba(0,0,0,.06);
+                        color:#b42318;
+                        font-size:14px;
+                        font-weight:600;
+                    "
+                >
+
+                    Order cancelled — payment cannot be started.
+
+                </div>
+
+                {% endif %}
+
+
             </article>
 
             {% endfor %}
 
         </div>
 
+
         {% else %}
+
+        <!-- ==========================================================
+             EMPTY STATE
+        =========================================================== -->
 
         <div class="empty-orders">
 
@@ -647,7 +777,9 @@ Orders • {{ business.name }}
         {% endif %}
 
 
-        <!-- BACK -->
+        <!-- ==========================================================
+             BACK
+        =========================================================== -->
 
         <div class="mt-4">
 
@@ -660,9 +792,9 @@ Orders • {{ business.name }}
 
         </div>
 
-
     </div>
 
 </div>
 
 {% endblock %}
+```

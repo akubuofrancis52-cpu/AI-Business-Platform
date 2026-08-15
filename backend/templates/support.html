@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Contact Support • Botify{% endblock %}
+{% block content %}
+<section class="support-page">
+  <div class="support-hero-title">
+    <span class="eyebrow-pill centered"><span class="eyebrow-dot peach"></span>Botify Support</span>
+    <h1>Contact us</h1>
+    <p>Tell us what you need and we’ll help you get your workspace moving.</p>
+  </div>
+
+  <div class="support-card glass-deep shadow-float">
+    <div class="support-art" aria-hidden="true">
+      <div class="support-orb orb-one"></div><div class="support-orb orb-two"></div><div class="support-orb orb-three"></div>
+      <div class="paper-plane"><span></span></div>
+      <div class="flight-line line-one"></div><div class="flight-line line-two"></div>
+      <div class="support-art-copy"><span>Need a hand?</span><strong>Let’s get it sorted.</strong><small>Usually responds within one business day.</small></div>
+    </div>
+    <div class="support-form-pane">
+      <div class="support-form-head"><span class="eyebrow-pill"><span class="eyebrow-dot sky"></span>Send a message</span><h2>How can we help?</h2><p>Include the details and we’ll have the right context to help.</p></div>
+      <form method="POST" action="/support" class="premium-form support-form">
+        <div class="form-grid-2">
+          <div class="field-group field-floating"><input id="support_name" name="name" type="text" placeholder=" " value="{{ request.form.get('name','') }}" required><label for="support_name">Name</label></div>
+          <div class="field-group field-floating"><input id="support_email" name="email" type="email" placeholder=" " value="{{ request.form.get('email','') }}" required><label for="support_email">Email address</label></div>
+        </div>
+        <div class="field-group field-floating"><input id="support_subject" name="subject" type="text" placeholder=" " value="{{ request.form.get('subject','') }}" required><label for="support_subject">Subject</label></div>
+        <div class="field-group field-floating"><textarea id="support_message" name="message" placeholder=" " rows="6" required>{{ request.form.get('message','') }}</textarea><label for="support_message">Message</label></div>
+        <button type="submit" class="btn-dark btn-wide support-submit magnetic-target"><span>Send message</span><b>→</b></button>
+      </form>
+      {% if session.get("user_id") %}
+      <div class="support-ticket-link"><a href="{{ url_for('my_support_tickets') }}">View my support tickets →</a></div>
+      {% endif %}
+      <div class="support-socials" aria-label="Support links">
+        <a href="#" aria-label="Community">f</a><a href="#" aria-label="Updates">𝕏</a><a href="#" aria-label="Instagram">◎</a>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}

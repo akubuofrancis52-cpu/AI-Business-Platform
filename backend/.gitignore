@@ -1,0 +1,37 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Virtual environment
+.venv/
+venv/
+env/
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# SQLite / local database
+instance/*.db
+*.sqlite
+*.sqlite3
+
+# Logs
+*.log
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+
+# Backups / temporary files
+*.backup
+*.bak
+*.working
+*.before_paydunya_return_fix
+
+# Python test/cache
+.pytest_cache/
+.coverage

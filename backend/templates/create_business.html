@@ -1,41 +1,17 @@
 {% extends "base.html" %}
-
-{% block title %}
-Create Business
-{% endblock %}
-
+{% block title %}Create Business • Botify{% endblock %}
 {% block content %}
-
-<h1>Create Your Business</h1>
-
-<form method="POST">
-
-    <label>Business Name</label><br>
-    <input type="text" name="name" required><br><br>
-
-    <label>Business Type</label><br>
-    <select name="business_type">
-        <option>Restaurant</option>
-        <option>Salon</option>
-        <option>Hotel</option>
-        <option>Pharmacy</option>
-        <option>Store</option>
-    </select>
-
-    <br><br>
-
-    <label>Address</label><br>
-    <input type="text" name="address">
-
-    <br><br>
-
-    <label>Phone</label><br>
-    <input type="text" name="phone">
-
-    <br><br>
-
-    <button type="submit">Create Business</button>
-
-</form>
-
+<div class="page-shell narrow-shell">
+    <section class="form-hero glass-deep shadow-float mesh-band creation-hero">
+        <span class="eyebrow-pill"><span class="eyebrow-dot peach"></span>New workspace</span>
+        <h1>Create your business.</h1>
+        <p>Give your AI assistant the business context it needs to start helping customers.</p>
+        <form method="POST" class="premium-form form-panel creation-form">
+            <div class="field-group"><label for="name">Business name</label><input id="name" type="text" name="name" placeholder="e.g. Kamsi Kitchen" required></div>
+            <div class="field-group"><label for="business_type">Business type</label><select id="business_type" name="business_type"><option>Restaurant</option><option>Salon</option><option>Hotel</option><option>Pharmacy</option><option>Store</option></select></div>
+            <div class="form-grid-2"><div class="field-group"><label for="address">Address</label><input id="address" type="text" name="address" placeholder="Business address"></div><div class="field-group"><label for="phone">Phone</label><input id="phone" type="text" name="phone" placeholder="+229 …"></div></div>
+            <div class="form-actions"><button type="submit" class="btn-dark">Create business <span>↗</span></button><a href="/dashboard" class="btn-glass">Cancel</a></div>
+        </form>
+    </section>
+</div>
 {% endblock %}

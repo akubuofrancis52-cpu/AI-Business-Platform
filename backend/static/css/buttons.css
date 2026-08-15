@@ -1,780 +1,92 @@
-/* ========================================
-   BOTIFY PREMIUM BUTTON SYSTEM
-======================================== */
-
-
-
 .btn {
-
-
-position:relative;
-
-
-overflow:hidden;
-
-
-
-display:inline-flex;
-
-
-align-items:center;
-
-
-justify-content:center;
-
-
-gap:10px;
-
-
-
-padding:
-
-13px 28px;
-
-
-
-border:none;
-
-
-
-border-radius:
-
-999px;
-
-
-
-font-weight:
-
-600;
-
-
-
-font-size:
-
-15px;
-
-
-
-letter-spacing:
-
--.2px;
-
-
-
-text-decoration:none;
-
-
-
-cursor:pointer;
-
-
-
-transition:
-
-all .35s cubic-bezier(.2,.8,.2,1);
-
-
-
--webkit-tap-highlight-color:transparent;
-
-
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 42px;
+    padding: 10px 17px;
+    border: 1px solid transparent;
+    border-radius: var(--pill);
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: var(--transition);
+    text-decoration: none;
 }
-
-
-
-
-
-
 
 .btn:hover {
-
-
-transform:
-
-translateY(-4px)
-scale(1.02);
-
-
+    transform: translateY(-2px);
 }
-
-
-
-
-
 
 .btn:active {
-
-
-transform:
-
-scale(.97);
-
-
+    transform: translateY(0) scale(.98);
 }
-
-
-
-
-
-
-
-
-/* ========================================
-   AI PRIMARY BUTTON
-======================================== */
-
-
-.btn-primary {
-
-
-color:white;
-
-
-
-background:
-
-
-linear-gradient(
-
-135deg,
-
-#007AFF,
-
-#5856D6
-
-);
-
-
-
-box-shadow:
-
-
-0 15px 40px
-
-rgba(0,122,255,.35);
-
-
-
-}
-
-
-
-
-
-.btn-primary:hover {
-
-
-color:white;
-
-
-
-box-shadow:
-
-
-0 25px 60px
-
-rgba(0,122,255,.45);
-
-
-}
-
-
-
-
-
-
-
-
-/* ========================================
-   SUCCESS
-======================================== */
-
-
-.btn-success {
-
-
-color:white;
-
-
-
-background:
-
-
-linear-gradient(
-
-135deg,
-
-#10b981,
-
-#22c55e
-
-);
-
-
-
-box-shadow:
-
-
-0 15px 35px
-
-rgba(16,185,129,.30);
-
-
-}
-
-
-
-
-
-/* ========================================
-   DANGER
-======================================== */
-
-
-.btn-danger {
-
-
-color:white;
-
-
-
-background:
-
-
-linear-gradient(
-
-135deg,
-
-#ff3b30,
-
-#ff6b6b
-
-);
-
-
-
-box-shadow:
-
-
-0 15px 35px
-
-rgba(255,59,48,.25);
-
-
-}
-
-
-
-
-
-
-
-
-/* ========================================
-   WARNING
-======================================== */
-
-
-.btn-warning {
-
-
-color:#111;
-
-
-
-background:
-
-
-linear-gradient(
-
-135deg,
-
-#ffd60a,
-
-#ff9f0a
-
-);
-
-
-}
-
-
-
-
-
-
-
-
-/* ========================================
-   AI DARK BUTTON
-======================================== */
-
-
-.btn-dark {
-
-
-color:white;
-
-
-
-background:
-
-
-linear-gradient(
-
-135deg,
-
-#111827,
-
-#020617
-
-);
-
-
-
-box-shadow:
-
-
-0 20px 45px
-
-rgba(0,0,0,.25);
-
-
-}
-
-
-
-
-.btn-dark:hover {
-
-
-color:white;
-
-
-}
-
-
-
-
-
-
-
-
-/* ========================================
-   GLASS BUTTON
-======================================== */
-
-
-.btn-secondary {
-
-
-color:#111827;
-
-
-
-background:
-
-
-rgba(255,255,255,.55);
-
-
-
-backdrop-filter:
-
-
-blur(20px);
-
-
-
--webkit-backdrop-filter:
-
-
-blur(20px);
-
-
-
-border:
-
-
-1px solid
-
-rgba(255,255,255,.7);
-
-
-
-box-shadow:
-
-
-0 15px 35px
-
-rgba(0,0,0,.08);
-
-
-
-}
-
-
-
-
-
-
-.btn-secondary:hover {
-
-
-background:
-
-rgba(255,255,255,.85);
-
-
-}
-
-
-
-
-
-
-
-
-
-/* ========================================
-   OUTLINE
-======================================== */
-
-
-.btn-outline-primary {
-
-
-color:#007AFF;
-
-
-
-background:
-
-transparent;
-
-
-
-border:
-
-2px solid #007AFF;
-
-
-}
-
-
-
-
-
-.btn-outline-primary:hover {
-
-
-background:#007AFF;
-
-
-color:white;
-
-
-}
-
-
-
-
-
-
-
-
-
-
-/* ========================================
-   LIGHT BUTTON
-======================================== */
-
-
-.btn-light {
-
-
-background:
-
-
-rgba(255,255,255,.7);
-
-
-
-backdrop-filter:
-
-blur(15px);
-
-
-
-border:
-
-1px solid rgba(255,255,255,.8);
-
-
-
-color:#111827;
-
-
-
-box-shadow:
-
-
-0 12px 30px
-
-rgba(0,0,0,.08);
-
-
-}
-
-
-
-
-
-
-
-/* ========================================
-   BUTTON SHINE
-======================================== */
-
-
-.btn::before {
-
-
-content:"";
-
-
-position:absolute;
-
-
-
-inset:0;
-
-
-
-background:
-
-
-linear-gradient(
-
-120deg,
-
-transparent,
-
-rgba(255,255,255,.45),
-
-transparent
-
-);
-
-
-
-transform:
-
-translateX(-120%);
-
-
-
-transition:.6s;
-
-
-}
-
-
-
-
-
-.btn:hover::before {
-
-
-transform:
-
-translateX(120%);
-
-
-}
-
-
-
-
-
-
-
-
-
-
-/* ========================================
-   SIZES
-======================================== */
-
-
-.btn-sm {
-
-
-padding:
-
-9px 18px;
-
-
-
-font-size:
-
-13px;
-
-
-}
-
-
-
-.btn-lg {
-
-
-padding:
-
-17px 38px;
-
-
-
-font-size:
-
-17px;
-
-
-}
-
-
-
-
-
-
-
-
-/* ========================================
-   FLOATING ACTION BUTTON
-======================================== */
-
-
-.fab {
-
-
-width:
-
-65px;
-
-
-height:
-
-65px;
-
-
-
-border-radius:
-
-50%;
-
-
-
-position:fixed;
-
-
-
-bottom:
-
-30px;
-
-
-
-right:
-
-30px;
-
-
-
-z-index:1000;
-
-
-
-display:flex;
-
-
-
-align-items:center;
-
-
-
-justify-content:center;
-
-
-
-font-size:
-
-22px;
-
-
-
-color:white;
-
-
-
-background:
-
-
-linear-gradient(
-
-135deg,
-
-#007AFF,
-
-#5856D6
-
-);
-
-
-
-box-shadow:
-
-
-0 25px 60px
-
-rgba(0,122,255,.4);
-
-
-
-}
-
-
-
-.fab:hover {
-
-
-transform:
-
-translateY(-8px)
-scale(1.08);
-
-
-}
-
-
-
-
-
-
-
-/* ========================================
-   DISABLED
-======================================== */
-
 
 .btn:disabled {
+    opacity: .55;
+    cursor: not-allowed;
+    transform: none;
+}
 
+.btn-primary,
+.btn-dark,
+.btn.btn-dark {
+    background: var(--ink);
+    color: #fff;
+    border-color: var(--ink);
+    box-shadow: 0 10px 26px -10px rgba(21,22,27,.5);
+}
 
-opacity:.5;
+.btn-primary:hover,
+.btn-dark:hover {
+    background: var(--primary-hover);
+    color: #fff;
+}
 
+.btn-light {
+    background: rgba(255,255,255,.58);
+    color: var(--ink);
+    border-color: rgba(255,255,255,.78);
+    box-shadow: var(--shadow-soft);
+    backdrop-filter: blur(18px);
+}
 
-cursor:not-allowed;
+.btn-light:hover {
+    background: rgba(255,255,255,.85);
+    color: var(--ink);
+}
 
+.btn-outline-primary {
+    background: rgba(255,255,255,.35);
+    color: var(--ink);
+    border-color: rgba(21,22,27,.12);
+}
 
-transform:none;
+.btn-outline-primary:hover {
+    background: rgba(255,255,255,.8);
+    color: var(--ink);
+}
 
+.btn-danger {
+    background: rgba(255,255,255,.65);
+    color: #a63f3f;
+    border-color: rgba(200,77,77,.15);
+}
 
+.btn-sm {
+    min-height: 36px;
+    padding: 8px 13px;
+    font-size: 12px;
+}
+
+.btn-lg {
+    min-height: 50px;
+    padding: 13px 22px;
+    font-size: 14px;
+}
+
+.btn-icon {
+    width: 42px;
+    height: 42px;
+    padding: 0;
 }

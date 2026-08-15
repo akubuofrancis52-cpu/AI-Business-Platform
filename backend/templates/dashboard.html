@@ -1,317 +1,89 @@
 {% extends "base.html" %}
-
-{% block title %}
-Dashboard
-{% endblock %}
-
+{% block title %}Dashboard • Botify{% endblock %}
 {% block content %}
-
-<div class="container py-5">
-
-    <!-- HERO -->
-
-    <section class="dashboard-hero fade-up">
-
-        <div class="row align-items-center">
-
-            <div class="col-lg-8">
-
-                <span class="status-badge mb-3">
-                    <span class="status-dot"></span>
-                    AI Platform Online
-                </span>
-
-                <h1 class="mt-3">
-                    Welcome Back
-                </h1>
-
-                <p class="mt-3">
-                    Manage restaurants, monitor customers, automate conversations,
-                    and process AI-powered orders from one beautiful dashboard.
-                </p>
-
-                <div class="mt-4">
-
-                    <a href="/create-business" class="btn btn-light btn-lg">
-                        + Create Business
-                    </a>
-
-                </div>
-
+<div class="page-shell">
+    <section class="dashboard-hero premium-hero hero-animated">
+        <div class="hero-copy">
+            <span class="eyebrow-pill"><span class="eyebrow-dot mint"></span>AI Platform Online</span>
+            <h1>Run your businesses from one intelligent workspace.</h1>
+            <p>Manage restaurants, monitor customers, automate conversations and process AI-powered orders from a clean command center.</p>
+            <div class="hero-actions">
+                <a href="/create-business" class="btn-dark">Create business <span>↗</span></a>
+                <a href="#businesses" class="btn-glass">View businesses <span class="btn-dot"></span></a>
             </div>
-
-            <div class="col-lg-4 text-center">
-
-                <div class="float">
-
-                    <div class="business-icon mx-auto"
-                    style="width:120px;height:120px;font-size:3rem;">
-                        🤖
-                    </div>
-
-                </div>
-
-            </div>
-
         </div>
-
+        <div class="hero-orb-card glass-deep shadow-float">
+            <div class="hero-orb-mark">AI</div>
+            <div class="hero-orb-lines"><span></span><span></span><span></span></div>
+            <div class="hero-orb-status"><i></i> Automations ready</div>
+        </div>
     </section>
 
-    <!-- STATS -->
+    <section class="stats-grid premium-stats">
+        <article class="metric-card glass shadow-soft">
+            <span class="metric-label">Businesses</span>
+            <strong>{{ businesses|length }}</strong>
+            <small>Connected workspaces</small>
+        </article>
+        <article class="metric-card glass shadow-soft tint-peach">
+            <span class="metric-label">AI assistant</span>
+            <strong>Ready</strong>
+            <small>Customer conversations</small>
+        </article>
+        <article class="metric-card glass shadow-soft tint-mint">
+            <span class="metric-label">Automation</span>
+            <strong>24/7</strong>
+            <small>Always-on workflows</small>
+        </article>
+    </section>
 
-    <div class="stats-grid">
-
-        <div class="business-card">
-
-            <div class="kpi">
-
-                {{ businesses|length }}
-
+    <section id="businesses" class="section-block">
+        <div class="section-heading">
+            <div>
+                <span class="eyebrow-pill"><span class="eyebrow-dot peach"></span>Your workspace</span>
+                <h2>My businesses</h2>
+                <p>Open a workspace to manage its menu, customers, orders and AI assistant.</p>
             </div>
-
-            <div class="kpi-label">
-
-                Businesses
-
-            </div>
-
+            <a href="/create-business" class="btn-dark">+ New business</a>
         </div>
 
-        <div class="business-card">
-
-            <div class="kpi">
-
-                AI
-
-            </div>
-
-            <div class="kpi-label">
-
-                Assistant Ready
-
-            </div>
-
-        </div>
-
-        <div class="business-card">
-
-            <div class="kpi">
-
-                24/7
-
-            </div>
-
-            <div class="kpi-label">
-
-                Automation
-
-            </div>
-
-        </div>
-
-    </div>
-
-    <!-- MY BUSINESSES -->
-
-    <div class="d-flex justify-content-between align-items-center mb-4">
-
-        <h2 class="fw-bold">
-
-            My Businesses
-
-        </h2>
-
-        <a href="/create-business"
-           class="btn btn-primary">
-
-            New Business
-
-        </a>
-
-    </div>
-
-    {% if businesses %}
-
-    <div class="row">
-
-        {% for business in businesses %}
-
-        <div class="col-lg-4 mb-4">
-
-            <div class="business-card h-100">
-
-                <div class="business-icon">
-
-                    🏪
-
+        {% if businesses %}
+        <div class="business-grid">
+            {% for business in businesses %}
+            <article class="business-card glass shadow-soft flip-card">
+                <div class="card-topline"><span class="status-badge"><i></i>Online</span><span class="card-index">0{{ loop.index }}</span></div>
+                <div class="business-icon">B</div>
+                <h3>{{ business.name }}</h3>
+                <p class="muted">{{ business.business_type }}</p>
+                <p class="business-address">{{ business.address or "Address not set" }}</p>
+                <div class="card-footer-line">
+                    <a href="/business/{{ business.id }}" class="btn-dark btn-small">Open dashboard <span>↗</span></a>
                 </div>
-
-                <h3 class="fw-bold">
-
-                    {{ business.name }}
-
-                </h3>
-
-                <p class="text-muted">
-
-                    {{ business.business_type }}
-
-                </p>
-
-                <p>
-
-                    {{ business.address }}
-
-                </p>
-
-                <div class="divider"></div>
-
-                <div class="d-grid">
-
-                    <a href="/business/{{ business.id }}"
-                       class="btn btn-primary">
-
-                        Open Dashboard →
-
-                    </a>
-
-                </div>
-
-            </div>
-
+            </article>
+            {% endfor %}
         </div>
-
-        {% endfor %}
-
-    </div>
-
-    {% else %}
-
-    <div class="business-card text-center py-5">
-
-        <div style="font-size:5rem;" class="float">
-
-            🚀
-
+        {% else %}
+        <div class="empty-panel glass shadow-soft">
+            <div class="empty-icon">+</div>
+            <h3>Your first business starts here.</h3>
+            <p>Create a workspace, add your menu and let the AI assistant handle customer conversations.</p>
+            <a href="/create-business" class="btn-dark">Create business</a>
         </div>
+        {% endif %}
+    </section>
 
-        <h2 class="mt-4">
-
-            No Businesses Yet
-
-        </h2>
-
-        <p class="text-muted">
-
-            Create your first business and start using AI automation.
-
-        </p>
-
-        <a href="/create-business"
-           class="btn btn-primary btn-lg mt-3">
-
-            Create Business
-
-        </a>
-
-    </div>
-
-    {% endif %}
-
-    <!-- QUICK ACTIONS -->
-
-    <div class="divider"></div>
-
-    <h2 class="fw-bold mb-4">
-
-        Quick Actions
-
-    </h2>
-
-    <div class="quick-actions">
-
-        <div class="action-card">
-
-            <div style="font-size:2rem;">
-                ➕
-            </div>
-
-            <h5 class="mt-3">
-
-                New Business
-
-            </h5>
-
-            <p class="text-muted">
-
-                Create another company.
-
-            </p>
-
+    <section class="section-block">
+        <div class="section-heading compact">
+            <div><span class="eyebrow-pill"><span class="eyebrow-dot sky"></span>Shortcuts</span><h2>Quick actions</h2></div>
         </div>
-
-        <div class="action-card">
-
-            <div style="font-size:2rem;">
-                🤖
-            </div>
-
-            <h5 class="mt-3">
-
-                AI Assistant
-
-            </h5>
-
-            <p class="text-muted">
-
-                Test your restaurant AI.
-
-            </p>
-
+        <div class="quick-actions premium-actions">
+            <a href="/create-business" class="action-card glass shadow-soft"><span class="action-icon peach">+</span><strong>New business</strong><small>Create another workspace</small></a>
+            {% if businesses %}
+            <a href="/business/{{ businesses[0].id }}/ai" class="action-card glass shadow-soft"><span class="action-icon sky">AI</span><strong>AI assistant</strong><small>Test customer conversations</small></a>
+            <a href="/business/{{ businesses[0].id }}/orders" class="action-card glass shadow-soft"><span class="action-icon mint">↗</span><strong>Orders</strong><small>Review order activity</small></a>
+            <a href="/business/{{ businesses[0].id }}/customers" class="action-card glass shadow-soft"><span class="action-icon peach">◎</span><strong>Customers</strong><small>Manage your CRM</small></a>
+            {% endif %}
         </div>
-
-        <div class="action-card">
-
-            <div style="font-size:2rem;">
-                📈
-            </div>
-
-            <h5 class="mt-3">
-
-                Analytics
-
-            </h5>
-
-            <p class="text-muted">
-
-                Business insights.
-
-            </p>
-
-        </div>
-
-        <div class="action-card">
-
-            <div style="font-size:2rem;">
-                💬
-            </div>
-
-            <h5 class="mt-3">
-
-                Customers
-
-            </h5>
-
-            <p class="text-muted">
-
-                Manage conversations.
-
-            </p>
-
-        </div>
-
-    </div>
-
+    </section>
 </div>
-
 {% endblock %}

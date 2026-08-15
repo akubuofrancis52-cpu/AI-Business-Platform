@@ -6,525 +6,10 @@
 
 {% block content %}
 
-<style>
-
-.business-dashboard {
-    max-width: 1250px;
-    margin: 0 auto;
-    padding: 32px 0 70px;
-}
-
-.dashboard-top {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    gap: 20px;
-    margin-bottom: 28px;
-}
-
-.dashboard-title {
-    margin: 10px 0 0;
-    font-size: 34px;
-    font-weight: 850;
-    letter-spacing: -0.045em;
-    color: #111827;
-}
-
-.dashboard-subtitle {
-    margin-top: 7px;
-    color: #6b7280;
-    font-size: 14px;
-}
-
-.dashboard-location {
-    margin-top: 13px;
-    color: #7b8494;
-    font-size: 12px;
-}
-
-.dashboard-actions {
-    display: flex;
-    gap: 9px;
-    flex-wrap: wrap;
-}
-
-.dashboard-action {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 42px;
-    padding: 0 14px;
-    border-radius: 12px;
-    font-size: 12px;
-    font-weight: 750;
-    text-decoration: none;
-    border: 1px solid #e5e7eb;
-    background: rgba(255,255,255,.92);
-    color: #374151;
-    transition: transform .15s ease, box-shadow .15s ease;
-}
-
-.dashboard-action:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 8px 18px rgba(15,23,42,.06);
-}
-
-.dashboard-action-primary {
-    color: white;
-    border: 0;
-    background: linear-gradient(
-        135deg,
-        #1677ff,
-        #5b5cf0
-    );
-    box-shadow: 0 10px 25px rgba(37,99,235,.18);
-}
-
-/* KPI */
-
-.analytics-grid {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 12px;
-    margin-bottom: 18px;
-}
-
-.analytics-card {
-    padding: 20px;
-    border-radius: 20px;
-    background: rgba(255,255,255,.90);
-    border: 1px solid rgba(15,23,42,.06);
-    box-shadow: 0 15px 35px rgba(15,23,42,.055);
-}
-
-/* Blur removed for low-end performance */
-
-.analytics-label {
-    color: #7b8494;
-    font-size: 11px;
-    font-weight: 750;
-}
-
-.analytics-value {
-    margin-top: 6px;
-    color: #111827;
-    font-size: 28px;
-    font-weight: 850;
-    letter-spacing: -0.04em;
-}
-
-.analytics-meta {
-    margin-top: 4px;
-    color: #98a2b3;
-    font-size: 10px;
-}
-
-/* MAIN GRID */
-
-.dashboard-grid {
-    display: grid;
-    grid-template-columns: 1.35fr .65fr;
-    gap: 16px;
-    margin-bottom: 18px;
-}
-
-.dashboard-card {
-    padding: 20px;
-    border-radius: 22px;
-    background: rgba(255,255,255,.94);
-    border: 1px solid rgba(15,23,42,.06);
-    box-shadow: 0 15px 35px rgba(15,23,42,.05);
-}
-
-.card-heading {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 12px;
-    margin-bottom: 16px;
-}
-
-.card-heading h2 {
-    margin: 0;
-    color: #111827;
-    font-size: 16px;
-    font-weight: 800;
-}
-
-.card-heading span {
-    color: #98a2b3;
-    font-size: 10px;
-}
-
-/* CHART */
-
-.chart-wrap {
-    height: 270px;
-}
-
-.revenue-chart {
-    width: 100%;
-    height: 100%;
-}
-
-.chart-grid-line {
-    stroke: #e5e7eb;
-    stroke-width: 1;
-}
-
-.chart-line {
-    fill: none;
-    stroke: #3b82f6;
-    stroke-width: 3;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-}
-
-.chart-area {
-    fill: url(#revenueFill);
-}
-
-.chart-point {
-    fill: white;
-    stroke: #3b82f6;
-    stroke-width: 3;
-}
-
-.chart-label {
-    fill: #98a2b3;
-    font-size: 10px;
-}
-
-/* STATUS */
-
-.status-list {
-    display: grid;
-    gap: 13px;
-}
-
-.status-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 15px;
-}
-
-.status-left {
-    display: flex;
-    align-items: center;
-    gap: 9px;
-}
-
-.status-color {
-    width: 9px;
-    height: 9px;
-    border-radius: 50%;
-}
-
-.status-label {
-    color: #344054;
-    font-size: 12px;
-    font-weight: 700;
-}
-
-.status-number {
-    color: #111827;
-    font-size: 12px;
-    font-weight: 850;
-}
-
-.status-pending {
-    background: #f97316;
-}
-
-.status-preparing {
-    background: #3b82f6;
-}
-
-.status-ready {
-    background: #22c55e;
-}
-
-.status-completed {
-    background: #64748b;
-}
-
-.status-cancelled {
-    background: #ef4444;
-}
-
-/* LOWER GRID */
-
-.dashboard-lower {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 16px;
-}
-
-/* TOP PRODUCTS */
-
-.product-list {
-    display: grid;
-}
-
-.product-row {
-    display: flex;
-    justify-content: space-between;
-    gap: 12px;
-    padding: 13px 0;
-    border-bottom: 1px solid #f1f5f9;
-}
-
-.product-row:last-child {
-    border-bottom: 0;
-}
-
-.product-name {
-    color: #1f2937;
-    font-size: 12px;
-    font-weight: 750;
-}
-
-.product-quantity {
-    margin-top: 2px;
-    color: #98a2b3;
-    font-size: 10px;
-}
-
-.product-revenue {
-    color: #111827;
-    font-size: 12px;
-    font-weight: 800;
-}
-
-/* RECENT ORDERS */
-
-.recent-order {
-    display: flex;
-    justify-content: space-between;
-    gap: 12px;
-    padding: 13px 0;
-    border-bottom: 1px solid #f1f5f9;
-}
-
-.recent-order:last-child {
-    border-bottom: 0;
-}
-
-.order-info strong {
-    display: block;
-    color: #1f2937;
-    font-size: 12px;
-}
-
-.order-info span {
-    display: block;
-    margin-top: 3px;
-    color: #98a2b3;
-    font-size: 10px;
-}
-
-.order-side {
-    text-align: right;
-}
-
-.order-side strong {
-    display: block;
-    color: #111827;
-    font-size: 12px;
-}
-
-.order-side span {
-    display: block;
-    margin-top: 3px;
-    color: #6b7280;
-    font-size: 10px;
-}
-
-/* QUICK ACTIONS */
-
-.quick-title {
-    margin: 24px 0 13px;
-    color: #111827;
-    font-size: 16px;
-    font-weight: 800;
-}
-
-.quick-actions {
-    display: grid;
-    grid-template-columns: repeat(6, 1fr);
-    gap: 10px;
-}
-
-.quick-card {
-    padding: 16px;
-    border-radius: 17px;
-    background: rgba(255,255,255,.90);
-    border: 1px solid rgba(15,23,42,.06);
-    color: #1f2937;
-    text-decoration: none;
-    transition: transform .15s ease, box-shadow .15s ease;
-}
-
-.quick-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 12px 25px rgba(15,23,42,.07);
-}
-
-.quick-card-icon {
-    font-size: 21px;
-}
-
-.quick-card-title {
-    margin-top: 9px;
-    font-size: 12px;
-    font-weight: 800;
-}
-
-.quick-card-text {
-    margin-top: 3px;
-    color: #98a2b3;
-    font-size: 9px;
-}
-
-/* EMPTY */
-
-.empty-state {
-    padding: 30px 10px;
-    text-align: center;
-    color: #98a2b3;
-    font-size: 12px;
-}
-
-/* MENU */
-
-.menu-section {
-    margin-top: 25px;
-}
-
-.menu-table {
-    width: 100%;
-    border-collapse: collapse;
-}
-
-.menu-table th {
-    padding: 12px;
-    text-align: left;
-    color: #98a2b3;
-    font-size: 10px;
-    font-weight: 800;
-    border-bottom: 1px solid #e5e7eb;
-}
-
-.menu-table td {
-    padding: 13px 12px;
-    color: #374151;
-    font-size: 12px;
-    border-bottom: 1px solid #f1f5f9;
-}
-
-.menu-name {
-    color: #111827;
-    font-weight: 750;
-}
-
-.menu-description {
-    margin-top: 3px;
-    color: #98a2b3;
-    font-size: 10px;
-}
-
-.menu-status {
-    display: inline-flex;
-    padding: 6px 9px;
-    border-radius: 999px;
-    font-size: 9px;
-    font-weight: 800;
-}
-
-.menu-available {
-    background: #ecfdf3;
-    color: #15803d;
-}
-
-.menu-unavailable {
-    background: #fef2f2;
-    color: #b91c1c;
-}
-
-/* RESPONSIVE */
-
-@media (max-width: 1100px) {
-
-    .quick-actions {
-        grid-template-columns: repeat(3, 1fr);
-    }
-
-}
-
-@media (max-width: 1000px) {
-
-    .analytics-grid {
-        grid-template-columns: repeat(2, 1fr);
-    }
-
-    .dashboard-grid {
-        grid-template-columns: 1fr;
-    }
-
-    .quick-actions {
-        grid-template-columns: repeat(3, 1fr);
-    }
-
-}
-
-@media (max-width: 700px) {
-
-    .business-dashboard {
-        padding: 20px 10px 50px;
-    }
-
-    .dashboard-top {
-        flex-direction: column;
-    }
-
-    .dashboard-title {
-        font-size: 28px;
-    }
-
-    .dashboard-actions {
-        width: 100%;
-    }
-
-    .dashboard-action {
-        flex: 1;
-    }
-
-    .analytics-grid {
-        grid-template-columns: 1fr 1fr;
-    }
-
-    .dashboard-lower {
-        grid-template-columns: 1fr;
-    }
-
-    .quick-actions {
-        grid-template-columns: 1fr 1fr;
-    }
-
-    .menu-table {
-        min-width: 700px;
-    }
-
-}
-
-</style>
-
 
 <div class="container-fluid">
 
-    <div class="business-dashboard">
-
+    <div class="business-dashboard motion-page">
 
         <!-- HEADER -->
 
@@ -553,7 +38,6 @@
 
             </div>
 
-
             <div class="dashboard-actions">
 
                 <a
@@ -581,12 +65,11 @@
 
         </div>
 
-
         <!-- KPI CARDS -->
 
         <div class="analytics-grid">
 
-            <div class="analytics-card">
+            <div class="analytics-card float-card">
 
                 <div class="analytics-label">
                     Revenue
@@ -602,8 +85,7 @@
 
             </div>
 
-
-            <div class="analytics-card">
+            <div class="analytics-card float-card">
 
                 <div class="analytics-label">
                     Total Orders
@@ -619,8 +101,7 @@
 
             </div>
 
-
-            <div class="analytics-card">
+            <div class="analytics-card float-card">
 
                 <div class="analytics-label">
                     Customers
@@ -636,8 +117,7 @@
 
             </div>
 
-
-            <div class="analytics-card">
+            <div class="analytics-card float-card">
 
                 <div class="analytics-label">
                     Average Order
@@ -655,15 +135,13 @@
 
         </div>
 
-
         <!-- REVENUE + STATUS -->
 
         <div class="dashboard-grid">
 
-
             <!-- REVENUE CHART -->
 
-            <div class="dashboard-card">
+            <div class="dashboard-card flip-card">
 
                 <div class="card-heading">
 
@@ -676,7 +154,6 @@
                     </span>
 
                 </div>
-
 
                 <div class="chart-wrap">
 
@@ -712,7 +189,6 @@
 
                         </defs>
 
-
                         <line
                             class="chart-grid-line"
                             x1="0"
@@ -737,13 +213,11 @@
                             y2="180"
                         />
 
-
                         {% set max_revenue = revenue_chart | map(attribute='revenue') | max %}
 
                         {% if max_revenue == 0 %}
                             {% set max_revenue = 1 %}
                         {% endif %}
-
 
                         {% set points = namespace(value="") %}
 
@@ -765,18 +239,15 @@
 
                         {% endfor %}
 
-
                         <polyline
                             class="chart-area"
                             points="{{ points.value }} 690,220 30,220"
                         />
 
-
                         <polyline
                             class="chart-line"
                             points="{{ points.value }}"
                         />
-
 
                         {% for day in revenue_chart %}
 
@@ -808,10 +279,9 @@
 
             </div>
 
-
             <!-- ORDER STATUS -->
 
-            <div class="dashboard-card">
+            <div class="dashboard-card flip-card">
 
                 <div class="card-heading">
 
@@ -824,7 +294,6 @@
                     </span>
 
                 </div>
-
 
                 <div class="status-list">
 
@@ -846,7 +315,6 @@
 
                     </div>
 
-
                     <div class="status-row">
 
                         <div class="status-left">
@@ -864,7 +332,6 @@
                         </span>
 
                     </div>
-
 
                     <div class="status-row">
 
@@ -884,7 +351,6 @@
 
                     </div>
 
-
                     <div class="status-row">
 
                         <div class="status-left">
@@ -902,7 +368,6 @@
                         </span>
 
                     </div>
-
 
                     <div class="status-row">
 
@@ -928,15 +393,13 @@
 
         </div>
 
-
         <!-- LOWER CARDS -->
 
         <div class="dashboard-lower">
 
-
             <!-- TOP ITEMS -->
 
-            <div class="dashboard-card">
+            <div class="dashboard-card flip-card">
 
                 <div class="card-heading">
 
@@ -949,7 +412,6 @@
                     </span>
 
                 </div>
-
 
                 {% if top_items %}
 
@@ -970,7 +432,6 @@
                             </div>
 
                         </div>
-
 
                         <div class="product-revenue">
 
@@ -995,10 +456,9 @@
 
             </div>
 
-
             <!-- RECENT ORDERS -->
 
-            <div class="dashboard-card">
+            <div class="dashboard-card flip-card">
 
                 <div class="card-heading">
 
@@ -1014,7 +474,6 @@
                     </a>
 
                 </div>
-
 
                 {% if recent_orders %}
 
@@ -1033,7 +492,6 @@
                         </span>
 
                     </div>
-
 
                     <div class="order-side">
 
@@ -1064,7 +522,6 @@
 
         </div>
 
-
         <!-- QUICK ACTIONS -->
 
         <div class="quick-title">
@@ -1090,7 +547,6 @@
                 </div>
             </a>
 
-
             <a
                 href="/business/{{ business.id }}/orders"
                 class="quick-card"
@@ -1107,7 +563,6 @@
                     Manage orders
                 </div>
             </a>
-
 
             <a
                 href="/business/{{ business.id }}/customers"
@@ -1126,7 +581,6 @@
                 </div>
             </a>
 
-
             <a
                 href="/business/{{ business.id }}/settings"
                 class="quick-card"
@@ -1144,7 +598,6 @@
                 </div>
             </a>
 
-
             <a
                 href="/business/{{ business.id }}/ai"
                 class="quick-card"
@@ -1161,7 +614,6 @@
                     Test AI
                 </div>
             </a>
-
 
             <a
                 href="/business/{{ business.id }}/ai-order"
@@ -1182,7 +634,6 @@
 
         </div>
 
-
         <!-- MENU -->
 
         <div class="dashboard-card menu-section">
@@ -1201,7 +652,6 @@
                 </a>
 
             </div>
-
 
             {% if menu_items %}
 
@@ -1237,7 +687,6 @@
 
                     </thead>
 
-
                     <tbody>
 
                         {% for item in menu_items %}
@@ -1256,17 +705,14 @@
 
                             </td>
 
-
                             <td>
                                 {{ item.category }}
                             </td>
-
 
                             <td>
                                 {{ "{:,.0f}".format(item.price) }}
                                 FCFA
                             </td>
-
 
                             <td>
 
@@ -1285,7 +731,6 @@
                                 {% endif %}
 
                             </td>
-
 
                             <td>
 
@@ -1346,7 +791,6 @@
             {% endif %}
 
         </div>
-
 
         <div style="margin-top:22px;">
 

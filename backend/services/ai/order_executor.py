@@ -1,9 +1,11 @@
 from database.db import db
+import traceback
 
 from models.order import Order
 from models.order_item import OrderItem
 from models.menu import Menu
 from models.customer import Customer
+
 
 
 def _find_item(
@@ -439,7 +441,8 @@ def execute_order_action(
 
 def confirm_pending_order(business_id: int, customer_phone: str, draft_items: list):
     """
-    Takes validated items from a draft order and creates permanent Order & OrderItem DB records.
+    Takes validated items from a draft order and creates permanent
+    Order & OrderItem DB records.
     """
     try:
         # 1. Get or create customer record
@@ -458,7 +461,7 @@ def confirm_pending_order(business_id: int, customer_phone: str, draft_items: li
             db.session.add(customer)
             db.session.flush()
 
-        # 2. Recalculate totals directly against live database prices
+        # 2. Recalculate totals using live database prices
         final_items = []
         total_price = 0.0
 
@@ -473,6 +476,10 @@ def confirm_pending_order(business_id: int, customer_phone: str, draft_items: li
                 continue
 
             quantity = int(item.get("quantity", 1))
+
+            if quantity <= 0:
+                continue
+
             subtotal = float(menu_item.price) * quantity
 
             final_items.append({
@@ -481,15 +488,17 @@ def confirm_pending_order(business_id: int, customer_phone: str, draft_items: li
                 "price": float(menu_item.price),
                 "subtotal": subtotal
             })
+
             total_price += subtotal
 
+        # 3. Make sure at least one valid item remains
         if not final_items:
             return {
                 "success": False,
                 "message": "Items are no longer available in the menu."
             }
 
-        # 3. Create the primary Order
+        # 4. Create the primary Order
         order = Order(
             customer_name=customer.name,
             customer_phone=customer.phone,
@@ -499,10 +508,11 @@ def confirm_pending_order(business_id: int, customer_phone: str, draft_items: li
             business_id=business_id,
             customer_id=customer.id
         )
+
         db.session.add(order)
         db.session.flush()
 
-        # 4. Create associated OrderItem entries
+        # 5. Create OrderItem records
         for item in final_items:
             order_item = OrderItem(
                 name=item["name"],
@@ -511,8 +521,10 @@ def confirm_pending_order(business_id: int, customer_phone: str, draft_items: li
                 subtotal=item["subtotal"],
                 order_id=order.id
             )
+
             db.session.add(order_item)
 
+        # 6. Save everything
         db.session.commit()
 
         return {
@@ -520,12 +532,20 @@ def confirm_pending_order(business_id: int, customer_phone: str, draft_items: li
             "order_id": order.id,
             "total_price": total_price,
             "items": final_items,
-            "message": f"Order #{order.id} confirmed successfully for {total_price} FCFA."
+            "message": (
+                f"Order #{order.id} confirmed successfully "
+                f"for {total_price} FCFA."
+            )
         }
 
     except Exception as e:
         db.session.rollback()
+
+        import traceback
+        traceback.print_exc()
+
         return {
             "success": False,
             "message": f"Database error during order confirmation: {str(e)}"
         }
+            

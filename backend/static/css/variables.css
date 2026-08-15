@@ -1,211 +1,46 @@
-/* ========================================
-   AI BUSINESS DESIGN SYSTEM
-   Variables
-======================================== */
-
-:root{
-
-    --bg:#f5f7fb;
-    --bg-secondary:#eef3ff;
-
-    --surface:rgba(255,255,255,.72);
-
-    --surface-solid:#ffffff;
-
-    --border:rgba(255,255,255,.65);
-
-    --text:#0f172a;
-
-    --text-light:#64748b;
-
-    --primary:#2563eb;
-
-    --primary-dark:#1d4ed8;
-
-    --purple:#7c3aed;
-
-    --cyan:#06b6d4;
-
-    --green:#10b981;
-
-    --danger:#ef4444;
-
-    --shadow:
-
-    0 15px 35px rgba(15,23,42,.08);
-
-    --shadow-hover:
-
-    0 30px 60px rgba(15,23,42,.12);
-
-    --radius:26px;
-
-    --radius-small:16px;
-
-    --transition:.35s ease;
-
-}
-
-
-
-*{
-
-    margin:0;
-
-    padding:0;
-
-    box-sizing:border-box;
-
-}
-
-
-
-html{
-
-    scroll-behavior:smooth;
-
-}
-
-
-
-body{
-
-    font-family:
-
-    Inter,
-
-    -apple-system,
-
-    BlinkMacSystemFont,
-
-    "Segoe UI",
-
-    sans-serif;
-
-    background:var(--bg);
-
-    color:var(--text);
-
-    overflow-x:hidden;
-
-    min-height:100vh;
-
-    position:relative;
-
-}
-
-
-
-/* ===========================
-   Selection
-=========================== */
-
-::selection{
-
-    background:#2563eb;
-
-    color:white;
-
-}
-
-
-
-/* ===========================
-   Scrollbar
-=========================== */
-
-::-webkit-scrollbar{
-
-    width:12px;
-
-}
-
-
-
-::-webkit-scrollbar-track{
-
-    background:#eef2f7;
-
-}
-
-
-
-::-webkit-scrollbar-thumb{
-
-    background:#c7d2fe;
-
-    border-radius:999px;
-
-}
-
-
-
-::-webkit-scrollbar-thumb:hover{
-
-    background:#93c5fd;
-
-}
-
-
-
-/* ===========================
-   Typography
-=========================== */
-
-h1{
-
-    font-size:3.5rem;
-
-    font-weight:800;
-
-    letter-spacing:-2px;
-
-}
-
-
-
-h2{
-
-    font-size:2.5rem;
-
-    font-weight:700;
-
-}
-
-
-
-h3{
-
-    font-weight:700;
-
-}
-
-
-
-p{
-
-    color:var(--text-light);
-
-    line-height:1.8;
-
-}
-
-
-
-/* ===========================
-   Glass
-=========================== */
-
-.glass{
-
-    background:var(--surface);
-
-    backdrop-filter:blur(20px);
-
-    border:1px solid var(--border);
-
-    border-radius:var(--radius);
-
-    box-shadow:var(--shadow);
-
+:root {
+    --bg: #fbfcff;
+    --bg-secondary: #f4f7fb;
+    --surface: rgba(255,255,255,.55);
+    --surface-strong: rgba(255,255,255,.72);
+    --surface-deep: rgba(255,255,255,.42);
+    --surface-solid: #ffffff;
+    --border: rgba(255,255,255,.76);
+    --border-soft: rgba(21,22,27,.08);
+
+    --ink: #15161b;
+    --text: #15161b;
+    --slate2: #5c606e;
+    --muted: #858a98;
+
+    --peach: #ffd8c2;
+    --peach-strong: #e88a5a;
+    --sky: #cfe3ff;
+    --sky-strong: #4f8cd6;
+    --mint: #d3f5e3;
+    --mint-strong: #3fae7a;
+
+    --primary: #15161b;
+    --primary-hover: #292b33;
+    --danger: #c84d4d;
+    --success: #3fae7a;
+
+    --shadow-soft:
+        0 24px 60px -28px rgba(60,70,110,.35),
+        0 4px 16px -8px rgba(60,70,110,.12);
+
+    --shadow-float:
+        0 40px 90px -36px rgba(50,60,105,.45);
+
+    --shadow-dark:
+        0 14px 35px -12px rgba(21,22,27,.38);
+
+    --radius-sm: 14px;
+    --radius: 26px;
+    --radius-lg: 36px;
+    --radius-xl: 40px;
+    --pill: 999px;
+
+    --transition: 220ms cubic-bezier(.2,.7,.2,1);
+    --container: 1180px;
 }

@@ -4,497 +4,6 @@
 AI Order Creator • {{ business.name }}
 {% endblock %}
 
-{% block extra_css %}
-
-<style>
-
-.ai-order-page {
-    max-width: 1100px;
-    margin: 0 auto;
-    padding: 35px 0 60px;
-}
-
-.ai-order-shell {
-    overflow: hidden;
-    border-radius: 28px;
-    background: rgba(255, 255, 255, 0.84);
-    border: 1px solid rgba(255, 255, 255, 0.85);
-    box-shadow: 0 30px 80px rgba(15, 23, 42, 0.10);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-}
-
-/* ==========================
-   HEADER
-========================== */
-
-.ai-order-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 18px;
-    padding: 22px 24px;
-    border-bottom: 1px solid rgba(15, 23, 42, 0.06);
-}
-
-.ai-order-brand {
-    display: flex;
-    align-items: center;
-    gap: 13px;
-}
-
-.ai-order-avatar {
-    width: 48px;
-    height: 48px;
-    display: grid;
-    place-items: center;
-    border-radius: 15px;
-    color: #fff;
-    font-size: 13px;
-    font-weight: 800;
-    background: linear-gradient(135deg, #111827, #475467);
-    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.15);
-}
-
-.ai-order-title {
-    margin: 0;
-    color: #111827;
-    font-size: 20px;
-    font-weight: 800;
-    letter-spacing: -0.02em;
-}
-
-.ai-order-subtitle {
-    margin-top: 3px;
-    color: #7b8494;
-    font-size: 12px;
-}
-
-.ai-order-status {
-    display: inline-flex;
-    align-items: center;
-    gap: 7px;
-    padding: 8px 12px;
-    border-radius: 999px;
-    background: #ecfdf3;
-    color: #15803d;
-    font-size: 11px;
-    font-weight: 800;
-}
-
-.ai-order-status-dot {
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    background: #22c55e;
-}
-
-/* ==========================
-   BODY
-========================== */
-
-.ai-order-body {
-    padding: 22px;
-}
-
-.ai-order-grid {
-    display: grid;
-    grid-template-columns: 0.9fr 1.1fr;
-    gap: 18px;
-}
-
-.ai-order-card {
-    padding: 20px;
-    border-radius: 22px;
-    background: rgba(255, 255, 255, 0.76);
-    border: 1px solid rgba(15, 23, 42, 0.06);
-    box-shadow: 0 14px 34px rgba(15, 23, 42, 0.05);
-}
-
-.ai-order-card h3 {
-    margin: 0;
-    color: #111827;
-    font-size: 17px;
-    font-weight: 800;
-}
-
-.ai-order-description {
-    margin: 7px 0 18px;
-    color: #7b8494;
-    font-size: 13px;
-    line-height: 1.55;
-}
-
-/* ==========================
-   FORM
-========================== */
-
-.ai-order-label {
-    display: block;
-    margin-bottom: 7px;
-    color: #344054;
-    font-size: 11px;
-    font-weight: 800;
-}
-
-.ai-order-input,
-.ai-order-textarea {
-    width: 100%;
-    border: 1px solid #e5e7eb;
-    border-radius: 14px;
-    background: #fff;
-    padding: 12px 13px;
-    color: #111827;
-    outline: none;
-    font-family: inherit;
-    transition:
-        border-color 0.18s ease,
-        box-shadow 0.18s ease;
-}
-
-.ai-order-input:focus,
-.ai-order-textarea:focus {
-    border-color: #93c5fd;
-    box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.10);
-}
-
-.ai-order-textarea {
-    min-height: 145px;
-    resize: vertical;
-}
-
-.ai-order-actions {
-    display: flex;
-    gap: 10px;
-    flex-wrap: wrap;
-    margin-top: 16px;
-}
-
-.ai-order-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 45px;
-    padding: 0 15px;
-    border: 0;
-    border-radius: 13px;
-    font-size: 12px;
-    font-weight: 800;
-    cursor: pointer;
-    text-decoration: none;
-    transition:
-        transform 0.16s ease,
-        box-shadow 0.16s ease,
-        background 0.16s ease;
-}
-
-.ai-order-btn:hover {
-    transform: translateY(-1px);
-}
-
-.ai-order-btn-primary {
-    color: #fff;
-    background: linear-gradient(135deg, #1677ff, #5b5cf0);
-    box-shadow: 0 12px 25px rgba(37, 99, 235, 0.20);
-}
-
-.ai-order-btn-primary:hover {
-    box-shadow: 0 16px 30px rgba(37, 99, 235, 0.26);
-}
-
-.ai-order-btn-secondary {
-    color: #374151;
-    background: #f3f4f6;
-}
-
-.ai-order-btn-secondary:hover {
-    background: #e5e7eb;
-}
-
-.ai-order-btn-success {
-    color: #fff;
-    background: linear-gradient(135deg, #16a34a, #22c55e);
-    box-shadow: 0 12px 25px rgba(34, 197, 94, 0.18);
-}
-
-.ai-order-btn-success:hover {
-    box-shadow: 0 16px 30px rgba(34, 197, 94, 0.24);
-}
-
-/* ==========================
-   ALERTS
-========================== */
-
-.ai-order-error {
-    margin-bottom: 18px;
-    padding: 13px 15px;
-    border-radius: 14px;
-    background: #fef2f2;
-    color: #b91c1c;
-    border: 1px solid #fecaca;
-    font-size: 12px;
-}
-
-.ai-order-success {
-    margin-bottom: 18px;
-    padding: 13px 15px;
-    border-radius: 14px;
-    background: #ecfdf3;
-    color: #15803d;
-    border: 1px solid #bbf7d0;
-    font-size: 12px;
-}
-
-/* ==========================
-   PREVIEW
-========================== */
-
-.ai-order-preview {
-    min-height: 100%;
-}
-
-.ai-order-receipt {
-    overflow: hidden;
-    border-radius: 20px;
-    background: #fff;
-    border: 1px solid rgba(15, 23, 42, 0.07);
-    box-shadow: 0 18px 40px rgba(15, 23, 42, 0.07);
-}
-
-.ai-order-receipt-head {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    gap: 12px;
-    padding: 18px;
-    border-bottom: 1px solid #f1f5f9;
-}
-
-.ai-order-receipt-head h4 {
-    margin: 0;
-    color: #111827;
-    font-size: 18px;
-    font-weight: 800;
-}
-
-.ai-order-receipt-head p {
-    margin: 4px 0 0;
-    color: #98a2b3;
-    font-size: 11px;
-}
-
-.ai-order-badge {
-    padding: 7px 10px;
-    border-radius: 999px;
-    background: #eff6ff;
-    color: #2563eb;
-    font-size: 10px;
-    font-weight: 800;
-    white-space: nowrap;
-}
-
-.ai-order-badge-success {
-    background: #ecfdf3;
-    color: #15803d;
-}
-
-.ai-order-receipt-body {
-    padding: 18px;
-}
-
-.ai-order-customer {
-    margin-bottom: 18px;
-    padding: 11px 12px;
-    border-radius: 13px;
-    background: #f8fafc;
-}
-
-.ai-order-customer-label {
-    color: #98a2b3;
-    font-size: 9px;
-    font-weight: 800;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-}
-
-.ai-order-customer-value {
-    margin-top: 3px;
-    color: #111827;
-    font-size: 12px;
-    font-weight: 750;
-}
-
-.ai-order-items-title {
-    margin-bottom: 10px;
-    color: #344054;
-    font-size: 12px;
-    font-weight: 800;
-}
-
-.ai-order-item {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    padding: 11px 0;
-    border-bottom: 1px solid #f1f5f9;
-}
-
-.ai-order-item:last-child {
-    border-bottom: 0;
-}
-
-.ai-order-item-name {
-    color: #1f2937;
-    font-size: 12px;
-    font-weight: 750;
-}
-
-.ai-order-item-meta {
-    margin-top: 2px;
-    color: #98a2b3;
-    font-size: 10px;
-}
-
-.ai-order-item-price {
-    color: #111827;
-    font-size: 12px;
-    font-weight: 800;
-    white-space: nowrap;
-}
-
-.ai-order-total {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-top: 13px;
-    padding-top: 15px;
-    border-top: 1px solid #e5e7eb;
-}
-
-.ai-order-total span {
-    color: #6b7280;
-    font-size: 11px;
-    font-weight: 750;
-}
-
-.ai-order-total strong {
-    color: #111827;
-    font-size: 21px;
-    font-weight: 850;
-}
-
-/* ==========================
-   RECEIPT FOOTER
-========================== */
-
-.ai-order-receipt-footer {
-    padding: 17px 18px;
-    border-top: 1px solid #f1f5f9;
-    background: #fafafa;
-}
-
-.ai-order-receipt-footer p {
-    margin: 0 0 12px;
-    color: #667085;
-    font-size: 11px;
-    line-height: 1.5;
-}
-
-/* ==========================
-   EMPTY STATE
-========================== */
-
-.ai-order-empty {
-    display: grid;
-    min-height: 100%;
-    place-items: center;
-    padding: 30px;
-    text-align: center;
-    border-radius: 20px;
-    background:
-        linear-gradient(
-            145deg,
-            rgba(248, 250, 252, 0.92),
-            rgba(255, 255, 255, 0.76)
-        );
-    border: 1px dashed #dbe1e8;
-}
-
-.ai-order-empty-icon {
-    font-size: 34px;
-    margin-bottom: 10px;
-}
-
-.ai-order-empty h4 {
-    margin: 0;
-    color: #111827;
-    font-size: 16px;
-}
-
-.ai-order-empty p {
-    margin: 6px 0 0;
-    color: #98a2b3;
-    font-size: 11px;
-    line-height: 1.5;
-    max-width: 270px;
-}
-
-/* ==========================
-   BOTTOM LINKS
-========================== */
-
-.ai-order-bottom {
-    display: flex;
-    justify-content: space-between;
-    gap: 10px;
-    margin-top: 18px;
-}
-
-/* ==========================
-   RESPONSIVE
-========================== */
-
-@media (max-width: 850px) {
-
-    .ai-order-grid {
-        grid-template-columns: 1fr;
-    }
-
-}
-
-@media (max-width: 600px) {
-
-    .ai-order-page {
-        padding: 15px 8px 40px;
-    }
-
-    .ai-order-header {
-        padding: 16px;
-    }
-
-    .ai-order-body {
-        padding: 12px;
-    }
-
-    .ai-order-bottom {
-        flex-direction: column;
-    }
-
-    .ai-order-actions {
-        flex-direction: column;
-    }
-
-    .ai-order-btn {
-        width: 100%;
-    }
-
-}
-
-</style>
-
-{% endblock %}
-
 
 {% block content %}
 
@@ -503,7 +12,6 @@ AI Order Creator • {{ business.name }}
     <div class="ai-order-page">
 
         <div class="ai-order-shell">
-
 
             <!-- ==========================
                  HEADER
@@ -531,7 +39,6 @@ AI Order Creator • {{ business.name }}
 
                 </div>
 
-
                 <div class="ai-order-status">
 
                     <span class="ai-order-status-dot"></span>
@@ -542,9 +49,7 @@ AI Order Creator • {{ business.name }}
 
             </div>
 
-
             <div class="ai-order-body">
-
 
                 <!-- ==========================
                      ERROR
@@ -565,7 +70,6 @@ AI Order Creator • {{ business.name }}
                 </div>
 
                 {% endif %}
-
 
                 <!-- ==========================
                      SUCCESS
@@ -588,9 +92,7 @@ AI Order Creator • {{ business.name }}
 
                 {% endif %}
 
-
                 <div class="ai-order-grid">
-
 
                     <!-- ==========================
                          LEFT: ORDER GENERATOR
@@ -608,7 +110,6 @@ AI Order Creator • {{ business.name }}
                             real menu.
                         </p>
 
-
                         <form method="POST">
 
                             <input
@@ -616,7 +117,6 @@ AI Order Creator • {{ business.name }}
                                 name="action"
                                 value="generate"
                             >
-
 
                             <label
                                 for="customerPhone"
@@ -636,9 +136,7 @@ AI Order Creator • {{ business.name }}
                                 required
                             >
 
-
                             <div style="height: 14px;"></div>
-
 
                             <label
                                 for="customerMessage"
@@ -655,7 +153,6 @@ AI Order Creator • {{ business.name }}
                                 required
                             >{{ message or '' }}</textarea>
 
-
                             <div class="ai-order-actions">
 
                                 <button
@@ -664,7 +161,6 @@ AI Order Creator • {{ business.name }}
                                 >
                                     Generate Order →
                                 </button>
-
 
                                 <a
                                     href="/business/{{ business.id }}"
@@ -679,13 +175,11 @@ AI Order Creator • {{ business.name }}
 
                     </div>
 
-
                     <!-- ==========================
                          RIGHT: ORDER PREVIEW
                     ========================== -->
 
                     <div class="ai-order-card ai-order-preview">
-
 
                         {% if result and result.confirmed %}
 
@@ -715,7 +209,6 @@ AI Order Creator • {{ business.name }}
 
                             </div>
 
-
                             <div class="ai-order-receipt-body">
 
                                 <div class="ai-order-customer">
@@ -730,11 +223,9 @@ AI Order Creator • {{ business.name }}
 
                                 </div>
 
-
                                 <div class="ai-order-items-title">
                                     ITEMS
                                 </div>
-
 
                                 {% for item in result["items"] %}
 
@@ -755,7 +246,6 @@ AI Order Creator • {{ business.name }}
 
                                     </div>
 
-
                                     <div class="ai-order-item-price">
 
                                         {{ "{:,.0f}".format(item["subtotal"]) }}
@@ -766,7 +256,6 @@ AI Order Creator • {{ business.name }}
                                 </div>
 
                                 {% endfor %}
-
 
                                 <div class="ai-order-total">
 
@@ -783,14 +272,12 @@ AI Order Creator • {{ business.name }}
 
                             </div>
 
-
                             <div class="ai-order-receipt-footer">
 
                                 <p>
                                     This order has been successfully
                                     saved to the restaurant database.
                                 </p>
-
 
                                 <div class="ai-order-actions">
 
@@ -800,7 +287,6 @@ AI Order Creator • {{ business.name }}
                                     >
                                         View Orders →
                                     </a>
-
 
                                     <a
                                         href="/business/{{ business.id }}/ai-order"
@@ -814,7 +300,6 @@ AI Order Creator • {{ business.name }}
                             </div>
 
                         </div>
-
 
                         {% elif result and result["order"] and result["order"]["items"] %}
 
@@ -844,7 +329,6 @@ AI Order Creator • {{ business.name }}
 
                             </div>
 
-
                             <div class="ai-order-receipt-body">
 
                                 <div class="ai-order-customer">
@@ -859,11 +343,9 @@ AI Order Creator • {{ business.name }}
 
                                 </div>
 
-
                                 <div class="ai-order-items-title">
                                     ITEMS
                                 </div>
-
 
                                 {% for item in result["order"]["items"] %}
 
@@ -884,7 +366,6 @@ AI Order Creator • {{ business.name }}
 
                                     </div>
 
-
                                     <div class="ai-order-item-price">
 
                                         {{ "{:,.0f}".format(item["subtotal"]) }}
@@ -895,7 +376,6 @@ AI Order Creator • {{ business.name }}
                                 </div>
 
                                 {% endfor %}
-
 
                                 <div class="ai-order-total">
 
@@ -912,7 +392,6 @@ AI Order Creator • {{ business.name }}
 
                             </div>
 
-
                             <!-- CONFIRMATION -->
 
                             <div class="ai-order-receipt-footer">
@@ -922,7 +401,6 @@ AI Order Creator • {{ business.name }}
                                     this order to the restaurant database.
                                 </p>
 
-
                                 <form method="POST">
 
                                     <input
@@ -930,7 +408,6 @@ AI Order Creator • {{ business.name }}
                                         name="action"
                                         value="confirm"
                                     >
-
 
                                     <button
                                         type="submit"
@@ -944,7 +421,6 @@ AI Order Creator • {{ business.name }}
                             </div>
 
                         </div>
-
 
                         {% else %}
 
@@ -976,11 +452,9 @@ AI Order Creator • {{ business.name }}
 
                         {% endif %}
 
-
                     </div>
 
                 </div>
-
 
                 <!-- ==========================
                      BOTTOM LINKS
@@ -995,7 +469,6 @@ AI Order Creator • {{ business.name }}
                         ← Business Dashboard
                     </a>
 
-
                     <a
                         href="/business/{{ business.id }}/orders"
                         class="ai-order-btn ai-order-btn-secondary"
@@ -1004,7 +477,6 @@ AI Order Creator • {{ business.name }}
                     </a>
 
                 </div>
-
 
             </div>
 

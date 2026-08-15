@@ -1,707 +1,129 @@
-/* ========================================
-   BOTIFY PREMIUM CARD SYSTEM V2
-======================================== */
-
+.card,
+.business-card,
+.stat-card,
+.activity-feed,
+.ai-widget,
+.action-card {
+    border: 1px solid rgba(255,255,255,.72);
+    box-shadow: var(--shadow-soft);
+}
 
 .card,
-.premium-card{
-
-    position:relative;
-
-    overflow:hidden;
-
-    background:
-    rgba(255,255,255,.62);
-
-    backdrop-filter:
-    blur(35px);
-
-    -webkit-backdrop-filter:
-    blur(35px);
-
-
-    border:
-    1px solid rgba(255,255,255,.75);
-
-
-    border-radius:
-    32px;
-
-
-    box-shadow:
-
-    0 30px 90px
-    rgba(15,23,42,.12);
-
-
-    transition:
-    transform .45s cubic-bezier(.2,.8,.2,1),
-    box-shadow .45s ease;
-
-
+.business-card,
+.stat-card,
+.action-card {
+    background: rgba(255,255,255,.55);
+    backdrop-filter: blur(22px) saturate(140%);
+    -webkit-backdrop-filter: blur(22px) saturate(140%);
+    border-radius: 26px;
 }
 
-
-
-
-/* ========================================
-   Glass Reflection
-======================================== */
-
-
-.card::after,
-.premium-card::after{
-
-
-    content:"";
-
-
-    position:absolute;
-
-
-    width:200%;
-
-
-    height:100%;
-
-
-    top:0;
-
-
-    left:-150%;
-
-
-
-    background:
-
-    linear-gradient(
-
-        120deg,
-
-        transparent,
-
-        rgba(255,255,255,.45),
-
-        transparent
-
-    );
-
-
-    transition:.8s;
-
-
+.business-card,
+.stat-card,
+.action-card {
+    transition: var(--transition);
 }
 
-
-
-
-
-.card:hover::after,
-.premium-card:hover::after{
-
-
-    left:150%;
-
-
+.business-card:hover,
+.stat-card:hover,
+.action-card:hover {
+    transform: translateY(-5px);
+    box-shadow: var(--shadow-float);
 }
 
-
-
-
-
-/* ========================================
-   Animated Border
-======================================== */
-
-
-.card::before,
-.premium-card::before{
-
-
-    content:"";
-
-
-    position:absolute;
-
-
-    inset:0;
-
-
-    border-radius:32px;
-
-
-    padding:1px;
-
-
-
-    background:
-
-    linear-gradient(
-
-        120deg,
-
-        #007aff,
-
-        #5856d6,
-
-        #34c759,
-
-        #00c7ff
-
-    );
-
-
-
-    -webkit-mask:
-
-    linear-gradient(#fff 0 0) content-box,
-    linear-gradient(#fff 0 0);
-
-
-
-    -webkit-mask-composite:xor;
-
-
-    opacity:0;
-
-
-    transition:.4s;
-
+.business-card {
+    position: relative;
+    padding: 28px;
+    overflow: hidden;
 }
 
-
-
-
-.card:hover::before,
-.premium-card:hover::before{
-
-
-    opacity:1;
-
-
+.business-card::before {
+    content: "";
+    position: absolute;
+    width: 190px;
+    height: 190px;
+    top: -100px;
+    right: -80px;
+    border-radius: 50%;
+    background: rgba(207,227,255,.45);
+    filter: blur(10px);
 }
 
-
-
-
-/* ========================================
-   Hover Motion
-======================================== */
-
-
-.card:hover,
-.premium-card:hover{
-
-
-    transform:
-
-    translateY(-14px)
-    scale(1.015);
-
-
-    box-shadow:
-
-    0 50px 120px
-    rgba(15,23,42,.20);
-
-
+.business-icon {
+    width: 58px;
+    height: 58px;
+    display: grid;
+    place-items: center;
+    border-radius: 18px;
+    background: linear-gradient(145deg, rgba(207,227,255,.82), rgba(255,255,255,.62));
+    color: var(--sky-strong);
+    font-size: 1.4rem;
+    margin-bottom: 18px;
+    border: 1px solid rgba(255,255,255,.8);
 }
 
-
-
-
-
-/* ========================================
-   Body
-======================================== */
-
-
-.card-body{
-
-
-    padding:38px;
-
-
+.action-card {
+    padding: 25px 20px;
+    text-align: center;
 }
 
-
-
-
-
-/* ========================================
-   AI Cards
-======================================== */
-
-
-.ai-card{
-
-
-    padding:35px;
-
-
-    border-radius:30px;
-
-
-    background:
-
-    linear-gradient(
-
-    135deg,
-
-    rgba(0,122,255,.12),
-
-    rgba(88,86,214,.12)
-
-    );
-
-
-    border:
-
-    1px solid rgba(0,122,255,.15);
-
-
-    box-shadow:
-
-    0 25px 60px
-    rgba(0,122,255,.08);
-
-
-
+.action-card i {
+    display: block;
+    margin-bottom: 13px;
+    color: var(--sky-strong);
+    font-size: 1.7rem;
 }
 
-
-
-
-
-/* ========================================
-   Stats
-======================================== */
-
-
-.stat-card{
-
-
-    padding:35px;
-
-
-    border-radius:32px;
-
-
-    background:
-
-    rgba(255,255,255,.7);
-
-
-    backdrop-filter:
-
-    blur(30px);
-
-
-    box-shadow:
-
-    0 25px 70px
-    rgba(15,23,42,.10);
-
-
-
-    transition:.4s;
-
-
+.status-badge,
+.status-badge.success {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 13px;
+    border-radius: var(--pill);
+    background: rgba(211,245,227,.72);
+    color: #287c58;
+    font-size: 12px;
+    font-weight: 750;
+    border: 1px solid rgba(255,255,255,.75);
 }
 
-
-
-.stat-card:hover{
-
-
-    transform:
-
-    translateY(-12px);
-
-
+.status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--mint-strong);
+    box-shadow: 0 0 0 4px rgba(63,174,122,.13);
 }
 
-
-
-.stat-number{
-
-
-    font-size:3.2rem;
-
-
-    font-weight:850;
-
-
-    letter-spacing:-4px;
-
-
+.kpi {
+    font-size: clamp(2rem, 4vw, 3rem);
+    font-weight: 900;
+    letter-spacing: -.055em;
+    color: var(--ink);
 }
 
-
-
-
-.stat-icon{
-
-
-    width:75px;
-
-    height:75px;
-
-
-    border-radius:24px;
-
-
-    display:flex;
-
-    justify-content:center;
-
-    align-items:center;
-
-
-    background:
-
-    linear-gradient(
-
-    135deg,
-
-    #007aff,
-
-    #5856d6
-
-    );
-
-
-    color:white;
-
-
-    box-shadow:
-
-    0 25px 50px
-    rgba(0,122,255,.35);
-
-
+.kpi-label {
+    color: var(--slate2);
+    font-size: 13px;
+    font-weight: 650;
 }
 
-
-
-
-
-/* ========================================
-   Order Receipt
-======================================== */
-
-
-.order-receipt{
-
-
-    margin-top:40px;
-
-
-    padding:40px;
-
-
-    border-radius:34px;
-
-
-    background:
-
-    rgba(255,255,255,.75);
-
-
-    backdrop-filter:
-
-    blur(35px);
-
-
-
-    border:
-
-    1px solid rgba(255,255,255,.9);
-
-
-
-    box-shadow:
-
-    0 35px 90px
-    rgba(15,23,42,.15);
-
-
-
-    animation:
-
-    receiptAppear .7s ease;
-
-
-
+.ai-widget {
+    position: relative;
+    overflow: hidden;
+    padding: 30px;
+    border-radius: 28px;
+    background: linear-gradient(150deg, #15161b, #2b2d37);
+    color: white;
 }
 
-
-
-
-
-.receipt-header{
-
-
-    display:flex;
-
-
-    justify-content:space-between;
-
-
-    align-items:center;
-
-
-    margin-bottom:25px;
-
-
+.ai-widget h1,
+.ai-widget h2,
+.ai-widget h3 {
+    color: white;
 }
 
-
-
-
-
-.receipt-header h3{
-
-
-    font-weight:800;
-
-
-    letter-spacing:-1px;
-
-
-}
-
-
-
-
-.receipt-header span{
-
-
-    background:
-
-    rgba(52,199,89,.15);
-
-
-
-    color:
-
-    #34c759;
-
-
-    padding:
-
-    10px 20px;
-
-
-    border-radius:
-
-    999px;
-
-
-    font-weight:700;
-
-
-}
-
-
-
-
-
-.receipt-item{
-
-
-    display:flex;
-
-
-    justify-content:space-between;
-
-
-    align-items:center;
-
-
-    padding:18px 0;
-
-
-    border-bottom:
-
-    1px solid rgba(0,0,0,.06);
-
-
-}
-
-
-
-
-
-.receipt-total{
-
-
-    display:flex;
-
-
-    justify-content:space-between;
-
-
-    margin-top:30px;
-
-
-    font-size:1.5rem;
-
-
-}
-
-
-
-.receipt-total strong{
-
-
-    color:#007aff;
-
-
-}
-
-
-
-
-.receipt-footer{
-
-
-    margin-top:30px;
-
-
-    padding:18px;
-
-
-    text-align:center;
-
-
-    border-radius:20px;
-
-
-    background:
-
-    rgba(52,199,89,.12);
-
-
-    color:#16a34a;
-
-
-    font-weight:700;
-
-
-}
-
-
-
-
-
-/* ========================================
-   Badge
-======================================== */
-
-
-.premium-badge{
-
-
-    display:inline-flex;
-
-
-    padding:
-
-    10px 20px;
-
-
-    border-radius:
-
-    999px;
-
-
-    background:
-
-    rgba(0,122,255,.12);
-
-
-    color:
-
-    #007aff;
-
-
-    font-weight:700;
-
-
-}
-
-
-
-
-
-/* ========================================
-   Animation
-======================================== */
-
-
-@keyframes receiptAppear{
-
-
-from{
-
-opacity:0;
-
-transform:
-
-translateY(35px)
-scale(.95);
-
-}
-
-
-
-to{
-
-
-opacity:1;
-
-
-transform:
-
-translateY(0)
-scale(1);
-
-
-}
-
-
-}
-
-
-
-
-
-@media(max-width:768px){
-
-
-.card,
-.premium-card,
-.order-receipt{
-
-
-border-radius:24px;
-
-
-padding:25px;
-
-
-}
-
-
-
-.stat-number{
-
-
-font-size:2.3rem;
-
-
-}
-
-
+.ai-widget p {
+    color: rgba(255,255,255,.65);
 }

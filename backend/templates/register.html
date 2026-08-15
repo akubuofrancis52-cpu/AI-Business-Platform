@@ -1,66 +1,306 @@
 {% extends "base.html" %}
 
 {% block title %}
-Register
+Create Account · Botify AI
 {% endblock %}
+
 
 {% block content %}
 
-<h2>Create Account</h2>
+<section class="auth-page-premium">
 
-<form method="POST">
+    <div class="auth-register-shell">
 
-    <div class="mb-3">
-        <label>Username</label>
-        <input
-            type="text"
-            class="form-control"
-            name="username"
-            required>
+        <div class="auth-card-modern auth-drag-card">
+
+            <!-- =========================
+                 LEFT SIDE
+            ========================== -->
+
+            <div class="auth-visual auth-visual-register">
+
+                <div class="auth-visual-top">
+
+                    <span>
+                        BOTIFY AI
+                    </span>
+
+                    <span class="mini-live">
+                        <i></i>
+                        READY
+                    </span>
+
+                </div>
+
+
+                <div class="auth-visual-center">
+
+                    <div class="auth-logo-b">
+                        B
+                    </div>
+
+                    <div class="eyebrow-pill">
+
+                        <span class="eyebrow-dot peach"></span>
+
+                        START BUILDING
+
+                    </div>
+
+                    <h2>
+                        Build<br>
+                        <em>smarter.</em>
+                    </h2>
+
+                    <p>
+                        Create your Botify workspace
+                        and start managing your business
+                        with AI-powered automation.
+                    </p>
+
+                </div>
+
+
+                <div class="auth-visual-footer">
+
+                    <span>
+                        BOTIFY AI
+                    </span>
+
+                    <span>
+                        02
+                    </span>
+
+                </div>
+
+            </div>
+
+
+            <!-- =========================
+                 RIGHT SIDE
+            ========================== -->
+
+            <div class="auth-form-pane">
+
+                <div class="auth-brand-left">
+
+                    <div class="brand-mark">
+                        B
+                    </div>
+
+                    <div class="brand-copy">
+
+                        <strong>
+                            botify
+                        </strong>
+
+                        <small>
+                            AI BUSINESS PLATFORM
+                        </small>
+
+                    </div>
+
+                </div>
+
+
+                <div class="auth-heading">
+
+                    <div class="eyebrow-pill">
+
+                        <span class="eyebrow-dot peach"></span>
+
+                        NEW WORKSPACE
+
+                    </div>
+
+                    <h1>
+                        Create account
+                    </h1>
+
+                    <p>
+                        Set up your account and
+                        get your business workspace ready.
+                    </p>
+
+                </div>
+
+
+                <form
+                    method="POST"
+                    action="{{ url_for('register') }}"
+                    class="auth-form"
+                    autocomplete="on"
+                >
+
+                    <!-- USERNAME -->
+
+                    <div class="field-floating">
+
+                        <label for="username">
+                            Username
+                        </label>
+
+                        <input
+                            id="username"
+                            type="text"
+                            name="username"
+                            value="{{ request.form.get('username', '') }}"
+                            placeholder="Your name"
+                            autocomplete="username"
+                            minlength="2"
+                            required
+                        >
+
+                    </div>
+
+
+                    <!-- EMAIL -->
+
+                    <div class="field-floating">
+
+                        <label for="email">
+                            Email address
+                        </label>
+
+                        <input
+                            id="email"
+                            type="email"
+                            name="email"
+                            value="{{ request.form.get('email', '') }}"
+                            placeholder="you@example.com"
+                            autocomplete="email"
+                            required
+                        >
+
+                    </div>
+
+
+                    <!-- PASSWORD -->
+
+                    <div class="field-floating password-wrap">
+
+                        <label for="password">
+                            Password
+                        </label>
+
+                        <input
+                            id="password"
+                            type="password"
+                            name="password"
+                            placeholder="At least 6 characters"
+                            autocomplete="new-password"
+                            minlength="6"
+                            required
+                        >
+
+                        <button
+                            type="button"
+                            class="password-toggle"
+                            onclick="togglePassword('password', this)"
+                        >
+                            Show
+                        </button>
+
+                    </div>
+
+
+                    <!-- LANGUAGE -->
+
+                    <div class="field-floating">
+
+                        <label for="language">
+                            Preferred language
+                        </label>
+
+                        <select
+                            id="language"
+                            name="language"
+                        >
+
+                            <option value="English">
+                                English
+                            </option>
+
+                            <option value="French">
+                                Français
+                            </option>
+
+                        </select>
+
+                    </div>
+
+
+                    <!-- SUBMIT -->
+
+                    <button
+                        type="submit"
+                        class="btn-dark btn-wide auth-submit"
+                    >
+                        <span>
+                            Create account
+                        </span>
+
+                        <span>
+                            →
+                        </span>
+                    </button>
+
+                </form>
+
+
+                <div class="auth-under-note">
+
+                    Already have an account?
+
+                    <a href="{{ url_for('login') }}">
+                        Sign in
+                    </a>
+
+                </div>
+
+            </div>
+
+        </div>
+
     </div>
 
-    <div class="mb-3">
-        <label>Email</label>
-        <input
-            type="email"
-            class="form-control"
-            name="email"
-            required>
-    </div>
+</section>
 
-    <div class="mb-3">
-        <label>Password</label>
-        <input
-            type="password"
-            class="form-control"
-            name="password"
-            required>
-    </div>
+{% endblock %}
 
-    <button class="btn btn-success">
-        Register
-    </button>
 
-<label>Preferred Language</label>
+{% block scripts %}
 
-<select name="language" class="form-control">
+<script>
 
-<option value="English">
-English
-</option>
+function togglePassword(
+    inputId,
+    button
+) {
 
-<option value="French">
-Français
-</option>
+    const input =
+        document.getElementById(inputId);
 
-<option value="Spanish">
-Español
-</option>
+    if (!input) {
+        return;
+    }
 
-</select>
+    if (input.type === "password") {
 
-<br>
+        input.type = "text";
 
-</form>
+        button.textContent = "Hide";
+
+    } else {
+
+        input.type = "password";
+
+        button.textContent = "Show";
+
+    }
+
+}
+
+</script>
 
 {% endblock %}

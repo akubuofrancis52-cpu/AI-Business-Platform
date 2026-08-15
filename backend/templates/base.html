@@ -1,228 +1,337 @@
 <!DOCTYPE html>
-
 <html lang="en">
-
 <head>
 
-<meta charset="UTF-8">
+    <meta charset="UTF-8">
 
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
 
-<title>
-{% block title %}
-Botify
-{% endblock %}
-</title>
+    <title>
+        {% block title %}Botify AI{% endblock %}
+    </title>
 
-<!-- APPLE STYLE FONT -->
+    <meta
+        name="description"
+        content="Botify AI Business Platform"
+    >
 
-<style>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
 
-body {
-    font-family:
-        -apple-system,
-        BlinkMacSystemFont,
-        "SF Pro Display",
-        "SF Pro Text",
-        "Helvetica Neue",
-        Arial,
-        sans-serif;
-}
+    <link
+        rel="preconnect"
+        href="https://fonts.gstatic.com"
+        crossorigin
+    >
 
-</style>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap"
+        rel="stylesheet"
+    >
 
-<!-- MAIN CSS -->
+    <!-- MAIN APPLICATION CSS -->
+    <link
+        rel="stylesheet"
+        href="{{ url_for('static', filename='css/style.css') }}"
+    >
 
-<link
-    rel="stylesheet"
-    href="{{ url_for('static', filename='css/style.css') }}"
->
-
-{% block extra_css %}
-{% endblock %}
+    {% block extra_css %}{% endblock %}
 
 </head>
 
-<body>
+<body class="app-body">
 
-<!-- BOTIFY INTRO ANIMATION -->
+    <!-- =========================
+         BACKGROUND
+    ========================== -->
 
-<div id="intro-screen">
+    <div class="background" aria-hidden="true">
 
-```
-<div class="botify-glow"></div>
+        <div class="floating-circle circle-one"></div>
 
-<div class="botify-logo">
-    botify
-</div>
-```
+        <div class="floating-circle circle-two"></div>
 
-</div>
+        <div class="floating-circle circle-three"></div>
 
-<!-- LIQUID ANIMATED BACKGROUND -->
+        <div class="aurora aurora-one"></div>
 
-<div class="background">
+        <div class="aurora aurora-two"></div>
 
-```
-<div class="floating-circle circle-one"></div>
-
-<div class="floating-circle circle-two"></div>
-
-<div class="floating-circle circle-three"></div>
-```
-
-</div>
-
-<!-- PREMIUM GLASS NAVBAR -->
-
-<nav class="navbar">
-
-```
-<div class="nav-container">
+    </div>
 
 
-    <!-- LEFT -->
+    <!-- =========================
+         NAVBAR
+    ========================== -->
 
-    <div class="nav-left">
+    <header class="app-header">
 
-        <a href="/" class="brand">
+        <nav class="app-nav">
 
-            <div class="brand-text">
+            <a
+                href="{{ url_for('home') }}"
+                class="brand-lockup"
+            >
 
-                botify
+                <div class="brand-mark">
+                    B
+                </div>
 
-                <span>
-                    AI Business Platform
-                </span>
+                <div class="brand-copy">
+
+                    <strong>
+                        botify
+                    </strong>
+
+                    <small>
+                        AI BUSINESS PLATFORM
+                    </small>
+
+                </div>
+
+            </a>
+
+
+            <div class="nav-actions">
+
+                {% if session.get("user_id") %}
+
+                    <a
+                        href="{{ url_for('dashboard') }}"
+                        class="nav-pill"
+                    >
+                        Dashboard
+                    </a>
+
+                    <a
+                        href="{{ url_for('logout') }}"
+                        class="nav-pill nav-pill-dark"
+                    >
+                        Logout
+                    </a>
+
+                {% else %}
+
+                    {% if request.endpoint != "login" %}
+
+                    <a
+                        href="{{ url_for('login') }}"
+                        class="nav-pill nav-pill-ghost"
+                    >
+                        Login
+                    </a>
+
+                    {% endif %}
+
+                    {% if request.endpoint != "register" %}
+
+                    <a
+                        href="{{ url_for('register') }}"
+                        class="nav-pill nav-pill-dark"
+                    >
+                        Get Started
+                    </a>
+
+                    {% endif %}
+
+                {% endif %}
 
             </div>
 
-        </a>
+        </nav>
+
+    </header>
 
 
-        <a href="/" class="apple-nav-btn">
-            Home
-        </a>
+    <!-- =========================
+         PAGE CONTENT
+    ========================== -->
+
+    <main class="page-content">
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+
+            {% if messages %}
+
+            <div class="flash-container">
+
+                {% for category, message in messages %}
+
+                <div
+                    class="flash-message {{ category }}"
+                >
+                    {{ message }}
+                </div>
+
+                {% endfor %}
+
+            </div>
+
+            {% endif %}
+
+        {% endwith %}
 
 
-        {% if not session.get("user_id") %}
+        {% block content %}{% endblock %}
 
-        <a href="/login" class="apple-nav-btn">
-            Login
-        </a>
+    </main>
 
 
-        <a href="/register" class="apple-nav-btn primary">
-            Get Started
-        </a>
+    <!-- =========================
+         PAGE LOADER
+    ========================== -->
 
-        {% endif %}
+    <div
+        id="page-loader"
+        class="page-loader"
+        aria-hidden="true"
+    >
+
+        <div class="loader-box">
+
+            <div class="loader-logo">
+                B
+            </div>
+
+            <div class="loader-name">
+                botify
+            </div>
+
+            <div class="loader-bar">
+                <span></span>
+            </div>
+
+        </div>
 
     </div>
 
 
-    <!-- RIGHT -->
+    <!-- =========================
+         GLOBAL JAVASCRIPT
+    ========================== -->
 
-    <div class="nav-right">
+    <script>
 
-        {% if session.get("user_id") %}
+        document.addEventListener(
+            "DOMContentLoaded",
+            function () {
 
-        <a href="/dashboard" class="apple-nav-btn">
-            Dashboard
-        </a>
+                document.body.classList.add("loaded");
 
+                const loader =
+                    document.getElementById("page-loader");
 
-        <a href="/logout" class="apple-nav-btn danger">
-            Logout
-        </a>
+                if (loader) {
 
-        {% endif %}
+                    setTimeout(
+                        function () {
 
-    </div>
+                            loader.classList.add("hidden");
 
-</div>
-```
+                        },
+                        350
+                    );
 
-</nav>
+                }
 
-<!-- PAGE CONTENT -->
-
-<main class="page-content">
-
-```
-{% block content %}
-{% endblock %}
-```
-
-</main>
-
-<!-- PREMIUM LOADER -->
-
-<div id="loader" class="loader hidden">
-
-```
-<div class="loader-circle"></div>
-
-<div class="loader-text">
-    Loading...
-</div>
-```
-
-</div>
-
-<script>
-
-/* ==========================
-   PAGE LOADER
-========================== */
-
-function showLoader() {
-
-    const loader = document.getElementById("loader");
-
-    if (loader) {
-        loader.classList.remove("hidden");
-    }
-
-}
+            }
+        );
 
 
-/* ==========================
-   HIDE LOADER AFTER PAGE LOAD
-========================== */
+        /*
+         * Button click animation
+         */
 
-window.addEventListener("load", function () {
+        document.addEventListener(
+            "click",
+            function (event) {
 
-    document.body.classList.add("loaded");
+                const target =
+                    event.target.closest(
+                        "button, .btn, .nav-pill"
+                    );
 
-    const loader = document.getElementById("loader");
+                if (!target) {
+                    return;
+                }
 
-    if (loader) {
-        loader.classList.add("hidden");
-    }
+                const ripple =
+                    document.createElement("span");
 
-});
+                ripple.className =
+                    "click-ripple";
+
+                const rect =
+                    target.getBoundingClientRect();
+
+                ripple.style.left =
+                    (event.clientX - rect.left) + "px";
+
+                ripple.style.top =
+                    (event.clientY - rect.top) + "px";
+
+                target.appendChild(ripple);
+
+                setTimeout(
+                    function () {
+
+                        ripple.remove();
+
+                    },
+                    650
+                );
+
+            }
+        );
 
 
-/* ==========================
-   SAFETY FALLBACK
-========================== */
+        /*
+         * Prevent double-submit
+         */
 
-setTimeout(function () {
+        document.addEventListener(
+            "submit",
+            function (event) {
 
-    const loader = document.getElementById("loader");
+                const form = event.target;
 
-    if (loader) {
-        loader.classList.add("hidden");
-    }
+                if (!form.matches("form")) {
+                    return;
+                }
 
-}, 5000);
+                const submitButton =
+                    form.querySelector(
+                        'button[type="submit"]'
+                    );
 
-</script>
+                if (!submitButton) {
+                    return;
+                }
 
-{% block scripts %}
-{% endblock %}
+                setTimeout(
+                    function () {
+
+                        submitButton.disabled = true;
+
+                        submitButton.dataset.originalText =
+                            submitButton.innerHTML;
+
+                        submitButton.innerHTML =
+                            "Processing...";
+
+                    },
+                    10
+                );
+
+            }
+        );
+
+    </script>
+
+
+    {% block scripts %}{% endblock %}
 
 </body>
-
 </html>

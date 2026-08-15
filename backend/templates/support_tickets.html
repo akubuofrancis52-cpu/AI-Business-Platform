@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}My Support Tickets • Botify{% endblock %}
+{% block content %}
+<section class="page-shell">
+  <div class="page-hero glass-deep shadow-soft">
+    <span class="eyebrow-pill"><span class="eyebrow-dot sky"></span>Support</span>
+    <h1>Your support tickets</h1>
+    <p>Track requests you've sent to the Botify team.</p>
+  </div>
+
+  <div class="glass-deep shadow-soft support-ticket-list">
+    {% if tickets %}
+      {% for ticket in tickets %}
+      <article class="support-ticket-row">
+        <div>
+          <span class="ticket-id">#{{ ticket.id }}</span>
+          <h3>{{ ticket.subject }}</h3>
+          <p>{{ ticket.message[:180] }}{% if ticket.message|length > 180 %}…{% endif %}</p>
+          <small>{{ ticket.created_at.strftime('%d %b %Y, %H:%M') }}</small>
+        </div>
+        <div class="ticket-meta">
+          <span class="ticket-status status-{{ ticket.status|lower|replace(' ', '-') }}">{{ ticket.status }}</span>
+          <span class="ticket-priority">{{ ticket.priority }}</span>
+        </div>
+      </article>
+      {% endfor %}
+    {% else %}
+      <div class="empty-state">
+        <h3>No support tickets yet</h3>
+        <p>When you contact Botify support, your tickets will appear here.</p>
+        <a class="btn-dark" href="{{ url_for('support') }}">Contact support</a>
+      </div>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

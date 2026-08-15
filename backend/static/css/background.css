@@ -1,607 +1,72 @@
-/* ========================================
-   BOTIFY LIQUID GLASS BACKGROUND
-======================================== */
-
-
-
 body {
-
-
-background:
-
-radial-gradient(
-circle at 15% 20%,
-rgba(0,122,255,.20),
-transparent 35%
-),
-
-
-radial-gradient(
-circle at 85% 80%,
-rgba(139,92,246,.20),
-transparent 40%
-),
-
-
-linear-gradient(
-135deg,
-#f8fafc,
-#eef6ff,
-#ffffff
-);
-
-
-
-background-attachment:fixed;
-
-
-overflow-x:hidden;
-
-
-
+    background-color: var(--bg);
+    background-image:
+        radial-gradient(58% 52% at 12% 8%, rgba(255,216,194,.90) 0%, transparent 60%),
+        radial-gradient(55% 50% at 88% 14%, rgba(207,227,255,.95) 0%, transparent 62%),
+        radial-gradient(60% 55% at 78% 72%, rgba(211,245,227,.90) 0%, transparent 60%),
+        radial-gradient(48% 44% at 30% 88%, rgba(255,216,194,.55) 0%, transparent 60%);
+    background-attachment: fixed;
 }
-
-
-
-
-
-/* ========================================
-   ANIMATED BACKGROUND LAYER
-======================================== */
-
 
 .background {
-
-
-position:fixed;
-
-
-inset:0;
-
-
-overflow:hidden;
-
-
-z-index:-10;
-
-
-
-pointer-events:none;
-
-
+    position: fixed;
+    inset: 0;
+    z-index: -2;
+    pointer-events: none;
+    overflow: hidden;
 }
 
-
-
-
-
-
-
-/* ========================================
-   LIQUID BLOBS
-======================================== */
-
-
-.floating-circle,
-.blob {
-
-
-position:absolute;
-
-
-border-radius:50%;
-
-
-
-filter:
-
-blur(90px);
-
-
-
-opacity:.55;
-
-
-
-animation:
-
-liquidMove 25s ease-in-out infinite;
-
-
-
+.background::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background:
+        radial-gradient(40% 35% at 50% 30%, rgba(255,255,255,.52), transparent 72%),
+        linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.16));
 }
 
-
-
-
-
-.circle-one,
-.blob1 {
-
-
-width:
-
-600px;
-
-
-height:
-
-600px;
-
-
-
-background:
-
-linear-gradient(
-135deg,
-#007AFF,
-#60a5fa
-);
-
-
-
-top:
-
--220px;
-
-
-
-left:
-
--180px;
-
-
+.floating-circle {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(55px);
+    opacity: .22;
+    animation: ambientFloat 18s ease-in-out infinite alternate;
 }
 
-
-
-
-
-
-.circle-two,
-.blob2 {
-
-
-width:
-
-520px;
-
-
-height:
-
-520px;
-
-
-
-background:
-
-linear-gradient(
-135deg,
-#8b5cf6,
-#c084fc
-);
-
-
-
-right:
-
--160px;
-
-
-
-top:
-
-35%;
-
-
-
-animation-duration:
-
-35s;
-
-
+.circle-one {
+    width: 280px;
+    height: 280px;
+    top: 8%;
+    left: -80px;
+    background: var(--peach);
 }
 
-
-
-
-
-
-.circle-three,
-.blob3 {
-
-
-width:
-
-450px;
-
-
-height:
-
-450px;
-
-
-
-background:
-
-linear-gradient(
-135deg,
-#06b6d4,
-#22d3ee
-);
-
-
-
-bottom:
-
--180px;
-
-
-
-left:
-
-35%;
-
-
-
-animation-duration:
-
-45s;
-
-
+.circle-two {
+    width: 340px;
+    height: 340px;
+    top: 28%;
+    right: -100px;
+    background: var(--sky);
+    animation-delay: -6s;
 }
 
-
-
-
-
-
-
-
-/* ========================================
-   LIQUID MOTION
-======================================== */
-
-
-@keyframes liquidMove {
-
-
-
-0% {
-
-
-transform:
-
-translate(
-0,
-0
-)
-scale(1);
-
-
-
+.circle-three {
+    width: 300px;
+    height: 300px;
+    bottom: 5%;
+    left: 35%;
+    background: var(--mint);
+    animation-delay: -11s;
 }
 
-
-
-25% {
-
-
-transform:
-
-translate(
-80px,
--60px
-)
-scale(1.1);
-
-
-
+.mesh-band {
+    background-image:
+        radial-gradient(50% 80% at 8% 50%, rgba(211,245,227,.85), transparent 60%),
+        radial-gradient(50% 80% at 95% 30%, rgba(207,227,255,.90), transparent 60%),
+        radial-gradient(45% 70% at 60% 95%, rgba(255,216,194,.70), transparent 60%);
 }
 
-
-
-50% {
-
-
-transform:
-
-translate(
--40px,
--100px
-)
-scale(.95);
-
-
-
-}
-
-
-
-75% {
-
-
-transform:
-
-translate(
--80px,
-40px
-)
-scale(1.05);
-
-
-
-}
-
-
-
-100% {
-
-
-transform:
-
-translate(
-0,
-0
-)
-scale(1);
-
-
-
-}
-
-
-
-}
-
-
-
-
-
-
-
-
-
-/* ========================================
-   GLASS GRID
-======================================== */
-
-
-.grid-overlay {
-
-
-position:absolute;
-
-
-inset:0;
-
-
-
-background-image:
-
-
-linear-gradient(
-rgba(255,255,255,.25) 1px,
-transparent 1px
-),
-
-
-
-linear-gradient(
-90deg,
-rgba(255,255,255,.25) 1px,
-transparent 1px
-);
-
-
-
-background-size:
-
-80px 80px;
-
-
-
-opacity:
-
-.18;
-
-
-
-mask-image:
-
-linear-gradient(
-to bottom,
-transparent,
-black,
-transparent
-);
-
-
-
-}
-
-
-
-
-
-
-
-
-/* ========================================
-   PREMIUM NOISE
-======================================== */
-
-
-body::before {
-
-
-content:"";
-
-
-position:fixed;
-
-
-inset:0;
-
-
-
-pointer-events:none;
-
-
-
-opacity:.035;
-
-
-
-background-image:
-
-
-radial-gradient(
-#000 1px,
-transparent 1px
-);
-
-
-
-background-size:
-
-20px 20px;
-
-
-}
-
-
-
-
-
-
-
-
-
-/* ========================================
-   CENTER AURORA GLOW
-======================================== */
-
-
-body::after {
-
-
-content:"";
-
-
-position:fixed;
-
-
-
-width:
-
-900px;
-
-
-
-height:
-
-900px;
-
-
-
-left:
-
-50%;
-
-
-
-top:
-
-50%;
-
-
-
-transform:
-
-translate(-50%,-50%);
-
-
-
-background:
-
-
-radial-gradient(
-
-circle,
-
-rgba(0,122,255,.15),
-
-transparent 65%
-
-);
-
-
-
-filter:
-
-blur(40px);
-
-
-
-animation:
-
-auroraPulse 12s infinite ease-in-out;
-
-
-
-pointer-events:none;
-
-
-}
-
-
-
-
-
-
-
-@keyframes auroraPulse {
-
-
-
-0% {
-
-
-opacity:.3;
-
-
-scale:.8;
-
-
-}
-
-
-
-50% {
-
-
-opacity:.8;
-
-
-scale:1.15;
-
-
-}
-
-
-
-100% {
-
-
-opacity:.3;
-
-
-scale:.8;
-
-
-}
-
-
-
+@keyframes ambientFloat {
+    from { transform: translate3d(0,0,0) scale(1); }
+    to { transform: translate3d(30px,-25px,0) scale(1.08); }
 }

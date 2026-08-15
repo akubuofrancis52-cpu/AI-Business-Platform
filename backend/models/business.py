@@ -26,12 +26,21 @@ class Business(db.Model):
         db.String(30)
     )
 
+    # ========================================================
+    # WHATSAPP CLOUD API
+    # ========================================================
+
+    whatsapp_phone_number_id = db.Column(
+        db.String(100),
+        unique=True,
+        nullable=True
+    )
+
     owner_id = db.Column(
         db.Integer,
         db.ForeignKey("user.id"),
         nullable=False
     )
-
 
     menus = db.relationship(
         "Menu",
@@ -40,14 +49,12 @@ class Business(db.Model):
         cascade="all, delete-orphan"
     )
 
-
     orders = db.relationship(
         "Order",
         backref="business",
         lazy=True,
         cascade="all, delete-orphan"
     )
-
 
     customers = db.relationship(
         "Customer",

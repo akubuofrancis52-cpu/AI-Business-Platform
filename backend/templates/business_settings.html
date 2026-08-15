@@ -1,231 +1,61 @@
 {% extends "base.html" %}
 
-{% block title %}
-Restaurant Settings
-{% endblock %}
+{% block title %}Business Settings • Botify{% endblock %}
 
 {% block content %}
-
-<div class="container py-5">
-
-    <!-- HEADER -->
-
-    <div class="d-flex justify-content-between align-items-center mb-5">
-
-        <div>
-
-            <div class="text-muted small mb-2">
-                Business Settings
-            </div>
-
-            <h1 class="fw-bold mb-2">
-                Restaurant Settings
-            </h1>
-
-            <p class="text-muted mb-0">
-                Manage your restaurant information and contact details.
-            </p>
-
+<section class="creation-page">
+    <div class="creation-shell auth-wide">
+        <div class="creation-hero glass-deep shadow-float">
+            <span class="eyebrow-pill centered">
+                <span class="eyebrow-dot sky"></span>
+                Business settings
+            </span>
+            <h1>Keep your business workspace accurate.</h1>
+            <p>Update the information customers see and the AI assistant uses across your experience.</p>
         </div>
 
-        <a
-            href="/business/{{ business.id }}"
-            class="btn btn-outline-secondary"
-        >
-            ← Dashboard
-        </a>
+        <div class="form-panel glass shadow-soft">
+            <div class="form-panel-head">
+                <div>
+                    <span class="eyebrow-pill">
+                        <span class="eyebrow-dot mint"></span>
+                        Business information
+                    </span>
+                    <h2>{{ business.name }}</h2>
+                </div>
+                <a href="/business/{{ business.id }}" class="btn-glass">← Dashboard</a>
+            </div>
 
-    </div>
-
-
-    <!-- SETTINGS CARD -->
-
-    <div class="row">
-
-        <div class="col-lg-8">
-
-            <div class="card border-0 shadow-sm">
-
-                <div class="card-body p-4 p-lg-5">
-
-                    <h3 class="fw-bold mb-1">
-                        Business Information
-                    </h3>
-
-                    <p class="text-muted mb-4">
-                        This information is used across your dashboard
-                        and AI-powered customer experience.
-                    </p>
-
-
-                    <form method="POST">
-
-                        <!-- NAME -->
-
-                        <div class="mb-4">
-
-                            <label class="form-label fw-semibold">
-                                Business Name
-                            </label>
-
-                            <input
-                                type="text"
-                                name="name"
-                                class="form-control form-control-lg"
-                                value="{{ business.name }}"
-                                placeholder="Restaurant name"
-                                required
-                            >
-
-                            <div class="form-text">
-                                The name customers will see.
-                            </div>
-
-                        </div>
-
-
-                        <!-- BUSINESS TYPE -->
-
-                        <div class="mb-4">
-
-                            <label class="form-label fw-semibold">
-                                Business Type
-                            </label>
-
-                            <input
-                                type="text"
-                                name="business_type"
-                                class="form-control"
-                                value="{{ business.business_type }}"
-                                placeholder="Restaurant, café, bakery..."
-                                required
-                            >
-
-                        </div>
-
-
-                        <!-- ADDRESS -->
-
-                        <div class="mb-4">
-
-                            <label class="form-label fw-semibold">
-                                Address
-                            </label>
-
-                            <textarea
-                                name="address"
-                                class="form-control"
-                                rows="3"
-                                placeholder="Business address"
-                            >{{ business.address or "" }}</textarea>
-
-                        </div>
-
-
-                        <!-- PHONE -->
-
-                        <div class="mb-4">
-
-                            <label class="form-label fw-semibold">
-                                Business Phone
-                            </label>
-
-                            <input
-                                type="text"
-                                name="phone"
-                                class="form-control"
-                                value="{{ business.phone or '' }}"
-                                placeholder="+229..."
-                            >
-
-                        </div>
-
-
-                        <!-- SAVE -->
-
-                        <div class="d-flex gap-2">
-
-                            <button
-                                type="submit"
-                                class="btn btn-primary btn-lg px-4"
-                            >
-                                Save Changes
-                            </button>
-
-                            <a
-                                href="/business/{{ business.id }}"
-                                class="btn btn-outline-secondary btn-lg"
-                            >
-                                Cancel
-                            </a>
-
-                        </div>
-
-                    </form>
-
+            <form method="POST" class="premium-form">
+                <div class="form-grid-2">
+                    <div class="field-group field-floating">
+                        <input id="name" type="text" name="name" placeholder=" " value="{{ business.name }}" required>
+                        <label for="name">Business name</label>
+                    </div>
+                    <div class="field-group field-floating">
+                        <input id="business_type" type="text" name="business_type" placeholder=" " value="{{ business.business_type }}" required>
+                        <label for="business_type">Business type</label>
+                    </div>
                 </div>
 
-            </div>
-
-        </div>
-
-
-        <!-- SIDE CARD -->
-
-        <div class="col-lg-4 mt-4 mt-lg-0">
-
-            <div class="card border-0 shadow-sm">
-
-                <div class="card-body p-4">
-
-                    <div
-                        class="rounded-4 d-flex align-items-center justify-content-center mb-4"
-                        style="
-                            width: 64px;
-                            height: 64px;
-                            font-size: 1.8rem;
-                            background: rgba(13, 110, 253, 0.08);
-                        "
-                    >
-                        ⚙️
-                    </div>
-
-                    <h4 class="fw-bold">
-                        Your restaurant
-                    </h4>
-
-                    <p class="text-muted">
-                        These details are shared across your business
-                        dashboard and will later power your AI assistant,
-                        customer experience and WhatsApp integration.
-                    </p>
-
-                    <hr>
-
-                    <div class="small text-muted">
-                        Business ID
-                    </div>
-
-                    <div class="fw-semibold mb-3">
-                        #{{ business.id }}
-                    </div>
-
-                    <div class="small text-muted">
-                        Business Type
-                    </div>
-
-                    <div class="fw-semibold">
-                        {{ business.business_type }}
-                    </div>
-
+                <div class="field-group field-floating">
+                    <textarea id="address" name="address" placeholder=" " rows="4">{{ business.address or "" }}</textarea>
+                    <label for="address">Address</label>
                 </div>
 
-            </div>
+                <div class="field-group field-floating">
+                    <input id="phone" type="text" name="phone" placeholder=" " value="{{ business.phone or '' }}">
+                    <label for="phone">Business phone</label>
+                </div>
 
+                <div class="form-actions">
+                    <a href="/business/{{ business.id }}" class="btn-glass">Cancel</a>
+                    <button type="submit" class="btn-dark magnetic-target">
+                        <span>Save settings</span><b>↗</b>
+                    </button>
+                </div>
+            </form>
         </div>
-
     </div>
-
-</div>
-
+</section>
 {% endblock %}

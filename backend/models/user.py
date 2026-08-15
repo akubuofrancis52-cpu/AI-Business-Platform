@@ -1,4 +1,5 @@
 from database.db import db
+from werkzeug.security import generate_password_hash, check_password_hash
 
 
 class User(db.Model):
@@ -21,3 +22,11 @@ class User(db.Model):
         backref="owner",
         lazy=True
     )
+
+    def set_password(self, password):
+        """Hash and store a user's password."""
+        self.password = generate_password_hash(password)
+
+    def check_password(self, password):
+        """Verify a plaintext password against the stored hash."""
+        return check_password_hash(self.password, password)

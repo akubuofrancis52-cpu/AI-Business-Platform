@@ -1,39 +1,254 @@
 {% extends "base.html" %}
 
 {% block title %}
-Login
+Login · Botify AI
 {% endblock %}
+
 
 {% block content %}
 
-<h2>Login</h2>
+<section class="auth-page-premium">
 
-<form method="POST">
+    <div class="auth-shell-centered">
 
-    <div class="mb-3">
-        <label>Email</label>
-        <input
-            type="email"
-            class="form-control"
-            name="email"
-            placeholder="Enter your email"
-            required>
+        <div class="auth-card-modern auth-drag-card">
+
+            <!-- =========================
+                 LEFT SIDE
+            ========================== -->
+
+            <div class="auth-visual">
+
+                <div class="auth-visual-top">
+
+                    <span>
+                        BOTIFY AI
+                    </span>
+
+                    <span class="mini-live">
+                        <i></i>
+                        LIVE
+                    </span>
+
+                </div>
+
+
+                <div class="auth-visual-center">
+
+                    <div class="auth-logo-b">
+                        B
+                    </div>
+
+                    <div class="eyebrow-pill">
+                        <span class="eyebrow-dot mint"></span>
+                        BUSINESS AUTOMATION
+                    </div>
+
+                    <h2>
+                        Welcome<br>
+                        <em>back.</em>
+                    </h2>
+
+                    <p>
+                        Manage your business, orders,
+                        customers and AI assistant
+                        from one powerful workspace.
+                    </p>
+
+                </div>
+
+
+                <div class="auth-visual-footer">
+
+                    <span>
+                        AI BUSINESS PLATFORM
+                    </span>
+
+                    <span>
+                        01
+                    </span>
+
+                </div>
+
+            </div>
+
+
+            <!-- =========================
+                 RIGHT SIDE
+            ========================== -->
+
+            <div class="auth-form-pane">
+
+                <div class="auth-brand-left">
+
+                    <div class="brand-mark">
+                        B
+                    </div>
+
+                    <div class="brand-copy">
+
+                        <strong>
+                            botify
+                        </strong>
+
+                        <small>
+                            AI BUSINESS PLATFORM
+                        </small>
+
+                    </div>
+
+                </div>
+
+
+                <div class="auth-heading">
+
+                    <div class="eyebrow-pill">
+
+                        <span class="eyebrow-dot sky"></span>
+
+                        SECURE ACCESS
+
+                    </div>
+
+                    <h1>
+                        Sign in
+                    </h1>
+
+                    <p>
+                        Enter your account details
+                        to continue.
+                    </p>
+
+                </div>
+
+
+                <form
+                    method="POST"
+                    action="{{ url_for('login') }}"
+                    class="auth-form"
+                    autocomplete="on"
+                >
+
+                    <!-- EMAIL -->
+
+                    <div class="field-floating">
+
+                        <label for="email">
+                            Email address
+                        </label>
+
+                        <input
+                            id="email"
+                            type="email"
+                            name="email"
+                            value="{{ request.form.get('email', '') }}"
+                            placeholder="you@example.com"
+                            autocomplete="email"
+                            required
+                        >
+
+                    </div>
+
+
+                    <!-- PASSWORD -->
+
+                    <div class="field-floating password-wrap">
+
+                        <label for="password">
+                            Password
+                        </label>
+
+                        <input
+                            id="password"
+                            type="password"
+                            name="password"
+                            placeholder="Your password"
+                            autocomplete="current-password"
+                            required
+                        >
+
+                        <button
+                            type="button"
+                            class="password-toggle"
+                            onclick="togglePassword('password', this)"
+                        >
+                            Show
+                        </button>
+
+                    </div>
+
+
+                    <!-- SUBMIT -->
+
+                    <button
+                        type="submit"
+                        class="btn-dark btn-wide auth-submit"
+                    >
+                        <span>
+                            Sign in
+                        </span>
+
+                        <span>
+                            →
+                        </span>
+                    </button>
+
+                </form>
+
+
+                <div class="auth-under-note">
+
+                    Don't have an account?
+
+                    <a href="{{ url_for('register') }}">
+                        Create one
+                    </a>
+
+                </div>
+
+            </div>
+
+        </div>
+
     </div>
 
-    <div class="mb-3">
-        <label>Password</label>
-        <input
-            type="password"
-            class="form-control"
-            name="password"
-            placeholder="Enter your password"
-            required>
-    </div>
+</section>
 
-    <button type="submit" class="btn btn-primary">
-        Login
-    </button>
+{% endblock %}
 
-</form>
+
+{% block scripts %}
+
+<script>
+
+function togglePassword(
+    inputId,
+    button
+) {
+
+    const input =
+        document.getElementById(inputId);
+
+    if (!input) {
+        return;
+    }
+
+    if (input.type === "password") {
+
+        input.type = "text";
+
+        button.textContent = "Hide";
+
+    } else {
+
+        input.type = "password";
+
+        button.textContent = "Show";
+
+    }
+
+}
+
+</script>
 
 {% endblock %}

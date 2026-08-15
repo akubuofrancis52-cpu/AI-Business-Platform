@@ -7,31 +7,21 @@ from models.order import Order
 from models.order_item import OrderItem
 from models.pending_order import PendingOrder
 
-from services.ai.menu_intelligence import (
-    search_menu
-)
+from services.ai.menu_intelligence import search_menu
+from services.ai.order_extractor import extract_order
+from services.ai.order_modifier import interpret_order_request
+from services.ai.order_executor import execute_order_action
 
-from services.ai.order_extractor import (
-    extract_order
-)
-
-from services.ai.order_modifier import (
-    interpret_order_request
-)
-
-from services.ai.order_executor import (
-    execute_order_action
+from services.payments.paydunya import (
+    create_checkout_invoice,
 )
 
 
-# ==========================
+# ============================================================
 # CUSTOMER
-# ==========================
+# ============================================================
 
-def get_customer(
-    business_id,
-    phone
-):
+def get_customer(business_id, phone):
 
     customer = Customer.query.filter_by(
         business_id=business_id,
@@ -39,7 +29,6 @@ def get_customer(
     ).first()
 
     if not customer:
-
         return {
             "success": False,
             "message": "Customer not found."
@@ -56,14 +45,11 @@ def get_customer(
     }
 
 
-# ==========================
+# ============================================================
 # MENU SEARCH
-# ==========================
+# ============================================================
 
-def tool_search_menu(
-    business_id,
-    query
-):
+def tool_search_menu(business_id, query):
 
     results = search_menu(
         business_id,
@@ -77,14 +63,11 @@ def tool_search_menu(
     }
 
 
-# ==========================
+# ============================================================
 # ACTIVE ORDER
-# ==========================
+# ============================================================
 
-def get_active_order(
-    business_id,
-    phone
-):
+def get_active_order(business_id, phone):
 
     customer = Customer.query.filter_by(
         business_id=business_id,
@@ -92,7 +75,6 @@ def get_active_order(
     ).first()
 
     if not customer:
-
         return {
             "success": False,
             "message": "Customer not found."
@@ -110,7 +92,6 @@ def get_active_order(
     ).first()
 
     if not order:
-
         return {
             "success": False,
             "message": "No active order found."
@@ -121,6 +102,7 @@ def get_active_order(
         "order": {
             "id": order.id,
             "status": order.status,
+            "payment_status": order.payment_status,
             "total": float(
                 order.total_price or 0
             ),
@@ -129,10 +111,10 @@ def get_active_order(
                     "name": item.name,
                     "quantity": item.quantity,
                     "price": float(
-                        item.price
+                        item.price or 0
                     ),
                     "subtotal": float(
-                        item.subtotal
+                        item.subtotal or 0
                     )
                 }
                 for item in order.items
@@ -141,14 +123,11 @@ def get_active_order(
     }
 
 
-# ==========================
-# PENDING PREVIEW
-# ==========================
+# ============================================================
+# PENDING ORDER
+# ============================================================
 
-def get_pending_order(
-    business_id,
-    phone
-):
+def get_pending_order(business_id, phone):
 
     customer = Customer.query.filter_by(
         business_id=business_id,
@@ -156,7 +135,6 @@ def get_pending_order(
     ).first()
 
     if not customer:
-
         return {
             "success": False,
             "message": "Customer not found."
@@ -171,7 +149,6 @@ def get_pending_order(
     ).first()
 
     if not preview:
-
         return {
             "success": False,
             "message": "No pending order preview."
@@ -183,7 +160,10 @@ def get_pending_order(
             preview.items_json
         )
 
-    except json.JSONDecodeError:
+    except (
+        json.JSONDecodeError,
+        TypeError
+    ):
 
         return {
             "success": False,
@@ -206,9 +186,9 @@ def get_pending_order(
     }
 
 
-# ==========================
+# ============================================================
 # CREATE ORDER PREVIEW
-# ==========================
+# ============================================================
 
 def create_order_preview(
     business_id,
@@ -233,13 +213,24 @@ def create_order_preview(
 
     if not items:
 
+        if unmatched:
+
+            return {
+                "success": False,
+                "message": (
+                    "I couldn't find the requested "
+                    "item on the menu."
+                ),
+                "unmatched": unmatched
+            }
+
         return {
             "success": False,
             "message": (
-                "I could not find valid "
-                "available menu items."
+                "No food or drink items "
+                "were specified."
             ),
-            "unmatched": unmatched
+            "unmatched": []
         }
 
     customer = Customer.query.filter_by(
@@ -262,7 +253,10 @@ def create_order_preview(
 
         db.session.flush()
 
+    # --------------------------------------------------------
     # Remove previous pending preview
+    # --------------------------------------------------------
+
     PendingOrder.query.filter_by(
         business_id=business_id,
         customer_id=customer.id,
@@ -279,7 +273,10 @@ def create_order_preview(
             ensure_ascii=False
         ),
         total_price=float(
-            extracted["total"]
+            extracted.get(
+                "total",
+                0
+            )
         ),
         status="pending"
     )
@@ -296,7 +293,7 @@ def create_order_preview(
             "id": preview.id,
             "items": items,
             "total": float(
-                preview.total_price
+                preview.total_price or 0
             ),
             "currency": "FCFA",
             "status": "pending"
@@ -308,9 +305,9 @@ def create_order_preview(
     }
 
 
-# ==========================
-# CONFIRM ORDER
-# ==========================
+# ============================================================
+# CONFIRM PENDING ORDER
+# ============================================================
 
 def confirm_pending_order(
     business_id,
@@ -353,7 +350,10 @@ def confirm_pending_order(
             preview.items_json
         )
 
-    except json.JSONDecodeError:
+    except (
+        json.JSONDecodeError,
+        TypeError
+    ):
 
         return {
             "success": False,
@@ -366,20 +366,35 @@ def confirm_pending_order(
 
         return {
             "success": False,
-            "message": "The pending order is empty."
+            "message": (
+                "The pending order is empty."
+            )
         }
 
-    # Revalidate every item against the real menu
-    final_items = []
-    final_total = 0
+    # ========================================================
+    # REVALIDATE MENU
+    # ========================================================
 
     from models.menu import Menu
 
+    final_items = []
+    final_total = 0.0
+
     for item in items:
+
+        item_name = str(
+            item.get(
+                "name",
+                ""
+            )
+        ).strip()
+
+        if not item_name:
+            continue
 
         menu = Menu.query.filter(
             Menu.business_id == business_id,
-            Menu.name == item["name"],
+            Menu.name.ilike(item_name),
             Menu.available.is_(True)
         ).first()
 
@@ -388,20 +403,31 @@ def confirm_pending_order(
             return {
                 "success": False,
                 "message": (
-                    f"{item['name']} is no longer "
-                    "available."
+                    f"{item_name} is no longer available."
                 )
             }
 
-        quantity = int(
-            item.get("quantity", 1)
-        )
+        try:
+
+            quantity = int(
+                item.get(
+                    "quantity",
+                    1
+                )
+            )
+
+        except (
+            TypeError,
+            ValueError
+        ):
+
+            quantity = 1
 
         if quantity < 1:
             quantity = 1
 
         price = float(
-            menu.price
+            menu.price or 0
         )
 
         subtotal = (
@@ -417,7 +443,39 @@ def confirm_pending_order(
 
         final_total += subtotal
 
-    # Create the real order only now
+    if not final_items:
+
+        return {
+            "success": False,
+            "message": (
+                "No valid menu items remain "
+                "in the order."
+            )
+        }
+
+    # ========================================================
+    # LOAD BUSINESS
+    # ========================================================
+
+    from models.business import Business
+
+    business = Business.query.get(
+        business_id
+    )
+
+    if not business:
+
+        return {
+            "success": False,
+            "message": (
+                "Restaurant could not be found."
+            )
+        }
+
+    # ========================================================
+    # CREATE REAL ORDER
+    # ========================================================
+
     order = Order(
         customer_name=(
             customer.name
@@ -427,6 +485,16 @@ def confirm_pending_order(
         delivery_address="Unknown",
         total_price=final_total,
         status="Pending",
+
+        # IMPORTANT:
+        # The order is NOT paid yet.
+        payment_status="Unpaid",
+
+        payment_method=None,
+        payment_token=None,
+        payment_transaction_id=None,
+        paid_at=None,
+
         business_id=business_id,
         customer_id=customer.id
     )
@@ -436,6 +504,10 @@ def confirm_pending_order(
     )
 
     db.session.flush()
+
+    # ========================================================
+    # CREATE ORDER ITEMS
+    # ========================================================
 
     for item in final_items:
 
@@ -451,27 +523,121 @@ def confirm_pending_order(
             order_item
         )
 
+    # ========================================================
+    # CREATE PAYDUNYA CHECKOUT
+    # ========================================================
+
+    try:
+
+        payment = create_checkout_invoice(
+            order=order,
+            business=business,
+            customer=customer,
+            items=final_items
+        )
+
+    except Exception as exc:
+
+        db.session.rollback()
+
+        return {
+            "success": False,
+            "message": (
+                "I couldn't create the payment "
+                "link right now. Please try again."
+            ),
+            "payment_error": str(exc)
+        }
+
+    if not payment.get(
+        "success"
+    ):
+
+        db.session.rollback()
+
+        return {
+            "success": False,
+            "message": (
+                "I couldn't create the payment "
+                "link right now. Please try again."
+            )
+        }
+
+    # ========================================================
+    # SAVE PAYDUNYA TOKEN
+    # ========================================================
+
+    payment_token = payment.get(
+        "token"
+    )
+
+    checkout_url = payment.get(
+        "checkout_url"
+    )
+
+    if not payment_token or not checkout_url:
+
+        db.session.rollback()
+
+        return {
+            "success": False,
+            "message": (
+                "PayDunya did not return "
+                "a valid payment link."
+            )
+        }
+
+    order.payment_token = (
+        payment_token
+    )
+
+    order.payment_status = "Unpaid"
+
+    order.payment_method = (
+        "PayDunya"
+    )
+
+    # ========================================================
+    # COMPLETE PREVIEW
+    # ========================================================
+
     preview.status = "confirmed"
 
     db.session.commit()
 
+    # ========================================================
+    # RETURN PAYMENT INFORMATION
+    # ========================================================
+
     return {
         "success": True,
+
         "order": {
             "id": order.id,
             "status": order.status,
+            "payment_status": order.payment_status,
             "total": final_total,
+            "currency": "FCFA",
             "items": final_items
         },
+
+        "payment": {
+            "provider": "PayDunya",
+            "status": "Unpaid",
+            "checkout_url": checkout_url,
+            "token": payment_token
+        },
+
         "message": (
-            f"Order #{order.id} has been confirmed."
+            f"Order #{order.id} has been created. "
+            "Payment is required to complete the order."
         )
     }
 
 
-# ==========================
+# ============================================================
 # DISCARD PREVIEW
-# ==========================
+# ============================================================
 
 def discard_pending_order(
     business_id,
@@ -502,7 +668,9 @@ def discard_pending_order(
 
         return {
             "success": False,
-            "message": "No pending order preview."
+            "message": (
+                "No pending order preview."
+            )
         }
 
     preview.status = "cancelled"
@@ -517,9 +685,9 @@ def discard_pending_order(
     }
 
 
-# ==========================
+# ============================================================
 # MODIFY ACTIVE ORDER
-# ==========================
+# ============================================================
 
 def modify_active_order(
     business_id,
@@ -554,7 +722,9 @@ def modify_active_order(
 
         return {
             "success": False,
-            "message": "No active order found."
+            "message": (
+                "No active order found."
+            )
         }
 
     command = interpret_order_request(
@@ -585,9 +755,9 @@ def modify_active_order(
     return result
 
 
-# ==========================
+# ============================================================
 # CANCEL ACTIVE ORDER
-# ==========================
+# ============================================================
 
 def cancel_active_order(
     business_id,
@@ -621,7 +791,9 @@ def cancel_active_order(
 
         return {
             "success": False,
-            "message": "No active order found."
+            "message": (
+                "No active order found."
+            )
         }
 
     order.status = "Cancelled"

@@ -1,66 +1,17 @@
 {% extends "base.html" %}
-
-{% block title %}
-Add Menu Item
-{% endblock %}
-
+{% block title %}Add Menu Item • {{ business.name }}{% endblock %}
 {% block content %}
-
-<div class="container mt-5">
-
-    <h1>Add Menu Item</h1>
-
-    <p><strong>{{ business.name }}</strong></p>
-
-    <hr>
-
-    <form method="POST">
-
-        <div class="mb-3">
-            <label>Item Name</label>
-            <input
-                type="text"
-                name="name"
-                class="form-control"
-                required>
-        </div>
-
-        <div class="mb-3">
-            <label>Description</label>
-            <textarea
-                name="description"
-                class="form-control"></textarea>
-        </div>
-
-        <div class="mb-3">
-            <label>Price</label>
-            <input
-                type="number"
-                step="0.01"
-                name="price"
-                class="form-control"
-                required>
-        </div>
-
-        <div class="mb-3">
-            <label>Category</label>
-            <input
-                type="text"
-                name="category"
-                class="form-control">
-        </div>
-
-        <button class="btn btn-success">
-            Save Menu Item
-        </button>
-
-        <a href="/business/{{ business.id }}"
-           class="btn btn-secondary">
-            Cancel
-        </a>
-
-    </form>
-
+<div class="page-shell narrow-shell">
+    <section class="form-hero glass-deep shadow-float mesh-band creation-hero">
+        <span class="eyebrow-pill"><span class="eyebrow-dot mint"></span>{{ business.name }}</span>
+        <h1>Add a menu item.</h1>
+        <p>Give the AI assistant accurate product information so it can answer customers and build orders correctly.</p>
+        <form method="POST" class="premium-form form-panel creation-form">
+            <div class="field-group"><label for="name">Item name</label><input id="name" type="text" name="name" placeholder="e.g. Chicken burger" required></div>
+            <div class="field-group"><label for="description">Description</label><textarea id="description" name="description" rows="4" placeholder="Describe the item for customers"></textarea></div>
+            <div class="form-grid-2"><div class="field-group"><label for="price">Price</label><input id="price" type="number" step="0.01" name="price" placeholder="0" required></div><div class="field-group"><label for="category">Category</label><input id="category" type="text" name="category" placeholder="Main, Drinks, Dessert…"></div></div>
+            <div class="form-actions"><button type="submit" class="btn-dark">Save menu item <span>↗</span></button><a href="/business/{{ business.id }}" class="btn-glass">Cancel</a></div>
+        </form>
+    </section>
 </div>
-
 {% endblock %}

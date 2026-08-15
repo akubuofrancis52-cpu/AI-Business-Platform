@@ -1,221 +1,117 @@
-/* ========================================
-   PREMIUM TABLES
-======================================== */
-
-.table{
-
-    width:100%;
-
-    border-collapse:separate;
-
-    border-spacing:0 14px;
-
-    margin-bottom:0;
-
+.table-search {
+    position: relative;
+    margin-bottom: 22px;
 }
 
-.table thead th{
-
-    border:none;
-
-    color:#64748b;
-
-    font-size:.82rem;
-
-    text-transform:uppercase;
-
-    letter-spacing:1px;
-
-    font-weight:700;
-
-    padding:18px 24px;
-
+.table-search i {
+    position: absolute;
+    left: 17px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #9aa0ad;
 }
 
-.table tbody tr{
-
-    background:rgba(255,255,255,.82);
-
-    backdrop-filter:blur(18px);
-
-    transition:.3s;
-
-    box-shadow:
-
-        0 12px 30px rgba(15,23,42,.05);
-
+.table-search input {
+    padding-left: 48px;
 }
 
-.table tbody tr:hover{
-
-    transform:translateY(-4px);
-
-    box-shadow:
-
-        0 22px 45px rgba(15,23,42,.10);
-
+.table-header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 15px;
+    margin-bottom: 22px;
 }
 
-.table td{
-
-    padding:22px;
-
-    border:none;
-
-    vertical-align:middle;
-
+.table-header h2 {
+    margin: 0;
 }
 
-.table td:first-child{
-
-    border-radius:18px 0 0 18px;
-
+.table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0 10px;
 }
 
-.table td:last-child{
-
-    border-radius:0 18px 18px 0;
-
+.table thead th {
+    padding: 10px 18px;
+    border: 0;
+    color: var(--slate2);
+    font-size: 10px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: .14em;
 }
 
-/* Status */
-
-.badge-status{
-
-    display:inline-flex;
-
-    align-items:center;
-
-    gap:8px;
-
-    padding:8px 18px;
-
-    border-radius:999px;
-
-    font-size:.85rem;
-
-    font-weight:700;
-
+.table tbody tr {
+    background: rgba(255,255,255,.58);
+    backdrop-filter: blur(18px);
+    box-shadow: 0 12px 30px rgba(60,70,110,.06);
+    transition: var(--transition);
 }
 
-.badge-pending{
-
-    background:#fef3c7;
-
-    color:#92400e;
-
+.table tbody tr:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-soft);
 }
 
-.badge-completed{
-
-    background:#dcfce7;
-
-    color:#166534;
-
+.table td {
+    padding: 17px 18px;
+    border: 0;
+    vertical-align: middle;
+    color: var(--ink);
 }
 
-.badge-cancelled{
-
-    background:#fee2e2;
-
-    color:#991b1b;
-
+.table td:first-child {
+    border-radius: 18px 0 0 18px;
 }
 
-/* Customer Avatar */
-
-.customer-avatar{
-
-    width:48px;
-
-    height:48px;
-
-    border-radius:50%;
-
-    display:flex;
-
-    align-items:center;
-
-    justify-content:center;
-
-    color:white;
-
-    font-weight:700;
-
-    background:linear-gradient(
-
-        135deg,
-
-        #2563eb,
-
-        #7c3aed
-
-    );
-
+.table td:last-child {
+    border-radius: 0 18px 18px 0;
 }
 
-/* Search */
-
-.table-search{
-
-    position:relative;
-
-    margin-bottom:25px;
-
+.badge-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 7px 12px;
+    border-radius: var(--pill);
+    font-size: 11px;
+    font-weight: 750;
 }
 
-.table-search i{
-
-    position:absolute;
-
-    top:50%;
-
-    left:18px;
-
-    transform:translateY(-50%);
-
-    color:#94a3b8;
-
+.badge-pending {
+    background: rgba(255,216,194,.72);
+    color: #a35c34;
 }
 
-.table-search input{
-
-    padding-left:52px;
-
+.badge-completed {
+    background: rgba(211,245,227,.76);
+    color: #287c58;
 }
 
-/* Header */
-
-.table-header{
-
-    display:flex;
-
-    justify-content:space-between;
-
-    align-items:center;
-
-    margin-bottom:25px;
-
+.badge-cancelled {
+    background: rgba(255,225,225,.75);
+    color: #9d4141;
 }
 
-.table-header h2{
-
-    margin:0;
-
+.customer-avatar {
+    width: 44px;
+    height: 44px;
+    display: grid;
+    place-items: center;
+    border-radius: 15px;
+    background: linear-gradient(145deg, var(--sky), var(--mint));
+    color: var(--ink);
+    font-size: 12px;
+    font-weight: 850;
+    border: 1px solid rgba(255,255,255,.85);
 }
 
-/* Responsive */
-
-@media(max-width:900px){
-
-.table{
-
-display:block;
-
-overflow-x:auto;
-
-white-space:nowrap;
-
-}
-
+@media (max-width: 900px) {
+    .table {
+        display: block;
+        overflow-x: auto;
+        white-space: nowrap;
+    }
 }
