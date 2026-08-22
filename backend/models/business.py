@@ -26,6 +26,16 @@ class Business(db.Model):
         db.String(30)
     )
 
+    opening_hours = db.Column(
+        db.Text,
+        nullable=True
+    )
+
+    delivery_policy = db.Column(
+        db.Text,
+        nullable=True
+    )
+
     # ========================================================
     # WHATSAPP CLOUD API
     # ========================================================

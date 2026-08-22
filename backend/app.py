@@ -1,7 +1,15 @@
 import os
+import re
+import requests
+from dotenv import load_dotenv
+
+load_dotenv()
+
 from langdetect import detect, DetectorFactory
 
 from datetime import datetime, timedelta
+from concurrent.futures import ThreadPoolExecutor
+from threading import Lock
 
 from flask import (
     Flask,
@@ -30,9 +38,14 @@ from models.customer import Customer
 from models.conversation import Conversation
 from models.pending_order import PendingOrder
 from models.support_ticket import SupportTicket
+from threading import Thread
 
 from services.ai.prompt_builder import build_restaurant_prompt
 from services.ai.openai_provider import OpenAIProvider
+from services.ai.voice_transcriber import (
+    transcribe_audio
+)
+
 
 from services.ai.order_modifier import (
     interpret_order_request
@@ -53,6 +66,18 @@ from services.ai.agent import (
 from services.ai.agent import (
     run_agent
 )
+
+# ============================================================
+# WHATSAPP BACKGROUND PROCESSING
+# ============================================================
+
+WHATSAPP_EXECUTOR = ThreadPoolExecutor(
+    max_workers=2
+)
+
+WHATSAPP_IN_FLIGHT = set()
+
+WHATSAPP_IN_FLIGHT_LOCK = Lock()
 
 
 # ============================================================
@@ -94,10 +119,290 @@ def detect_customer_language(
 
     text = str(message).strip()
 
-    if len(text) < 4:
+    if not text:
         return fallback
 
+        # Common short messages and restaurant-related phrases.
+    short_phrases = {
+        # English
+        "hi": "English",
+        "hello": "English",
+        "hey": "English",
+        "good morning": "English",
+        "good afternoon": "English",
+        "good evening": "English",
+        "yes": "English",
+        "yeah": "English",
+        "yep": "English",
+        "please": "English",
+        "thanks": "English",
+        "thank you": "English",
+        "menu": "English",
+        "price": "English",
+        "prices": "English",
+        "how much": "English",
+        "order": "English",
+        "delivery": "English",
+        "do you deliver": "English",
+        "do you deliver?": "English",
+        "can you deliver": "English",
+        "can you deliver?": "English",
+        "do you offer delivery": "English",
+        "do you offer delivery?": "English",
+        "is there delivery": "English",
+        "is there delivery?": "English",
+        "where do you deliver": "English",
+        "where do you deliver?": "English",
+        "cancel": "English",
+
+        # French
+        "bonjour": "French",
+        "bonsoir": "French",
+        "bjr": "French",
+        "bsr": "French",
+        "re": "French",
+        "salut": "French",
+        "lut": "French",
+        "coucou": "French",
+        "cc": "French",
+        "yop": "French",
+        "yo": "French",
+        "wesh": "French",
+        "wesh la famille lt": "French",
+        "tfk": "French",
+        "sdk": "French",
+        "t'as la forme": "French",
+        "ta la forme": "French",
+        "tas la forme": "French",
+        "ça roule": "French",
+        "ca roule": "French",
+        "cv": "French",
+        "koi29": "French",
+        "merci": "French",
+        "s'il vous plaît": "French",
+        "s'il te plaît": "French",
+        "je veux": "French",
+        "je voudrais": "French",
+        "combien": "French",
+        "combien ça coûte": "French",
+        "prix": "French",
+        "commande": "French",
+        "commander": "French",
+        "livraison": "French",
+        "annuler": "French",
+        "oui": "French",
+        "non": "French",
+
+        # Spanish
+        "hola": "Spanish",
+        "buenos dias": "Spanish",
+        "buenas": "Spanish",
+        "gracias": "Spanish",
+        "por favor": "Spanish",
+        "quiero": "Spanish",
+        "cuanto": "Spanish",
+        "precio": "Spanish",
+        "pedido": "Spanish",
+        "entrega": "Spanish",
+
+        # Portuguese
+        "olá": "Portuguese",
+        "ola": "Portuguese",
+        "bom dia": "Portuguese",
+        "obrigado": "Portuguese",
+        "obrigada": "Portuguese",
+        "por favor": "Portuguese",
+        "quero": "Portuguese",
+        "quanto": "Portuguese",
+        "preço": "Portuguese",
+        "pedido": "Portuguese",
+
+        # Italian
+        "ciao": "Italian",
+        "buongiorno": "Italian",
+        "grazie": "Italian",
+        "per favore": "Italian",
+        "voglio": "Italian",
+        "quanto": "Italian",
+
+        # German
+        "hallo": "German",
+        "guten morgen": "German",
+        "danke": "German",
+        "bitte": "German",
+        "ich möchte": "German",
+        "wie viel": "German",
+    }
+
+    normalized = re.sub(
+        r"[-–—]",
+        " ",
+        text.lower()
+    )
+
+    normalized = re.sub(
+        r"[^\w\s]",
+        "",
+        normalized
+    )
+
+    normalized = " ".join(
+        normalized.split()
+    )
+
+    normalized = " ".join(
+        normalized.split()
+    )
+
+    if normalized in short_phrases:
+        return short_phrases[normalized]
+
+    # ========================================================
+    # COMMON MULTILINGUAL RESTAURANT PHRASES
+    # ========================================================
+
+    french_phrases = (
+        # Menu / browsing
+        "je peux voir",
+        "je voudrais voir",
+        "je veux voir",
+        "puis je voir",
+        "montre moi",
+        "montrez moi",
+        "donne moi",
+        "donnez moi",
+        "voir le menu",
+        "voir votre menu",
+        "voir ton menu",
+        "quel est le menu",
+        "qu est ce que vous avez",
+        "qu est ce qu il y a",
+        "que proposez vous",
+        "que servez vous",
+
+        # Ordering
+        "je voudrais une",
+        "je voudrais un",
+        "je veux une",
+        "je veux un",
+        "je voudrais commander",
+        "je veux commander",
+        "je peux avoir",
+        "j'aimerais une",
+        "j'aimerais un",
+        "j aimerais une",
+        "j aimerais un",
+        "jaimerais une",
+        "jaimerais un",
+        "je souhaite une",
+        "je souhaite un",
+        "je souhaite commander",
+        "je vais prendre",
+        "je prends",
+        "donnez moi une",
+        "donnez moi un",
+        "donne moi une",
+        "donne moi un",
+
+        # Restaurant questions
+        "combien ça coûte",
+        "combien coute",
+        "avez vous",
+        "avez-vous",
+    )
+
+    english_phrases = (
+        "can i see",
+        "i want to see",
+        "i would like to see",
+        "show me",
+        "give me",
+        "what do you have",
+        "what do you serve",
+        "what is on the menu",
+        "what's on the menu",
+        "how much",
+    )
+
+    spanish_phrases = (
+        "puedo ver",
+        "quiero ver",
+        "muestreme",
+        "muestrame",
+        "dame",
+        "que tienen",
+        "que tienen en el menu",
+    )
+
+    portuguese_phrases = (
+        "posso ver",
+        "quero ver",
+        "mostre",
+        "me mostre",
+        "me de",
+        "o que voces tem",
+    )
+
+    italian_phrases = (
+        "posso vedere",
+        "voglio vedere",
+        "mostrami",
+        "fammi vedere",
+        "cosa avete",
+    )
+
+    german_phrases = (
+        "kann ich",
+        "zeig mir",
+        "zeige mir",
+        "was habt ihr",
+        "was gibt es",
+    )
+
+    if any(
+        phrase in normalized
+        for phrase in french_phrases
+    ):
+        return "French"
+
+    if any(
+        phrase in normalized
+        for phrase in english_phrases
+    ):
+        return "English"
+
+    if any(
+        phrase in normalized
+        for phrase in spanish_phrases
+    ):
+        return "Spanish"
+
+    if any(
+        phrase in normalized
+        for phrase in portuguese_phrases
+    ):
+        return "Portuguese"
+
+    if any(
+        phrase in normalized
+        for phrase in italian_phrases
+    ):
+        return "Italian"
+
+    if any(
+        phrase in normalized
+        for phrase in german_phrases
+    ):
+        return "German"
+
     try:
+
+        # Short restaurant/order messages are unreliable
+        # for automatic language detection. Keep the
+        # customer's existing language unless there is
+        # a clear language phrase above.
+        if len(normalized.split()) <= 5:
+            return fallback
 
         detected_code = detect(text)
 
@@ -310,6 +615,313 @@ def send_whatsapp_message(
 
         return False
 
+# ============================================================
+# WHATSAPP AUDIO TRANSCRIPTION
+# ============================================================
+
+def download_whatsapp_audio(
+    media_id
+):
+    """
+    Download a WhatsApp audio file from Meta.
+    Returns the local temporary file path.
+    """
+
+    if (
+        not WHATSAPP_TOKEN
+        or not media_id
+    ):
+        raise RuntimeError(
+            "WhatsApp credentials or media ID are missing."
+        )
+
+    import os
+    import tempfile
+    import requests
+
+    try:
+
+        # ----------------------------------------------------
+        # STEP 1: GET MEDIA URL
+        # ----------------------------------------------------
+
+        media_url = (
+            f"https://graph.facebook.com/v23.0/"
+            f"{media_id}"
+        )
+
+        media_response = requests.get(
+            media_url,
+            headers={
+                "Authorization":
+                    f"Bearer {WHATSAPP_TOKEN}"
+            },
+            timeout=10
+        )
+
+        if not media_response.ok:
+
+            app.logger.error(
+                "WhatsApp media lookup failed %s: %s",
+                media_response.status_code,
+                media_response.text[:1000]
+            )
+
+            raise RuntimeError(
+                "Could not retrieve WhatsApp audio."
+            )
+
+        media_data = (
+            media_response.json()
+        )
+
+        download_url = (
+            media_data.get("url")
+        )
+
+        if not download_url:
+
+            raise RuntimeError(
+                "WhatsApp did not return an audio URL."
+            )
+
+        # ----------------------------------------------------
+        # STEP 2: DOWNLOAD AUDIO
+        # ----------------------------------------------------
+
+        audio_response = requests.get(
+            download_url,
+            headers={
+                "Authorization":
+                    f"Bearer {WHATSAPP_TOKEN}"
+            },
+            timeout=30
+        )
+
+        if not audio_response.ok:
+
+            app.logger.error(
+                "WhatsApp audio download failed %s: %s",
+                audio_response.status_code,
+                audio_response.text[:1000]
+            )
+
+            raise RuntimeError(
+                "Could not download WhatsApp audio."
+            )
+
+        # ----------------------------------------------------
+        # STEP 3: SAVE TEMPORARILY
+        # ----------------------------------------------------
+
+        temp_file = tempfile.NamedTemporaryFile(
+            delete=False,
+            suffix=".ogg"
+        )
+
+        temp_file.write(
+            audio_response.content
+        )
+
+        temp_file.close()
+
+        return temp_file.name
+
+    except Exception:
+
+        app.logger.exception(
+            "WhatsApp audio download failed."
+        )
+
+        raise
+
+
+def process_whatsapp_audio(
+    media_id
+):
+    """
+    Download and transcribe a WhatsApp voice message.
+
+    Returns the transcribed text.
+    """
+
+    import os
+    import shutil
+
+    audio_path = None
+
+    try:
+
+        audio_path = download_whatsapp_audio(
+            media_id
+        )
+
+        shutil.copy(
+            audio_path,
+            "/tmp/whatsapp-test.ogg"
+        )
+
+        app.logger.info(
+            "Saved WhatsApp audio test file: %s",
+            audio_path
+        )
+
+        transcript = transcribe_audio(
+            audio_path
+        )
+
+        return transcript.strip()
+
+
+    finally:
+
+        if audio_path:
+
+            try:
+                os.remove(audio_path)
+
+            except OSError:
+                pass
+
+def transcribe_audio(
+    audio_path
+):
+    """
+    Transcribe WhatsApp audio locally using
+    ffmpeg + whisper.cpp.
+
+    No OpenRouter or OpenAI audio credits are required.
+    """
+
+    import os
+    import subprocess
+    import tempfile
+
+    if not audio_path:
+        raise RuntimeError(
+            "Audio file path is missing."
+        )
+
+    wav_path = None
+
+    try:
+
+        # ----------------------------------------------------
+        # STEP 1: CREATE TEMPORARY WAV FILE
+        # ----------------------------------------------------
+
+        wav_file = tempfile.NamedTemporaryFile(
+            delete=False,
+            suffix=".wav"
+        )
+
+        wav_path = wav_file.name
+
+        wav_file.close()
+
+        # ----------------------------------------------------
+        # STEP 2: CONVERT WHATSAPP OGG/OPUS TO WAV
+        # ----------------------------------------------------
+
+        subprocess.run(
+            [
+                "ffmpeg",
+                "-y",
+                "-i",
+                audio_path,
+                "-ar",
+                "16000",
+                "-ac",
+                "1",
+                "-c:a",
+                "pcm_s16le",
+                wav_path
+            ],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.PIPE,
+            check=True
+        )
+
+        # ----------------------------------------------------
+        # STEP 3: RUN LOCAL WHISPER
+        # ----------------------------------------------------
+
+        whisper_binary = (
+            "/home/kamsi/whisper.cpp/"
+            "build/bin/whisper-cli"
+        )
+
+        whisper_model = (
+            "/home/kamsi/whisper.cpp/"
+            "models/ggml-base.bin"
+        )
+
+        result = subprocess.run(
+            [
+                whisper_binary,
+                "-m",
+                whisper_model,
+                "-f",
+                wav_path,
+                "-l",
+                "auto",
+                "-nt",
+                "-np"
+            ],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            check=True
+        )
+
+        text = (
+            result.stdout
+            or ""
+        ).strip()
+
+        if not text:
+
+            raise RuntimeError(
+                "Local Whisper returned no text."
+            )
+
+        app.logger.info(
+            "WhatsApp audio transcribed locally: %s",
+            text
+        )
+
+        return text
+
+    except subprocess.CalledProcessError as exc:
+
+        app.logger.error(
+            "Local audio transcription failed: %s",
+            exc.stderr
+        )
+
+        raise RuntimeError(
+            "Local audio transcription failed."
+        ) from exc
+
+    except Exception:
+
+        app.logger.exception(
+            "WhatsApp audio transcription failed."
+        )
+
+        raise
+
+    finally:
+
+        if wav_path:
+
+            try:
+                os.remove(
+                    wav_path
+                )
+
+            except OSError:
+                pass
 
 # ============================================================
 # SUPPORT EMAIL
@@ -538,17 +1150,7 @@ def run_customer_agent(
         customer.language = detected_language
 
 
-    previous_conversations = (
-        Conversation.query
-        .filter_by(
-            customer_id=customer.id
-        )
-        .order_by(
-            Conversation.id.desc()
-        )
-        .limit(12)
-        .all()
-    )
+    previous_conversations = []
 
     history = [
 
@@ -561,6 +1163,8 @@ def run_customer_agent(
             previous_conversations
         )
     ]
+
+    app.logger.warning("[DEBUG] About to call run_agent")
 
     result = run_agent(
         business.id,
@@ -1872,6 +2476,40 @@ def create_order(
             order
         )
 
+        # ========================================================
+        # N8N ORDER AUTOMATION
+        # ========================================================
+
+        n8n_webhook_url = os.environ.get(
+            "N8N_WEBHOOK_URL"
+        )
+
+        if n8n_webhook_url:
+
+            try:
+
+                requests.post(
+                    n8n_webhook_url,
+                    json={
+                        "event": "order_created",
+                        "order_id": order.id,
+                        "business_id": business.id,
+                        "customer_name": order.customer_name,
+                        "customer_phone": order.customer_phone,
+                        "delivery_address": order.delivery_address,
+                        "total_price": order.total_price,
+                        "status": order.status,
+                        "payment_status": order.payment_status,
+                    },
+                    timeout=5
+                )
+
+            except Exception as e:
+
+                print(
+                    f"[n8n] Order webhook failed: {e}"
+                )
+
         db.session.commit()
 
         return redirect(
@@ -2332,6 +2970,16 @@ def business_settings(
             ""
         ).strip()
 
+        opening_hours = request.form.get(
+            "opening_hours",
+            ""
+        ).strip()
+
+        delivery_policy = request.form.get(
+            "delivery_policy",
+            ""
+        ).strip()
+
         if not name:
 
             return (
@@ -2358,6 +3006,22 @@ def business_settings(
 
         business.phone = (
             phone or None
+        )
+
+        business.phone = (
+            phone or None
+        )
+
+        business.opening_hours = (
+            opening_hours or None
+        )
+
+        business.delivery_policy = (
+            delivery_policy or None
+        )
+
+        business.delivery_policy = (
+            delivery_policy or None
         )
 
         db.session.commit()
@@ -3575,12 +4239,22 @@ def agent_chat():
 
         db.session.commit()
 
-    language = (
+    # ========================================================
+    # DETECT CUSTOMER LANGUAGE FROM CURRENT MESSAGE
+    # ========================================================
 
-        customer.language
-
-        or "English"
+    detected_language = detect_customer_language(
+        message,
+        fallback=customer.language or "English"
     )
+
+    language = detected_language
+
+    if customer.language != detected_language:
+
+        customer.language = detected_language
+
+        db.session.commit()
 
     previous_conversations = (
 
@@ -3701,11 +4375,81 @@ def agent_chat():
 # WHATSAPP WEBHOOK
 # ============================================================
 
+def process_whatsapp_message_async(
+    business,
+    from_phone,
+    text_body,
+    contact_name,
+    message_id,
+):
+
+    app.logger.warning(
+            "[ASYNC] Worker started for %s: %s",
+            from_phone,
+            text_body,
+        )
+
+    try:
+
+        app.logger.warning(
+                "[ASYNC] Starting run_customer_agent"
+            )
+
+        ai_start = time.perf_counter()
+
+        (
+            agent_result,
+            reply_text,
+            customer
+        ) = run_customer_agent(
+            business,
+            from_phone,
+            text_body,
+            contact_name
+        )
+
+        app.logger.info(
+            "[PERF] AI processing: %.2fs",
+            time.perf_counter() - ai_start
+        )
+
+        send_start = time.perf_counter()
+
+        send_whatsapp_message(
+            from_phone,
+            reply_text
+        )
+
+        app.logger.info(
+            "[PERF] WhatsApp send: %.2fs",
+            time.perf_counter() - send_start
+        )
+
+    except Exception:
+
+        db.session.rollback()
+
+        app.logger.exception(
+            "Async WhatsApp processing failed for %s",
+            from_phone
+        )
+
+    finally:
+
+        with WHATSAPP_IN_FLIGHT_LOCK:
+
+            WHATSAPP_IN_FLIGHT.discard(
+                message_id
+            )
+
 @app.route(
     "/webhook/whatsapp",
     methods=["GET", "POST"]
 )
 def whatsapp_webhook():
+
+    import time
+    webhook_start = time.perf_counter()
 
     if request.method == "GET":
 
@@ -3735,6 +4479,11 @@ def whatsapp_webhook():
 
     data = request.get_json(
         silent=True
+    )
+
+    app.logger.warning(
+        "WHATSAPP WEBHOOK PAYLOAD: %s",
+        data
     )
 
     if not isinstance(
@@ -3841,17 +4590,37 @@ def whatsapp_webhook():
                         wa_message,
                         dict
                     ):
-
                         continue
 
-                    if (
+                    message_id = (
                         wa_message.get(
-                            "type"
+                            "id"
                         )
-                        != "text"
-                    ):
+                    )
+
+                    if not message_id:
+
+                        app.logger.warning(
+                            "WhatsApp message has no message ID."
+                        )
 
                         continue
+
+                    with WHATSAPP_IN_FLIGHT_LOCK:
+
+                        if message_id in WHATSAPP_IN_FLIGHT:
+
+                            app.logger.info(
+                                "Skipping duplicate WhatsApp "
+                                "message: %s",
+                                message_id
+                            )
+
+                            continue
+
+                        WHATSAPP_IN_FLIGHT.add(
+                            message_id
+                        )
 
                     from_phone = (
                         wa_message.get(
@@ -3859,21 +4628,179 @@ def whatsapp_webhook():
                         )
                     )
 
-                    text_body = (
-
+                    message_type = (
                         wa_message.get(
-                            "text",
-                            {}
+                            "type"
                         )
-                        or {}
-                    ).get(
-                        "body",
-                        ""
-                    ).strip()
+                    )
+
+                    # ------------------------------------------------
+                    # TEXT MESSAGE
+                    # ------------------------------------------------
+
+                    if message_type == "text":
+
+                        text_body = (
+                            wa_message.get(
+                                "text",
+                                {}
+                            )
+                            or {}
+                        ).get(
+                            "body",
+                            ""
+                        ).strip()
+
+                    # ------------------------------------------------
+                    # VOICE MESSAGE
+                    # ------------------------------------------------
+
+                    elif message_type == "audio":
+
+                        audio_data = (
+                            wa_message.get(
+                                "audio",
+                                {}
+                            )
+                            or {}
+                        )
+
+                        media_id = audio_data.get(
+                            "id"
+                        )
+
+                        if not media_id:
+
+                            app.logger.warning(
+                                "WhatsApp audio message "
+                                "has no media ID."
+                            )
+
+                        if not media_id:
+
+                            app.logger.warning(
+                                "WhatsApp audio message "
+                                "has no media ID."
+                            )
+
+                            with WHATSAPP_IN_FLIGHT_LOCK:
+
+                                WHATSAPP_IN_FLIGHT.discard(
+                                    message_id
+                                )
+
+                            continue
+
+
+                        try:
+
+                            text_body = (
+                                process_whatsapp_audio(
+                                    media_id
+                                )
+                            )
+
+                        except Exception:
+
+                            app.logger.exception(
+                                "Failed to process WhatsApp "
+                                "voice message from %s",
+                                from_phone
+                            )
+
+                            send_whatsapp_message(
+                                from_phone,
+                                "Sorry, I couldn't understand "
+                                "that voice message. Please "
+                                "try again."
+                            )
+
+                            with WHATSAPP_IN_FLIGHT_LOCK:
+
+                                WHATSAPP_IN_FLIGHT.discard(
+                                    message_id
+                                )
+
+                            continue
+
+                    # ------------------------------------------------
+                    # UNSUPPORTED MESSAGE TYPE
+                    # ------------------------------------------------
+
+                    else:
+
+                        app.logger.info(
+                            "Ignoring unsupported WhatsApp "
+                            "message type: %s",
+                            message_type
+                        )
+
+                        with WHATSAPP_IN_FLIGHT_LOCK:
+
+                            WHATSAPP_IN_FLIGHT.discard(
+                                message_id
+                            )
+
+                        continue
 
                     if not from_phone or not text_body:
 
+                        with WHATSAPP_IN_FLIGHT_LOCK:
+
+                            WHATSAPP_IN_FLIGHT.discard(
+                                message_id
+                            )
+
                         continue
+
+                    # ------------------------------------------------
+                    # SEND WHATSAPP MESSAGE TO N8N
+                    # ------------------------------------------------
+
+                    n8n_webhook_url = os.environ.get(
+                        "N8N_WEBHOOK_URL"
+                    )
+
+                    if n8n_webhook_url:
+
+                        try:
+
+                            app.logger.warning(
+                                "[n8n] Sending WhatsApp message to: %s",
+                                n8n_webhook_url
+                            )
+
+                            n8n_response = requests.post(
+                                n8n_webhook_url,
+                                json={
+                                    "event": "whatsapp_message",
+                                    "message_id": message_id,
+                                    "business_id": business.id,
+                                    "from_phone": from_phone,
+                                    "message_type": message_type,
+                                    "text": text_body,
+                                },
+                                timeout=2
+                            )
+
+                            app.logger.warning(
+                                "[n8n] Response: %s %s",
+                                n8n_response.status_code,
+                                n8n_response.text
+                            )
+
+                        except Exception as e:
+
+                            app.logger.exception(
+                                "[n8n] WhatsApp webhook failed"
+                            )
+
+                        except Exception as e:
+
+                            app.logger.warning(
+                                "[n8n] WhatsApp webhook failed: %s",
+                                e
+                            )
 
                     contact_name = (
                         "New Customer"
@@ -3907,42 +4834,13 @@ def whatsapp_webhook():
                                 "New Customer"
                             )
 
-                    try:
-
-                        (
-                            agent_result,
-                            reply_text,
-                            customer
-                        ) = run_customer_agent(
-
-                            business,
-
-                            from_phone,
-
-                            text_body,
-
-                            contact_name
-                        )
-
-                    except Exception:
-
-                        db.session.rollback()
-
-                        app.logger.exception(
-
-                            "WhatsApp AI processing "
-                            "failed for %s",
-
-                            from_phone
-                        )
-
-                        continue
-
-                    send_whatsapp_message(
-
+                            WHATSAPP_EXECUTOR.submit(
+                        process_whatsapp_message_async,
+                        business.id,
                         from_phone,
-
-                        reply_text
+                        text_body,
+                        contact_name,
+                        message_id,
                     )
 
     except Exception:

@@ -66,6 +66,9 @@ def add_natural_emoji(message, customer_message=""):
     """
     Add an occasional natural emoji to customer-facing
     responses.
+
+    The goal is to make the bot feel friendly without
+    putting emojis in every single message.
     """
 
     message = clean_text(message)
@@ -73,6 +76,7 @@ def add_natural_emoji(message, customer_message=""):
     if not message:
         return message
 
+    # Never add an emoji if the response already contains one.
     if any(
         ord(char) > 0x1F000
         for char in message
@@ -83,6 +87,7 @@ def add_natural_emoji(message, customer_message=""):
         customer_message
     )
 
+    # Contextual emojis.
     if any(
         word in customer_text
         for word in (
@@ -146,8 +151,14 @@ def add_natural_emoji(message, customer_message=""):
         emoji = "✅"
 
     else:
+        # Keep generic messages mostly emoji-free.
         return message
 
+    # Only add the emoji occasionally so it doesn't become
+    # repetitive on every message.
+    #
+    # Use the message length as a deterministic selector.
+    # This avoids random behavior between identical requests.
     selector = (
         len(message)
         + len(customer_text)
@@ -180,21 +191,59 @@ def customer_response(
         customer_message,
     )
 
-
 def pending_order_confirmation_is_valid(
     history,
     pending
 ):
     """
-    Kept for compatibility with existing callers.
-    Pending-order confirmation is now primarily controlled
-    by the actual pending-order state.
+    A pending order may only be confirmed or rejected when
+    the immediately previous bot response explicitly asked
+    the customer to confirm that order.
+
+    This prevents stale pending orders from being triggered
+    by unrelated messages such as "yes".
     """
 
     if not pending:
         return False
 
-    return True
+    if not isinstance(history, list):
+        return False
+
+    if not history:
+        return False
+
+    last_exchange = history[-1]
+
+    if not isinstance(last_exchange, dict):
+        return False
+
+    previous_response = clean_text(
+        last_exchange.get("response")
+        or ""
+    ).lower()
+
+    if not previous_response:
+        return False
+
+    confirmation_markers = (
+        "confirm",
+        "confirmation",
+        "would you like to confirm",
+        "do you confirm",
+        "please confirm",
+        "confirm your order",
+        "confirm the order",
+        "is that correct",
+        "is this correct",
+        "would you like to proceed",
+    )
+
+    return any(
+        marker in previous_response
+        for marker in confirmation_markers
+    )
+
 
 
 # ============================================================
@@ -338,6 +387,10 @@ def execute_tool(
     ):
         arguments = {}
 
+    # --------------------------------------------------------
+    # SEARCH MENU
+    # --------------------------------------------------------
+
     if tool == "search_menu":
 
         query = (
@@ -351,12 +404,20 @@ def execute_tool(
             query,
         )
 
+    # --------------------------------------------------------
+    # CUSTOMER
+    # --------------------------------------------------------
+
     if tool == "get_customer":
 
         return get_customer(
             business_id,
             phone,
         )
+
+    # --------------------------------------------------------
+    # ACTIVE ORDER
+    # --------------------------------------------------------
 
     if tool == "get_active_order":
 
@@ -365,12 +426,20 @@ def execute_tool(
             phone,
         )
 
+    # --------------------------------------------------------
+    # PENDING ORDER
+    # --------------------------------------------------------
+
     if tool == "get_pending_order":
 
         return get_pending_order(
             business_id,
             phone,
         )
+
+    # --------------------------------------------------------
+    # CREATE ORDER PREVIEW
+    # --------------------------------------------------------
 
     if tool == "create_order_preview":
 
@@ -386,6 +455,10 @@ def execute_tool(
             order_message,
         )
 
+    # --------------------------------------------------------
+    # CONFIRM ORDER
+    # --------------------------------------------------------
+
     if tool == "confirm_order":
 
         return confirm_pending_order(
@@ -393,12 +466,20 @@ def execute_tool(
             phone,
         )
 
+    # --------------------------------------------------------
+    # DISCARD ORDER PREVIEW
+    # --------------------------------------------------------
+
     if tool == "discard_order_preview":
 
         return discard_pending_order(
             business_id,
             phone,
         )
+
+    # --------------------------------------------------------
+    # MODIFY ORDER
+    # --------------------------------------------------------
 
     if tool == "modify_order":
 
@@ -413,6 +494,10 @@ def execute_tool(
             phone,
             modification_message,
         )
+
+    # --------------------------------------------------------
+    # CANCEL ORDER
+    # --------------------------------------------------------
 
     if tool == "cancel_order":
 
@@ -601,7 +686,6 @@ def get_restaurant_context(
             "menu": [],
         }
 
-
 # ============================================================
 # RESTAURANT INFORMATION TOOL
 # ============================================================
@@ -610,6 +694,10 @@ def get_restaurant_info(
     business_id,
     message,
 ):
+    """
+    Return factual restaurant information directly
+    from the Business database record.
+    """
 
     try:
 
@@ -629,6 +717,10 @@ def get_restaurant_info(
         text = normalize_text(
             message
         )
+
+        # ----------------------------------------------------
+        # OPENING HOURS
+        # ----------------------------------------------------
 
         if any(
             phrase in text
@@ -672,6 +764,10 @@ def get_restaurant_info(
                 "opening_hours": hours,
             }
 
+        # ----------------------------------------------------
+        # DELIVERY
+        # ----------------------------------------------------
+
         if any(
             phrase in text
             for phrase in (
@@ -709,6 +805,10 @@ def get_restaurant_info(
                 "info_type": "delivery",
                 "delivery_policy": delivery,
             }
+
+        # ----------------------------------------------------
+        # LOCATION / ADDRESS
+        # ----------------------------------------------------
 
         if any(
             phrase in text
@@ -748,6 +848,10 @@ def get_restaurant_info(
                 "address": address,
             }
 
+        # ----------------------------------------------------
+        # PHONE
+        # ----------------------------------------------------
+
         if any(
             phrase in text
             for phrase in (
@@ -783,6 +887,10 @@ def get_restaurant_info(
                 "info_type": "phone",
                 "phone": phone,
             }
+
+        # ----------------------------------------------------
+        # GENERAL RESTAURANT INFORMATION
+        # ----------------------------------------------------
 
         return {
             "success": True,
@@ -840,7 +948,6 @@ def get_restaurant_info(
                 "currently unavailable."
             ),
         }
-
 
 # ============================================================
 # RESTAURANT PROMPT
@@ -1002,6 +1109,18 @@ information:
 - Politely explain that you are the restaurant's AI assistant
   and can only help with restaurant-related requests.
 
+Example:
+
+Customer:
+"What is a judge?"
+
+Good response:
+"I'm the restaurant's AI assistant, so I can help with the
+menu, orders, delivery, and other restaurant-related questions."
+
+Bad response:
+"A judge is a person who..."
+
 If they ask about food, use the real menu.
 
 Never invent menu items.
@@ -1012,6 +1131,20 @@ Never claim an unavailable item exists.
 
 If they ask for recommendations, recommend only actual
 menu items.
+
+Keep responses concise.
+
+If they ask a question unrelated to the restaurant,
+its menu, food, orders, delivery, location, hours,
+or other restaurant services, do not answer the
+unrelated question.
+
+Politely explain that you are the restaurant's AI
+assistant and are here to help with the restaurant,
+menu, orders, delivery, and related services.
+
+Do not provide general knowledge, dictionary
+definitions, school answers, or unrelated information.
 
 Keep responses concise.
 
@@ -1131,6 +1264,11 @@ def translate_order_preview_for_customer(
     lines,
     language,
 ):
+    """
+    Translate a customer-facing order preview into the
+    customer's language while preserving quantities,
+    prices, currency, emojis, and WhatsApp formatting.
+    """
 
     if not language:
         return lines
@@ -1207,7 +1345,6 @@ INPUT:
 
     return lines
 
-
 def build_tool_response(
     provider,
     business_id,
@@ -1217,6 +1354,10 @@ def build_tool_response(
     history,
     tool_result,
 ):
+
+    # ========================================================
+    # UNMATCHED ORDER ITEMS
+    # ========================================================
 
     if (
         isinstance(tool_result, dict)
@@ -1271,6 +1412,10 @@ def build_tool_response(
             ),
         }
 
+    # ========================================================
+    # ORDER PREVIEW — DETERMINISTIC MULTILINGUAL RESPONSE
+    # ========================================================
+
     if (
         isinstance(tool_result, dict)
         and tool_result.get("success")
@@ -1295,7 +1440,9 @@ def build_tool_response(
         )
 
         preview_currency = (
-            preview.get("currency")
+            preview.get(
+                "currency"
+            )
             or "FCFA"
         )
 
@@ -1374,6 +1521,10 @@ def build_tool_response(
             ),
         }
 
+    # ========================================================
+    # ORDER CONFIRMATION / PAYMENT — DETERMINISTIC RESPONSE
+    # ========================================================
+
     if (
         isinstance(tool_result, dict)
         and tool_result.get("success")
@@ -1405,7 +1556,9 @@ def build_tool_response(
         )
 
         currency = (
-            confirmed_order.get("currency")
+            confirmed_order.get(
+                "currency"
+            )
             or "FCFA"
         )
 
@@ -1451,6 +1604,11 @@ def build_tool_response(
                 message,
             ),
         }
+
+
+    # ========================================================
+    # ORDER ACTION — DETERMINISTIC MULTILINGUAL RESPONSE
+    # ========================================================
 
     if (
         isinstance(tool_result, dict)
@@ -1499,12 +1657,14 @@ def build_tool_response(
         elif action == "add_item":
 
             lines = [
-                clean_text(
-                    tool_result.get(
-                        "message"
+                (
+                    clean_text(
+                        tool_result.get(
+                            "message"
+                        )
+                        or "The item was added "
+                        "to your order."
                     )
-                    or "The item was added "
-                    "to your order."
                 ),
                 "",
                 f"Total: {total_text}",
@@ -1513,12 +1673,14 @@ def build_tool_response(
         elif action == "remove_item":
 
             lines = [
-                clean_text(
-                    tool_result.get(
-                        "message"
+                (
+                    clean_text(
+                        tool_result.get(
+                            "message"
+                        )
+                        or "The item was removed "
+                        "from your order."
                     )
-                    or "The item was removed "
-                    "from your order."
                 ),
                 "",
                 f"Total: {total_text}",
@@ -1527,11 +1689,13 @@ def build_tool_response(
         elif action == "set_quantity":
 
             lines = [
-                clean_text(
-                    tool_result.get(
-                        "message"
+                (
+                    clean_text(
+                        tool_result.get(
+                            "message"
+                        )
+                        or "The quantity was updated."
                     )
-                    or "The quantity was updated."
                 ),
                 "",
                 f"Total: {total_text}",
@@ -1540,12 +1704,14 @@ def build_tool_response(
         elif action == "replace_item":
 
             lines = [
-                clean_text(
-                    tool_result.get(
-                        "message"
+                (
+                    clean_text(
+                        tool_result.get(
+                            "message"
+                        )
+                        or "The item was replaced "
+                        "in your order."
                     )
-                    or "The item was replaced "
-                    "in your order."
                 ),
                 "",
                 f"Total: {total_text}",
@@ -1615,9 +1781,57 @@ RULES:
 - Keep the response concise.
 - Use an occasional natural emoji if appropriate.
 
-If an order was confirmed and a payment checkout URL exists,
-include the exact URL unchanged and tell the customer payment
-is required.
+============================================================
+ORDER PREVIEW
+============================================================
+
+If an order preview was created:
+
+- Show the ordered items.
+- Show quantities.
+- Show the total.
+- Ask the customer to confirm the order.
+
+============================================================
+ORDER CONFIRMATION
+============================================================
+
+If an order was confirmed:
+
+- Tell the customer it was successfully placed.
+- Include the order number if available.
+- Include the total if available.
+
+If the operation result contains:
+"payment.checkout_url"
+
+you MUST include that exact URL in the customer-facing message.
+
+Tell the customer that payment is required to finalize the order.
+
+Label the URL clearly, for example:
+"Pay here: <exact checkout_url>"
+
+NEVER alter, shorten, summarize, or replace the checkout URL.
+
+If payment.checkout_url is present, it MUST appear in the final response.
+
+============================================================
+CANCELLATION
+============================================================
+
+If an order was cancelled:
+
+- Clearly tell the customer.
+
+============================================================
+FAILURE
+============================================================
+
+If the operation failed:
+
+- Explain the problem simply.
+- Do not expose technical errors.
 
 Reply in {language}.
 
@@ -1653,6 +1867,10 @@ Return ONLY the customer-facing message.
         logger.exception(
             "AI tool response generation failed."
         )
+
+    # --------------------------------------------------------
+    # SAFE FALLBACK
+    # --------------------------------------------------------
 
     if isinstance(
         tool_result,
@@ -1693,6 +1911,12 @@ def translate_menu_for_customer(
     lines,
     language,
 ):
+    """
+    Translate the complete customer-facing menu in one AI request.
+
+    The actual menu data is preserved; only the WhatsApp
+    presentation is translated.
+    """
 
     if not language:
         return lines
@@ -1755,13 +1979,13 @@ MENU:
 
     except Exception:
 
-        logger.exception(
+        app.logger.exception(
             "Failed to translate menu to %s",
             language_name
         )
 
+    # Safe fallback: return the original menu.
     return lines
-
 
 def build_menu_response(
     tool_result,
@@ -1818,6 +2042,10 @@ def build_menu_response(
             ),
         }
 
+    # ========================================================
+    # CATEGORY EMOJIS
+    # ========================================================
+
     category_emojis = {
         "burger": "🍔",
         "burgers": "🍔",
@@ -1846,6 +2074,10 @@ def build_menu_response(
         "fries": "🍟",
         "sides": "🍟",
     }
+
+    # ========================================================
+    # GROUP ITEMS BY CATEGORY
+    # ========================================================
 
     categories = {}
 
@@ -1897,6 +2129,10 @@ def build_menu_response(
             ),
         }
 
+    # ========================================================
+    # BUILD WHATSAPP MENU
+    # ========================================================
+
     lines = [
         "🍽️ *Our Menu*",
         ""
@@ -1926,6 +2162,7 @@ def build_menu_response(
                 or item.get("title")
                 or "Menu item"
             )
+
 
             price = item.get(
                 "price"
@@ -1962,6 +2199,7 @@ def build_menu_response(
                 line
             )
 
+
     lines.append("")
 
     lines.append(
@@ -1989,12 +2227,37 @@ def build_menu_response(
 
 def classify_message_fast(message):
 
+    """
+    Fast local intent classification.
+
+    This replaces an additional AI request for obvious
+    restaurant intents and significantly reduces response
+    latency.
+
+       Returns:
+        order
+        modify_order
+        cancel_order
+        menu_search
+        restaurant_info
+        recommendation
+        chat
+        None
+
+    Returning None means the message is ambiguous and can
+    fall back to the AI classifier.
+    """
+
     text = normalize_text(
         message
     )
 
     if not text:
         return "chat"
+
+    # --------------------------------------------------------
+    # CANCEL
+    # --------------------------------------------------------
 
     cancel_phrases = (
         "cancel my order",
@@ -2012,6 +2275,10 @@ def classify_message_fast(message):
         for phrase in cancel_phrases
     ):
         return "cancel_order"
+
+    # --------------------------------------------------------
+    # MODIFY
+    # --------------------------------------------------------
 
     modify_phrases = (
         "change my order",
@@ -2045,6 +2312,11 @@ def classify_message_fast(message):
     ):
         return "modify_order"
 
+
+    # --------------------------------------------------------
+    # MENU SEARCH
+    # --------------------------------------------------------
+
     menu_phrases = (
         "menu",
         "show menu",
@@ -2053,13 +2325,6 @@ def classify_message_fast(message):
         "show the menu",
         "see the menu",
         "view the menu",
-        "can i look at the menu",
-        "can i see the menu",
-        "i would like to see your menu",
-        "i'd like to see your menu",
-        "i would like to see the menu",
-        "i'd like to see the menu",
-        "look at the menu",
         "what is on the menu",
         "what's on the menu",
         "what do you have",
@@ -2079,7 +2344,16 @@ def classify_message_fast(message):
     ):
         return "menu_search"
 
+    # --------------------------------------------------------
+    # ORDER
+    # --------------------------------------------------------
+
+    # --------------------------------------------------------
+    # RESTAURANT INFORMATION
+    # --------------------------------------------------------
+
     restaurant_info_phrases = (
+        # Opening hours
         "opening hours",
         "opening time",
         "what time do you open",
@@ -2097,6 +2371,8 @@ def classify_message_fast(message):
         "open today",
         "open now",
         "when can i visit",
+
+        # Delivery
         "do you deliver",
         "do you offer delivery",
         "is delivery available",
@@ -2109,6 +2385,8 @@ def classify_message_fast(message):
         "how much is delivery",
         "delivery fee",
         "delivery charge",
+
+        # Address / location
         "where are you located",
         "where are you",
         "where is the restaurant",
@@ -2120,6 +2398,8 @@ def classify_message_fast(message):
         "location",
         "restaurant location",
         "where can i find you",
+
+        # Phone / contact
         "phone number",
         "your phone number",
         "contact number",
@@ -2204,6 +2484,10 @@ def classify_message_fast(message):
     if has_order_phrase and has_food:
         return "order"
 
+    # --------------------------------------------------------
+    # RECOMMENDATION
+    # --------------------------------------------------------
+
     recommendation_phrases = (
         "what is good here",
         "what's good here",
@@ -2229,6 +2513,10 @@ def classify_message_fast(message):
     ):
         return "recommendation"
 
+    # --------------------------------------------------------
+    # SIMPLE CHAT
+    # --------------------------------------------------------
+
     chat_phrases = (
         "hello",
         "hi",
@@ -2252,6 +2540,10 @@ def classify_message_fast(message):
         for phrase in chat_phrases
     ):
         return "chat"
+
+    # --------------------------------------------------------
+    # CLEAR FOOD ORDER PATTERNS
+    # --------------------------------------------------------
 
     food_patterns = (
         "pizza",
@@ -2294,6 +2586,10 @@ def classify_message_fast(message):
     if has_food and has_order_verb:
         return "order"
 
+    # --------------------------------------------------------
+    # AMBIGUOUS
+    # --------------------------------------------------------
+
     return None
 
 
@@ -2305,6 +2601,13 @@ def classify_message(
     provider,
     message,
 ):
+
+    # Fast classification has already been attempted
+    # by run_agent(). This function handles AI fallback only.
+
+    # --------------------------------------------------------
+    # AI fallback only for genuinely ambiguous messages.
+    # --------------------------------------------------------
 
     prompt = f"""
 Classify this restaurant customer message.
@@ -2322,12 +2625,19 @@ conversation directly related to the restaurant.
 Do NOT use CHAT for unrelated general-knowledge
 questions.
 
-OFF_TOPIC
+    OFF_TOPIC
 
-The customer asks about something unrelated to the
-restaurant, menu, food, drinks, ordering, delivery,
-pickup, payment, location, hours, or restaurant
-customer service.
+    The customer asks about something unrelated to the
+    restaurant, menu, food, drinks, ordering, delivery,
+    pickup, payment, location, hours, or restaurant
+    customer service.
+
+    Examples:
+    "What is a judge?"
+    "Who is the president?"
+    "What is Python?"
+    "Explain physics."
+    "Tell me a joke."
 
 ORDER
 
@@ -2345,8 +2655,70 @@ MENU_SEARCH
 
 The customer asks to see, search, or browse the menu.
 
+Examples:
+
+"I want to place an order"
+= CHAT.
+
+"I want to order two pizzas"
+= ORDER.
+
+"I want two pizzas"
+= ORDER.
+
+"Give me a burger"
+= ORDER.
+
+"What pizzas do you have?"
+= MENU_SEARCH.
+
+"What do you have on the menu?"
+= MENU_SEARCH.
+
+"Show me the menu"
+= MENU_SEARCH.
+
+"What's good?"
+= CHAT.
+
+"Remove the burger from my order"
+= MODIFY_ORDER.
+
+"Cancel my order"
+= CANCEL_ORDER.
+
 Return ONLY the category name.
 """
+
+    # ========================================================
+    # FAST GREETING
+    # ========================================================
+
+    normalized_message = normalize_text(
+        message
+    )
+
+    greeting_responses = {
+        "hi": "Hi! How can I help you today?",
+        "hello": "Hello! How can I help you today?",
+        "hey": "Hey! How can I help you today?",
+        "good morning": "Good morning! How can I help you today?",
+        "good afternoon": "Good afternoon! How can I help you today?",
+        "good evening": "Good evening! How can I help you today?",
+    }
+
+    if normalized_message in greeting_responses:
+
+        return {
+            "type": "response",
+            "message": customer_response(
+                greeting_responses[
+                    normalized_message
+                ],
+                message,
+            ),
+        }
+
 
     try:
 
@@ -2375,6 +2747,7 @@ Return ONLY the category name.
         }
 
         if result in valid_categories:
+
             return result
 
         result = result.replace(
@@ -2383,6 +2756,7 @@ Return ONLY the category name.
         ).strip()
 
         if result in valid_categories:
+
             return result
 
         return "chat"
@@ -2424,143 +2798,114 @@ def run_agent(
 
     history = history or []
 
+    provider = OpenAIProvider()
+
     # ========================================================
-    # FAST GREETING
+    # PENDING ORDER
     # ========================================================
 
-    normalized_message = normalize_text(
-        message
+    pending = get_pending_order(
+        business_id,
+        phone,
     )
 
-    greeting_responses = {
-        "hi": "Hi! How can I help you today?",
-        "hello": "Hello! How can I help you today?",
-        "hey": "Hey! How can I help you today?",
-        "good morning": "Good morning! How can I help you today?",
-        "good afternoon": "Good afternoon! How can I help you today?",
-        "good evening": "Good evening! How can I help you today?",
-    }
+    # ========================================================
+    # CONFIRM PENDING ORDER
+    # ========================================================
 
-    if normalized_message in greeting_responses:
+    if (
+        isinstance(
+            pending,
+            dict
+        )
+        and pending.get("success")
+    ):
 
-        return {
-            "type": "response",
-            "message": customer_response(
-                greeting_responses[
-                    normalized_message
-                ],
-                message,
-            ),
-        }
+        # ----------------------------------------------------
+        # CONFIRM
+        # ----------------------------------------------------
+
+        if is_confirmation(message):
+
+            try:
+
+                result = confirm_pending_order(
+                    business_id,
+                    phone,
+                )
+
+                return build_tool_response(
+                    provider=provider,
+                    business_id=business_id,
+                    phone=phone,
+                    message=message,
+                    language=language,
+                    history=history,
+                    tool_result=result,
+                )
+
+            except Exception:
+
+                logger.exception(
+                    "Pending order confirmation failed."
+                )
+
+                return {
+                    "type": "response",
+                    "message": customer_response(
+                        "I couldn't confirm the order "
+                        "right now. Please try again.",
+                        message,
+                    ),
+                }
+
+        # ----------------------------------------------------
+        # REJECT
+        # ----------------------------------------------------
+
+        if is_rejection(message):
+
+            try:
+
+                result = discard_pending_order(
+                    business_id,
+                    phone,
+                )
+
+                return build_tool_response(
+                    provider=provider,
+                    business_id=business_id,
+                    phone=phone,
+                    message=message,
+                    language=language,
+                    history=history,
+                    tool_result=result,
+                )
+
+            except Exception:
+
+                logger.exception(
+                    "Pending order rejection failed."
+                )
+
+                return {
+                    "type": "response",
+                    "message": customer_response(
+                        "I couldn't cancel the order "
+                        "preview right now. Please try again.",
+                        message,
+                    ),
+                }
+
+    # ========================================================
+    # FAST CLASSIFICATION
+    # ========================================================
 
     classification = classify_message_fast(
         message
     )
 
-    logger.info(
-        "Restaurant AI fast classification: %s",
-        classification,
-    )
-
-    pending = None
-
-    # ========================================================
-    # PENDING ORDER CONFIRMATION / REJECTION
-    # ========================================================
-
-    if (
-        is_confirmation(message)
-        or is_rejection(message)
-    ):
-
-        pending = get_pending_order(
-            business_id,
-            phone,
-        )
-
-        if (
-            isinstance(
-                pending,
-                dict
-            )
-            and pending.get("success")
-        ):
-
-            if is_confirmation(message):
-
-                try:
-
-                    result = confirm_pending_order(
-                        business_id,
-                        phone,
-                    )
-
-                    return build_tool_response(
-                        provider=OpenAIProvider(),
-                        business_id=business_id,
-                        phone=phone,
-                        message=message,
-                        language=language,
-                        history=history,
-                        tool_result=result,
-                    )
-
-                except Exception:
-
-                    logger.exception(
-                        "Pending order confirmation failed."
-                    )
-
-                    return {
-                        "type": "response",
-                        "message": customer_response(
-                            "I couldn't confirm the order "
-                            "right now. Please try again.",
-                            message,
-                        ),
-                    }
-
-            if is_rejection(message):
-
-                try:
-
-                    result = discard_pending_order(
-                        business_id,
-                        phone,
-                    )
-
-                    return build_tool_response(
-                        provider=OpenAIProvider(),
-                        business_id=business_id,
-                        phone=phone,
-                        message=message,
-                        language=language,
-                        history=history,
-                        tool_result=result,
-                    )
-
-                except Exception:
-
-                    logger.exception(
-                        "Pending order rejection failed."
-                    )
-
-                    return {
-                        "type": "response",
-                        "message": customer_response(
-                            "I couldn't cancel the order "
-                            "preview right now. Please try again.",
-                            message,
-                        ),
-                    }
-
-    # ========================================================
-    # AI CLASSIFICATION FALLBACK
-    # ========================================================
-
     if classification is None:
-
-        provider = OpenAIProvider()
 
         classification = classify_message(
             provider,
@@ -2571,6 +2916,10 @@ def run_agent(
         "Restaurant AI classification: %s",
         classification,
     )
+
+    # ========================================================
+    # OFF-TOPIC
+    # ========================================================
 
     if classification == "off_topic":
 
@@ -2583,6 +2932,10 @@ def run_agent(
                 message,
             ),
         }
+
+    # ========================================================
+    # RESTAURANT INFORMATION
+    # ========================================================
 
     if classification == "restaurant_info":
 
@@ -2609,7 +2962,7 @@ def run_agent(
                 }
 
             return build_tool_response(
-                provider=OpenAIProvider(),
+                provider=provider,
                 business_id=business_id,
                 phone=phone,
                 message=message,
@@ -2631,6 +2984,10 @@ def run_agent(
                     message,
                 ),
             }
+
+    # ========================================================
+    # ORDER
+    # ========================================================
 
     if classification == "order":
 
@@ -2678,7 +3035,7 @@ def run_agent(
                 }
 
             return build_tool_response(
-                provider=OpenAIProvider(),
+                provider=provider,
                 business_id=business_id,
                 phone=phone,
                 message=message,
@@ -2702,6 +3059,10 @@ def run_agent(
                 ),
             }
 
+    # ========================================================
+    # MODIFY ORDER
+    # ========================================================
+
     if classification == "modify_order":
 
         try:
@@ -2713,7 +3074,7 @@ def run_agent(
             )
 
             return build_tool_response(
-                provider=OpenAIProvider(),
+                provider=provider,
                 business_id=business_id,
                 phone=phone,
                 message=message,
@@ -2737,6 +3098,10 @@ def run_agent(
                 ),
             }
 
+    # ========================================================
+    # CANCEL ORDER
+    # ========================================================
+
     if classification == "cancel_order":
 
         try:
@@ -2747,7 +3112,7 @@ def run_agent(
             )
 
             return build_tool_response(
-                provider=OpenAIProvider(),
+                provider=provider,
                 business_id=business_id,
                 phone=phone,
                 message=message,
@@ -2770,6 +3135,10 @@ def run_agent(
                     message,
                 ),
             }
+
+    # ========================================================
+    # MENU SEARCH
+    # ========================================================
 
     if classification == "menu_search":
 
@@ -2801,15 +3170,12 @@ def run_agent(
                 ),
             }
 
-    if pending is None:
-
-        pending = get_pending_order(
-            business_id,
-            phone,
-        )
+    # ========================================================
+    # NORMAL CONVERSATION
+    # ========================================================
 
     return generate_natural_response(
-        provider=OpenAIProvider(),
+        provider=provider,
         business_id=business_id,
         phone=phone,
         message=message,

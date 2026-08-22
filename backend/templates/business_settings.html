@@ -48,6 +48,16 @@
                     <label for="phone">Business phone</label>
                 </div>
 
+                <div class="field-group field-floating">
+                    <textarea id="opening_hours" name="opening_hours" placeholder=" " rows="5">{{ business.opening_hours or "" }}</textarea>
+                    <label for="opening_hours">Opening hours</label>
+                </div>
+
+                <div class="field-group field-floating">
+                    <textarea id="delivery_policy" name="delivery_policy" placeholder=" " rows="5">{{ business.delivery_policy or "" }}</textarea>
+                    <label for="delivery_policy">Delivery policy</label>
+                </div>
+
                 <div class="form-actions">
                     <a href="/business/{{ business.id }}" class="btn-glass">Cancel</a>
                     <button type="submit" class="btn-dark magnetic-target">
