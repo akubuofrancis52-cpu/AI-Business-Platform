@@ -33,10 +33,18 @@ PAYDUNYA_MODE = os.getenv(
     "sandbox"
 ).lower()
 
+APP_ENV = os.getenv(
+    "APP_ENV",
+    "development"
+).lower()
+
 PAYDUNYA_TIMEOUT = 15
 
 
-if PAYDUNYA_MODE == "production":
+if (
+    PAYDUNYA_MODE == "production"
+    and APP_ENV == "production"
+):
 
     PAYDUNYA_BASE_URL = (
         "https://app.paydunya.com/api/v1"
@@ -94,9 +102,19 @@ def create_checkout_invoice(
     items,
 ):
 
-    logger.warning(
-        "========== create_checkout_invoice() CALLED =========="
-    )
+    if APP_ENV != "production":
+
+        raise RuntimeError(
+            "PayDunya payments are disabled "
+            "outside production."
+        )
+
+    if PAYDUNYA_MODE != "production":
+
+        raise RuntimeError(
+            "PayDunya production payments are disabled "
+            "unless PAYDUNYA_MODE=production."
+        )
 
     if not is_configured():
 
@@ -117,16 +135,6 @@ def create_checkout_invoice(
     cancel_url = os.getenv(
         "PAYDUNYA_CANCEL_URL",
         ""
-    )
-
-    logger.warning(
-        "PayDunya mode: %s",
-        PAYDUNYA_MODE
-    )
-
-    logger.warning(
-        "PayDunya base URL: %s",
-        PAYDUNYA_BASE_URL
     )
 
     invoice_items = {}
@@ -229,45 +237,6 @@ def create_checkout_invoice(
     url = (
         PAYDUNYA_BASE_URL
         + "/checkout-invoice/create"
-    )
-
-    logger.warning(
-        "========== PAYDUNYA CREATE REQUEST =========="
-    )
-
-    logger.warning(
-        "PayDunya URL: %s",
-        url
-    )
-
-    logger.warning(
-        "Order ID: %s",
-        order.id
-    )
-
-    logger.warning(
-        "Invoice amount: %s",
-        order.total_price
-    )
-
-    logger.warning(
-        "Invoice item count: %s",
-        len(invoice_items)
-    )
-
-    logger.warning(
-        "Callback URL configured: %s",
-        bool(callback_url)
-    )
-
-    logger.warning(
-        "Return URL configured: %s",
-        bool(return_url)
-    )
-
-    logger.warning(
-        "Cancel URL configured: %s",
-        bool(cancel_url)
     )
 
     try:
@@ -411,24 +380,9 @@ def check_payment_status(token):
         timeout=PAYDUNYA_TIMEOUT,
     )
 
-    logger.warning(
-        "PayDunya payment status HTTP %s",
-        response.status_code
-    )
-
-    logger.warning(
-        "PayDunya payment status response: %s",
-        response.text[:3000]
-    )
-
     response.raise_for_status()
 
     data = response.json()
-
-    logger.info(
-        "PayDunya payment status parsed response: %s",
-        data,
-    )
 
     return data
 

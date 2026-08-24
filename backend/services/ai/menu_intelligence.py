@@ -1,6 +1,8 @@
 import re
 from difflib import SequenceMatcher
 
+from sqlalchemy.orm import load_only
+
 from models.menu import Menu
 
 
@@ -62,13 +64,17 @@ def clean_query(query):
 # STRING SIMILARITY
 # ==========================
 
-def similarity(first, second):
-    """
-    Compare two strings and return a score from 0 to 1.
-    """
+# ==========================
+# STRING SIMILARITY
+# ==========================
 
-    first = normalize_text(first)
-    second = normalize_text(second)
+def _similarity_normalized(
+    first,
+    second,
+):
+    """
+    Compare already-normalized strings.
+    """
 
     if not first or not second:
         return 0.0
@@ -85,25 +91,45 @@ def similarity(first, second):
     return SequenceMatcher(
         None,
         first,
-        second
+        second,
     ).ratio()
+
+
+def similarity(
+    first,
+    second,
+):
+    """
+    Compare two strings and return a score from 0 to 1.
+    """
+
+    first = normalize_text(first)
+    second = normalize_text(second)
+
+    return _similarity_normalized(
+        first,
+        second,
+    )
 
 
 # ==========================
 # TOKEN OVERLAP
 # ==========================
 
-def token_overlap(first, second):
+def _token_overlap_normalized(
+    first,
+    second,
+):
     """
-    Compare shared words between two strings.
+    Compare token overlap between already-normalized strings.
     """
 
     first_tokens = set(
-        normalize_text(first).split()
+        first.split()
     )
 
     second_tokens = set(
-        normalize_text(second).split()
+        second.split()
     )
 
     if not first_tokens or not second_tokens:
@@ -113,7 +139,24 @@ def token_overlap(first, second):
         first_tokens & second_tokens
     ) / max(
         len(first_tokens),
-        len(second_tokens)
+        len(second_tokens),
+    )
+
+
+def token_overlap(
+    first,
+    second,
+):
+    """
+    Compare shared words between two strings.
+    """
+
+    first = normalize_text(first)
+    second = normalize_text(second)
+
+    return _token_overlap_normalized(
+        first,
+        second,
     )
 
 
@@ -123,7 +166,8 @@ def token_overlap(first, second):
 
 def score_menu_item(
     query,
-    item
+    item,
+    cleaned_query=None,
 ):
     """
     Calculate how well a menu item matches a query.
@@ -132,57 +176,88 @@ def score_menu_item(
     - name
     - description
     - category
+
+    Normalization is performed once per field so the same
+    strings are not repeatedly processed.
     """
 
-    cleaned_query = clean_query(query)
-    name_norm = normalize_text(item.name)
+    if cleaned_query is None:
+        cleaned_query = clean_query(
+            query
+        )
 
-    # Direct or substring match boost
-    if cleaned_query == name_norm:
+    name_normalized = normalize_text(
+        item.name
+    )
+
+    # --------------------------------------------------------
+    # DIRECT NAME MATCH
+    # --------------------------------------------------------
+
+    if cleaned_query == name_normalized:
         return 1.0
 
-    if cleaned_query in name_norm or name_norm in cleaned_query:
+    if (
+        cleaned_query in name_normalized
+        or name_normalized in cleaned_query
+    ):
         return 0.95
 
     name_score = max(
-        similarity(
+        _similarity_normalized(
             cleaned_query,
-            item.name
+            name_normalized,
         ),
-        token_overlap(
+        _token_overlap_normalized(
             cleaned_query,
-            item.name
-        )
+            name_normalized,
+        ),
     )
+
+    # --------------------------------------------------------
+    # DESCRIPTION
+    # --------------------------------------------------------
 
     description_score = 0.0
 
     if item.description:
 
-        description_score = max(
-            similarity(
-                cleaned_query,
-                item.description
-            ),
-            token_overlap(
-                cleaned_query,
-                item.description
-            )
+        description_normalized = normalize_text(
+            item.description
         )
+
+        description_score = max(
+            _similarity_normalized(
+                cleaned_query,
+                description_normalized,
+            ),
+            _token_overlap_normalized(
+                cleaned_query,
+                description_normalized,
+            ),
+        )
+
+    # --------------------------------------------------------
+    # CATEGORY
+    # --------------------------------------------------------
 
     category_score = 0.0
 
     if item.category:
 
+        category_normalized = normalize_text(
+            item.category
+        )
+
         category_score = max(
-            similarity(
+            _similarity_normalized(
                 cleaned_query,
-                item.category
+                category_normalized,
             ),
-            token_overlap(
+            _token_overlap_normalized(
                 cleaned_query,
-                item.category
-            )
+                category_normalized,
+            ),
         )
 
     return (
@@ -197,20 +272,34 @@ def score_menu_item(
 # ==========================
 
 def get_menu_items(
-    business_id
+    business_id,
 ):
     """
-    Load all available menu items
-    for one business.
+    Load only the menu fields used by the AI menu
+    intelligence functions.
     """
 
-    return Menu.query.filter_by(
-        business_id=business_id,
-        available=True
-    ).order_by(
-        Menu.category.asc(),
-        Menu.name.asc()
-    ).all()
+    return (
+        Menu.query
+        .options(
+            load_only(
+                Menu.id,
+                Menu.name,
+                Menu.description,
+                Menu.category,
+                Menu.price,
+            )
+        )
+        .filter(
+            Menu.business_id == business_id,
+            Menu.available.is_(True),
+        )
+        .order_by(
+            Menu.category.asc(),
+            Menu.name.asc(),
+        )
+        .all()
+    )
 
 
 # ==========================
@@ -221,13 +310,14 @@ def search_menu(
     business_id,
     query,
     limit=5,
-    menu_items=None
+    menu_items=None,
 ):
     """
     Search available menu items.
 
-    If menu_items is already provided,
-    no additional database query is made.
+    Reuses the loaded menu when supplied and avoids
+    unnecessary full-result sorting when only the top
+    few matches are needed.
     """
 
     query = str(
@@ -246,16 +336,20 @@ def search_menu(
     if not menu_items:
         return []
 
+    cleaned_query = clean_query(
+        query
+    )
+
     results = []
 
     for item in menu_items:
 
         score = score_menu_item(
             query,
-            item
+            item,
+            cleaned_query=cleaned_query,
         )
 
-        # Ignore very weak matches
         if score < 0.30:
             continue
 
@@ -271,18 +365,21 @@ def search_menu(
                 or "Other"
             ),
             "price": float(
-                item.price
+                item.price or 0
             ),
             "currency": "FCFA",
             "score": round(
                 score,
-                3
-            )
+                3,
+            ),
         })
+
+    if not results:
+        return []
 
     results.sort(
         key=lambda item: item["score"],
-        reverse=True
+        reverse=True,
     )
 
     return results[:limit]
@@ -329,7 +426,7 @@ def resolve_menu_object(
     business_id,
     name,
     minimum_score=0.55,
-    menu_items=None
+    menu_items=None,
 ):
     """
     Return the actual SQLAlchemy Menu object.
@@ -347,6 +444,10 @@ def resolve_menu_object(
     if not menu_items:
         return None
 
+    cleaned_query = clean_query(
+        name
+    )
+
     best_item = None
     best_score = 0.0
 
@@ -354,7 +455,8 @@ def resolve_menu_object(
 
         score = score_menu_item(
             name,
-            item
+            item,
+            cleaned_query=cleaned_query,
         )
 
         if score > best_score:

@@ -1,5 +1,6 @@
 import os
 import re
+import time
 import requests
 from dotenv import load_dotenv
 
@@ -10,6 +11,7 @@ from langdetect import detect, DetectorFactory
 from datetime import datetime, timedelta
 from concurrent.futures import ThreadPoolExecutor
 from threading import Lock
+from sqlalchemy.orm import load_only
 
 from flask import (
     Flask,
@@ -74,6 +76,47 @@ from services.ai.agent import (
 WHATSAPP_EXECUTOR = ThreadPoolExecutor(
     max_workers=2
 )
+
+def send_n8n_webhook_async(
+    n8n_webhook_url,
+    message_id,
+    business_id,
+    from_phone,
+    message_type,
+    text_body,
+):
+
+    try:
+
+        app.logger.warning(
+            "[n8n] Background webhook → %s",
+            n8n_webhook_url
+        )
+
+        response = requests.post(
+            n8n_webhook_url,
+            json={
+                "event": "whatsapp_message",
+                "message_id": message_id,
+                "business_id": business_id,
+                "from_phone": from_phone,
+                "message_type": message_type,
+                "text": text_body,
+            },
+            timeout=10
+        )
+
+        app.logger.warning(
+            "[n8n] Response: %s %s",
+            response.status_code,
+            response.text
+        )
+
+    except Exception:
+
+        app.logger.exception(
+            "[n8n] Background webhook failed"
+        )
 
 WHATSAPP_IN_FLIGHT = set()
 
@@ -228,6 +271,7 @@ def detect_customer_language(
         # German
         "hallo": "German",
         "guten morgen": "German",
+        "gunten morgen": "German",
         "danke": "German",
         "bitte": "German",
         "ich möchte": "German",
@@ -395,33 +439,66 @@ def detect_customer_language(
     ):
         return "German"
 
-    try:
+    # ========================================================
+    # FAST LOCAL FALLBACK
+    # ========================================================
 
-        # Short restaurant/order messages are unreliable
-        # for automatic language detection. Keep the
-        # customer's existing language unless there is
-        # a clear language phrase above.
-        if len(normalized.split()) <= 5:
-            return fallback
-
-        detected_code = detect(text)
-
-        return LANGUAGE_MAP.get(
-            detected_code,
-            fallback
-        )
-
-    except Exception:
-
-        app.logger.exception(
-            "Customer language detection failed."
-        )
-
+    # Keep the customer's current language for short or
+    # ambiguous messages. This avoids an expensive detector
+    # call on the normal WhatsApp response path.
+    if len(normalized.split()) <= 8:
         return fallback
+
+    language_keywords = {
+        "French": (
+            "je ", "tu ", "vous ", "nous ", "avec ",
+            "pour ", "dans ", "sur ", "une ", "un ",
+            "des ", "les ", "est ", "sont ", "pas ",
+            "mais ", "merci ", "bonjour ", "commande ",
+            "livraison ", "voudrais ", "aimerais ",
+        ),
+        "Spanish": (
+            "yo ", "quiero ", "puedo ", "para ",
+            "con ", "una ", "uno ", "los ", "las ",
+            "gracias ", "hola ", "pedido ", "entrega ",
+        ),
+        "Portuguese": (
+            "eu ", "quero ", "posso ", "para ",
+            "com ", "uma ", "um ", "os ", "as ",
+            "obrigado ", "pedido ", "entrega ",
+        ),
+        "Italian": (
+            "io ", "voglio ", "posso ", "per ",
+            "con ", "una ", "uno ", "gli ", "le ",
+            "grazie ", "ordine ",
+        ),
+        "German": (
+            "ich ", "möchte ", "kann ", "für ",
+            "mit ", "eine ", "ein ", "die ",
+            "der ", "das ", "danke ",
+        ),
+    }
+
+    scores = {
+        language: sum(
+            normalized.count(keyword)
+            for keyword in keywords
+        )
+        for language, keywords in language_keywords.items()
+    }
+
+    best_language = max(
+        scores,
+        key=scores.get
+    )
+
+    if scores[best_language] >= 2:
+        return best_language
+
+    return fallback
 
 
 app = Flask(__name__)
-
 
 # ============================================================
 # APPLICATION CONFIG
@@ -787,141 +864,81 @@ def transcribe_audio(
     audio_path
 ):
     """
-    Transcribe WhatsApp audio locally using
-    ffmpeg + whisper.cpp.
-
-    No OpenRouter or OpenAI audio credits are required.
+    Transcribe WhatsApp audio using Groq Whisper.
     """
 
     import os
-    import subprocess
-    import tempfile
+
+    from groq import Groq
 
     if not audio_path:
         raise RuntimeError(
             "Audio file path is missing."
         )
 
-    wav_path = None
+    api_key = os.getenv(
+        "GROQ_API_KEY"
+    )
+
+    if not api_key:
+        raise RuntimeError(
+            "GROQ_API_KEY is not configured."
+        )
 
     try:
 
-        # ----------------------------------------------------
-        # STEP 1: CREATE TEMPORARY WAV FILE
-        # ----------------------------------------------------
-
-        wav_file = tempfile.NamedTemporaryFile(
-            delete=False,
-            suffix=".wav"
+        client = Groq(
+            api_key=api_key
         )
 
-        wav_path = wav_file.name
-
-        wav_file.close()
-
-        # ----------------------------------------------------
-        # STEP 2: CONVERT WHATSAPP OGG/OPUS TO WAV
-        # ----------------------------------------------------
-
-        subprocess.run(
-            [
-                "ffmpeg",
-                "-y",
-                "-i",
-                audio_path,
-                "-ar",
-                "16000",
-                "-ac",
-                "1",
-                "-c:a",
-                "pcm_s16le",
-                wav_path
-            ],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.PIPE,
-            check=True
+        app.logger.info(
+            "[VOICE] Starting Groq transcription: %s",
+            audio_path
         )
 
-        # ----------------------------------------------------
-        # STEP 3: RUN LOCAL WHISPER
-        # ----------------------------------------------------
+        with open(
+            audio_path,
+            "rb"
+        ) as audio_file:
 
-        whisper_binary = (
-            "/home/kamsi/whisper.cpp/"
-            "build/bin/whisper-cli"
-        )
-
-        whisper_model = (
-            "/home/kamsi/whisper.cpp/"
-            "models/ggml-base.bin"
-        )
-
-        result = subprocess.run(
-            [
-                whisper_binary,
-                "-m",
-                whisper_model,
-                "-f",
-                wav_path,
-                "-l",
-                "auto",
-                "-nt",
-                "-np"
-            ],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            check=True
-        )
+            transcription = (
+                client.audio.transcriptions.create(
+                    file=audio_file,
+                    model="whisper-large-v3-turbo",
+                    response_format="json",
+                )
+            )
 
         text = (
-            result.stdout
+            getattr(
+                transcription,
+                "text",
+                ""
+            )
             or ""
         ).strip()
 
         if not text:
 
             raise RuntimeError(
-                "Local Whisper returned no text."
+                "Groq returned an empty transcription."
             )
 
         app.logger.info(
-            "WhatsApp audio transcribed locally: %s",
+            "[VOICE] Groq transcript: %s",
             text
         )
 
         return text
 
-    except subprocess.CalledProcessError as exc:
-
-        app.logger.error(
-            "Local audio transcription failed: %s",
-            exc.stderr
-        )
-
-        raise RuntimeError(
-            "Local audio transcription failed."
-        ) from exc
-
-    except Exception:
+    except Exception as exc:
 
         app.logger.exception(
-            "WhatsApp audio transcription failed."
+            "[VOICE] Groq transcription failed: %s",
+            exc
         )
 
         raise
-
-    finally:
-
-        if wav_path:
-
-            try:
-                os.remove(
-                    wav_path
-                )
-
-            except OSError:
-                pass
 
 # ============================================================
 # SUPPORT EMAIL
@@ -1125,7 +1142,7 @@ def run_customer_agent(
         db.session.add(customer)
 
         db.session.flush()
-
+        
     elif (
         customer_name
         and (
@@ -1148,23 +1165,34 @@ def run_customer_agent(
     if detected_language != customer.language:
 
         customer.language = detected_language
-
-
-    previous_conversations = []
+        
+    previous_conversations = (
+        Conversation.query
+        .options(
+            load_only(
+                Conversation.message,
+                Conversation.response,
+            )
+        )
+        .filter_by(
+            customer_id=customer.id
+        )
+        .order_by(
+            Conversation.id.desc()
+        )
+        .limit(10)
+        .all()
+    )
 
     history = [
-
         {
             "message": chat.message,
             "response": chat.response
         }
-
         for chat in reversed(
             previous_conversations
         )
     ]
-
-    app.logger.warning("[DEBUG] About to call run_agent")
 
     result = run_agent(
         business.id,
@@ -1277,6 +1305,404 @@ def home():
         "index.html"
     )
 
+# ============================================================
+# RESTAURANT AI DEMO
+# ============================================================
+
+from itsdangerous import (
+    URLSafeTimedSerializer,
+    BadSignature,
+    SignatureExpired,
+)
+
+
+DEMO_RESTAURANT_NAME = (
+    "Italian Ice Cream Cornetto"
+)
+
+DEMO_TRIAL_SECONDS = (
+    4 * 24 * 60 * 60
+)
+
+
+def get_demo_business():
+    return (
+        Business.query
+        .filter_by(
+            name=DEMO_RESTAURANT_NAME
+        )
+        .first()
+    )
+
+
+def get_demo_serializer():
+
+    return URLSafeTimedSerializer(
+        app.secret_key,
+        salt="botify-demo-trial",
+    )
+
+
+def create_demo_trial_token(
+    business_id
+):
+
+    serializer = get_demo_serializer()
+
+    return serializer.dumps(
+        {
+            "business_id": business_id
+        }
+    )
+
+
+def validate_demo_trial_token(
+    token
+):
+
+    serializer = get_demo_serializer()
+
+    try:
+
+        data = serializer.loads(
+            token,
+            max_age=DEMO_TRIAL_SECONDS,
+        )
+
+    except SignatureExpired:
+
+        return None
+
+    except BadSignature:
+
+        return None
+
+    if not isinstance(
+        data,
+        dict
+    ):
+        return None
+
+    return data
+
+
+def demo_trial_expired():
+
+    expires_at = session.get(
+        "demo_trial_expires_at"
+    )
+
+    if not expires_at:
+
+        return False
+
+    import time
+
+    return (
+        time.time()
+        >= float(expires_at)
+    )
+
+
+@app.route("/demo")
+def demo():
+
+    business = get_demo_business()
+
+    if not business:
+
+        return (
+            "Demo restaurant not found.",
+            404
+        )
+
+    token = create_demo_trial_token(
+        business.id
+    )
+
+    return redirect(
+        url_for(
+            "demo_trial",
+            token=token
+        )
+    )
+
+
+@app.route(
+    "/demo/trial/<token>"
+)
+def demo_trial(
+    token
+):
+
+    trial_data = (
+        validate_demo_trial_token(
+            token
+        )
+    )
+
+    if not trial_data:
+
+        return render_template(
+            "demo_expired.html"
+        ), 410
+
+    business = db.session.get(
+        Business,
+        int(
+            trial_data[
+                "business_id"
+            ]
+        )
+    )
+
+    if not business:
+
+        return (
+            "Demo restaurant not found.",
+            404
+        )
+
+    import time
+
+    issued_at = time.time()
+
+    session["demo_business_id"] = (
+        business.id
+    )
+
+    session["demo_trial_expires_at"] = (
+        issued_at
+        + DEMO_TRIAL_SECONDS
+    )
+
+    return render_template(
+        "demo.html",
+        business=business
+    )
+
+
+@app.route(
+    "/demo/chat",
+    methods=["POST"]
+)
+def demo_chat():
+
+    if demo_trial_expired():
+
+        session.pop(
+            "demo_phone",
+            None
+        )
+
+        return {
+            "success": False,
+            "expired": True,
+            "message": (
+                "This demo trial has expired."
+            ),
+        }, 410
+
+    data = request.get_json(
+        silent=True
+    ) or {}
+
+    message = str(
+        data.get(
+            "message",
+            ""
+        )
+    ).strip()
+
+    if not message:
+
+        return {
+            "success": False,
+            "message": (
+                "Please enter a message."
+            ),
+        }, 400
+
+    business_id = session.get(
+        "demo_business_id"
+    )
+
+    if not business_id:
+
+        return {
+            "success": False,
+            "message": (
+                "Demo session expired. "
+                "Please reopen the demo link."
+            ),
+        }, 410
+
+    business = db.session.get(
+        Business,
+        int(
+            business_id
+        )
+    )
+
+    if not business:
+
+        return {
+            "success": False,
+            "message": (
+                "Demo restaurant not found."
+            ),
+        }, 404
+
+    demo_phone = session.get(
+        "demo_phone"
+    )
+
+    if not demo_phone:
+
+        import uuid
+
+        demo_phone = (
+            "DEMO-"
+            + uuid.uuid4().hex[:12]
+        )
+
+        session["demo_phone"] = (
+            demo_phone
+        )
+
+    try:
+
+        (
+            agent_result,
+            reply_text,
+            customer,
+        ) = run_customer_agent(
+            business,
+            demo_phone,
+            message,
+            "Demo Customer",
+        )
+
+        return {
+            "success": True,
+            "message": reply_text,
+        }
+
+    except Exception:
+
+        db.session.rollback()
+
+        app.logger.exception(
+            "Demo AI request failed."
+        )
+
+        return {
+            "success": False,
+            "message": (
+                "The demo assistant could not "
+                "process that message."
+            ),
+        }, 500
+
+
+@app.route(
+    "/demo/reset",
+    methods=["POST"]
+)
+def demo_reset():
+
+    demo_phone = session.get(
+        "demo_phone"
+    )
+
+    business_id = session.get(
+        "demo_business_id"
+    )
+
+    if (
+        demo_phone
+        and business_id
+    ):
+
+        try:
+
+            customer = (
+                Customer.query
+                .filter_by(
+                    phone=demo_phone,
+                    business_id=business_id,
+                )
+                .first()
+            )
+
+            if customer:
+
+                PendingOrder.query.filter_by(
+                    customer_id=customer.id,
+                    business_id=business_id,
+                ).delete(
+                    synchronize_session=False
+                )
+
+                Conversation.query.filter_by(
+                    customer_id=customer.id
+                ).delete(
+                    synchronize_session=False
+                )
+
+                demo_orders = (
+                    Order.query
+                    .filter_by(
+                        customer_id=customer.id,
+                        business_id=business_id,
+                    )
+                    .all()
+                )
+
+                for order in demo_orders:
+
+                    order.status = "Cancelled"
+
+                    order.payment_status = (
+                        "Unpaid"
+                    )
+
+                    order.payment_token = None
+
+                    order.payment_transaction_id = (
+                        None
+                    )
+
+                    order.paid_at = None
+
+                db.session.commit()
+
+        except Exception:
+
+            db.session.rollback()
+
+            app.logger.exception(
+                "Demo state reset failed."
+            )
+
+            return {
+                "success": False,
+                "message": (
+                    "Could not reset the demo."
+                ),
+            }, 500
+
+    session.pop(
+        "demo_phone",
+        None
+    )
+
+    return {
+        "success": True,
+        "message": (
+            "Demo reset successfully."
+        ),
+    }
 
 # ============================================================
 # LOGIN
@@ -4370,78 +4796,157 @@ def agent_chat():
             }
         }
 
+def process_whatsapp_audio_async(
+    business_id,
+    from_phone,
+    media_id,
+    contact_name,
+    message_id,
+):
+
+    with app.app_context():
+
+        try:
+
+            app.logger.warning(
+                "[ASYNC AUDIO] Starting transcription for %s",
+                from_phone
+            )
+
+            text_body = process_whatsapp_audio(
+                media_id
+            )
+
+            if not text_body:
+
+                raise RuntimeError(
+                    "WhatsApp audio transcription returned empty text."
+                )
+
+            app.logger.warning(
+                "[ASYNC AUDIO] Transcript: %s",
+                text_body
+            )
+
+            process_whatsapp_message_async(
+                business_id,
+                from_phone,
+                text_body,
+                contact_name,
+                message_id
+            )
+
+        except Exception:
+
+            db.session.rollback()
+
+            app.logger.exception(
+                "[ASYNC AUDIO] Failed to process voice message "
+                "from %s",
+                from_phone
+            )
+
+            send_whatsapp_message(
+                from_phone,
+                "Sorry, I couldn't understand that voice message. "
+                "Please try again."
+            )
+
+        finally:
+
+            with WHATSAPP_IN_FLIGHT_LOCK:
+
+                WHATSAPP_IN_FLIGHT.discard(
+                    message_id
+                )
 
 # ============================================================
 # WHATSAPP WEBHOOK
 # ============================================================
 
 def process_whatsapp_message_async(
-    business,
+    business_id,
     from_phone,
     text_body,
     contact_name,
     message_id,
 ):
 
-    app.logger.warning(
+    with app.app_context():
+
+        app.logger.warning(
             "[ASYNC] Worker started for %s: %s",
             from_phone,
             text_body,
         )
 
-    try:
+        try:
 
-        app.logger.warning(
+            business = db.session.get(
+                Business,
+                business_id
+            )
+
+            if not business:
+
+                app.logger.error(
+                    "[ASYNC] Business %s not found",
+                    business_id
+                )
+
+                return
+
+            app.logger.warning(
                 "[ASYNC] Starting run_customer_agent"
             )
 
-        ai_start = time.perf_counter()
+            ai_start = time.perf_counter()
 
-        (
-            agent_result,
-            reply_text,
-            customer
-        ) = run_customer_agent(
-            business,
-            from_phone,
-            text_body,
-            contact_name
-        )
-
-        app.logger.info(
-            "[PERF] AI processing: %.2fs",
-            time.perf_counter() - ai_start
-        )
-
-        send_start = time.perf_counter()
-
-        send_whatsapp_message(
-            from_phone,
-            reply_text
-        )
-
-        app.logger.info(
-            "[PERF] WhatsApp send: %.2fs",
-            time.perf_counter() - send_start
-        )
-
-    except Exception:
-
-        db.session.rollback()
-
-        app.logger.exception(
-            "Async WhatsApp processing failed for %s",
-            from_phone
-        )
-
-    finally:
-
-        with WHATSAPP_IN_FLIGHT_LOCK:
-
-            WHATSAPP_IN_FLIGHT.discard(
-                message_id
+            (
+                agent_result,
+                reply_text,
+                customer
+            ) = run_customer_agent(
+                business,
+                from_phone,
+                text_body,
+                contact_name
             )
 
+            app.logger.info(
+                "[PERF] AI processing: %.2fs",
+                time.perf_counter() - ai_start
+            )
+
+            send_start = time.perf_counter()
+
+            send_whatsapp_message(
+                from_phone,
+                reply_text
+            )
+
+            app.logger.info(
+                "[PERF] WhatsApp send: %.2fs",
+                time.perf_counter() - send_start
+            )
+
+        except Exception:
+
+            db.session.rollback()
+
+            app.logger.exception(
+                "Async WhatsApp processing failed for %s",
+                from_phone
+            )
+
+        finally:
+
+            with WHATSAPP_IN_FLIGHT_LOCK:
+
+                WHATSAPP_IN_FLIGHT.discard(
+                    message_id
+                )
+                
 @app.route(
     "/webhook/whatsapp",
     methods=["GET", "POST"]
@@ -4676,13 +5181,6 @@ def whatsapp_webhook():
                                 "has no media ID."
                             )
 
-                        if not media_id:
-
-                            app.logger.warning(
-                                "WhatsApp audio message "
-                                "has no media ID."
-                            )
-
                             with WHATSAPP_IN_FLIGHT_LOCK:
 
                                 WHATSAPP_IN_FLIGHT.discard(
@@ -4690,6 +5188,21 @@ def whatsapp_webhook():
                                 )
 
                             continue
+
+                        WHATSAPP_EXECUTOR.submit(
+                            process_whatsapp_audio_async,
+                            business.id,
+                            from_phone,
+                            media_id,
+                            (
+                                contact_name
+                                if "contact_name" in locals()
+                                else "New Customer"
+                            ),
+                            message_id,
+                        )
+
+                        continue
 
 
                         try:
@@ -4763,44 +5276,15 @@ def whatsapp_webhook():
 
                     if n8n_webhook_url:
 
-                        try:
-
-                            app.logger.warning(
-                                "[n8n] Sending WhatsApp message to: %s",
-                                n8n_webhook_url
-                            )
-
-                            n8n_response = requests.post(
-                                n8n_webhook_url,
-                                json={
-                                    "event": "whatsapp_message",
-                                    "message_id": message_id,
-                                    "business_id": business.id,
-                                    "from_phone": from_phone,
-                                    "message_type": message_type,
-                                    "text": text_body,
-                                },
-                                timeout=2
-                            )
-
-                            app.logger.warning(
-                                "[n8n] Response: %s %s",
-                                n8n_response.status_code,
-                                n8n_response.text
-                            )
-
-                        except Exception as e:
-
-                            app.logger.exception(
-                                "[n8n] WhatsApp webhook failed"
-                            )
-
-                        except Exception as e:
-
-                            app.logger.warning(
-                                "[n8n] WhatsApp webhook failed: %s",
-                                e
-                            )
+                        WHATSAPP_EXECUTOR.submit(
+                            send_n8n_webhook_async,
+                            n8n_webhook_url,
+                            message_id,
+                            business.id,
+                            from_phone,
+                            message_type,
+                            text_body,
+                        )
 
                     contact_name = (
                         "New Customer"
@@ -4835,13 +5319,13 @@ def whatsapp_webhook():
                             )
 
                             WHATSAPP_EXECUTOR.submit(
-                        process_whatsapp_message_async,
-                        business.id,
-                        from_phone,
-                        text_body,
-                        contact_name,
-                        message_id,
-                    )
+                       process_whatsapp_message_async,
+                       business.id,
+                       from_phone,
+                       text_body,
+                       contact_name,
+                       message_id,
+)
 
     except Exception:
 

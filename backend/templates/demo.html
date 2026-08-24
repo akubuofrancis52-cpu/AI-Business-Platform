@@ -1,0 +1,1497 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>
+        {{ business.name }} — Botify AI
+    </title>
+
+    <style>
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            width: 100%;
+            min-height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            min-height: 100vh;
+
+            display: flex;
+            justify-content: center;
+            align-items: center;
+
+            padding: 24px;
+
+            background:
+                #f5f7fb;
+
+            color:
+                #111827;
+
+            font-family:
+                Inter,
+                system-ui,
+                -apple-system,
+                BlinkMacSystemFont,
+                "Segoe UI",
+                sans-serif;
+        }
+
+        button,
+        input {
+            font: inherit;
+        }
+
+        /* =====================================================
+           APP
+        ===================================================== */
+
+        .app {
+            width:
+                min(760px, 100%);
+
+            height:
+                min(820px, calc(100vh - 48px));
+
+            display:
+                flex;
+
+            flex-direction:
+                column;
+
+            background:
+                #ffffff;
+
+            border:
+                1px solid
+                #e7eaf0;
+
+            border-radius:
+                24px;
+
+            overflow:
+                hidden;
+
+            box-shadow:
+                0
+                24px
+                70px
+                rgba(
+                    15,
+                    23,
+                    42,
+                    0.10
+                );
+        }
+
+
+        /* =====================================================
+           HEADER
+        ===================================================== */
+
+        .header {
+            flex:
+                0
+                0
+                auto;
+
+            display:
+                flex;
+
+            align-items:
+                center;
+
+            justify-content:
+                space-between;
+
+            gap:
+                16px;
+
+            padding:
+                18px
+                22px;
+
+            border-bottom:
+                1px solid
+                #edf0f4;
+
+            background:
+                #ffffff;
+        }
+
+        .restaurant {
+            min-width:
+                0;
+
+            display:
+                flex;
+
+            align-items:
+                center;
+
+            gap:
+                12px;
+        }
+
+        .avatar {
+            width:
+                44px;
+
+            height:
+                44px;
+
+            flex:
+                0
+                0
+                auto;
+
+            display:
+                grid;
+
+            place-items:
+                center;
+
+            border-radius:
+                13px;
+
+            background:
+                #111827;
+
+            color:
+                #ffffff;
+
+            font-size:
+                19px;
+
+            font-weight:
+                800;
+        }
+
+        .restaurant-info {
+            min-width:
+                0;
+        }
+
+        .restaurant-name {
+            margin:
+                0;
+
+            font-size:
+                15px;
+
+            font-weight:
+                800;
+
+            letter-spacing:
+                -0.2px;
+
+            white-space:
+                nowrap;
+
+            overflow:
+                hidden;
+
+            text-overflow:
+                ellipsis;
+        }
+
+        .restaurant-status {
+            display:
+                flex;
+
+            align-items:
+                center;
+
+            gap:
+                6px;
+
+            margin-top:
+                3px;
+
+            color:
+                #7b8494;
+
+            font-size:
+                11px;
+        }
+
+        .status-dot {
+            width:
+                7px;
+
+            height:
+                7px;
+
+            border-radius:
+                50%;
+
+            background:
+                #22c55e;
+        }
+
+        .header-actions {
+            display:
+                flex;
+
+            align-items:
+                center;
+
+            gap:
+                8px;
+
+            flex:
+                0
+                0
+                auto;
+        }
+
+        .reset-button {
+            border:
+                1px solid
+                #e3e7ed;
+
+            background:
+                #ffffff;
+
+            color:
+                #667085;
+
+            min-height:
+                36px;
+
+            padding:
+                0
+                12px;
+
+            border-radius:
+                10px;
+
+            font-size:
+                11px;
+
+            font-weight:
+                700;
+
+            cursor:
+                pointer;
+
+            transition:
+                background
+                .18s
+                ease,
+                border-color
+                .18s
+                ease,
+                color
+                .18s
+                ease;
+        }
+
+        .reset-button:hover {
+            background:
+                #f8fafc;
+
+            border-color:
+                #d5dae2;
+
+            color:
+                #111827;
+        }
+
+
+        /* =====================================================
+           CHAT
+        ===================================================== */
+
+        .messages {
+            flex:
+                1
+                1
+                auto;
+
+            min-height:
+                0;
+
+            overflow-y:
+                auto;
+
+            overflow-x:
+                hidden;
+
+            padding:
+                28px;
+
+            display:
+                flex;
+
+            flex-direction:
+                column;
+
+            gap:
+                14px;
+
+            background:
+                #fafbfc;
+
+            scroll-behavior:
+                smooth;
+        }
+
+        .messages::-webkit-scrollbar {
+            width:
+                7px;
+        }
+
+        .messages::-webkit-scrollbar-track {
+            background:
+                transparent;
+        }
+
+        .messages::-webkit-scrollbar-thumb {
+            background:
+                #d7dce3;
+
+            border-radius:
+                999px;
+        }
+
+
+        /* =====================================================
+           MESSAGE BUBBLES
+        ===================================================== */
+
+        .message {
+            max-width:
+                min(82%, 600px);
+
+            padding:
+                13px
+                15px;
+
+            border-radius:
+                16px;
+
+            font-size:
+                14px;
+
+            line-height:
+                1.65;
+
+            overflow-wrap:
+                anywhere;
+
+            word-break:
+                break-word;
+        }
+
+        .message p {
+            margin:
+                0
+                0
+                12px;
+        }
+
+        .message p:last-child {
+            margin-bottom:
+                0;
+        }
+
+        .message ul {
+            margin:
+                9px
+                0
+                2px;
+
+            padding-left:
+                18px;
+        }
+
+        .message li {
+            margin-bottom:
+                7px;
+
+            line-height:
+                1.55;
+        }
+
+        .message li:last-child {
+            margin-bottom:
+                0;
+        }
+
+        .assistant {
+            align-self:
+                flex-start;
+
+            background:
+                #ffffff;
+
+            border:
+                1px solid
+                #e8ebef;
+
+            color:
+                #1f2937;
+
+            border-bottom-left-radius:
+                5px;
+        }
+
+        .user {
+            align-self:
+                flex-end;
+
+            background:
+                #111827;
+
+            color:
+                #ffffff;
+
+            border-bottom-right-radius:
+                5px;
+        }
+
+        .typing {
+            display:
+                none;
+
+            align-self:
+                flex-start;
+
+            padding:
+                10px
+                13px;
+
+            border:
+                1px solid
+                #e8ebef;
+
+            border-radius:
+                15px;
+
+            background:
+                #ffffff;
+
+            color:
+                #8a94a5;
+
+            font-size:
+                12px;
+        }
+
+
+        /* =====================================================
+           COMPOSER
+        ===================================================== */
+
+        .composer {
+            flex:
+                0
+                0
+                auto;
+
+            padding:
+                14px
+                16px;
+
+            border-top:
+                1px solid
+                #edf0f4;
+
+            background:
+                #ffffff;
+        }
+
+        .composer-inner {
+            width:
+                100%;
+
+            display:
+                flex;
+
+            align-items:
+                center;
+
+            gap:
+                8px;
+
+            padding:
+                6px;
+
+            border:
+                1px solid
+                #dfe4ea;
+
+            border-radius:
+                16px;
+
+            background:
+                #f8fafc;
+
+            transition:
+                border-color
+                .18s
+                ease,
+                box-shadow
+                .18s
+                ease;
+        }
+
+        .composer-inner:focus-within {
+            border-color:
+                #bfc7d2;
+
+            box-shadow:
+                0
+                0
+                0
+                3px
+                rgba(
+                    17,
+                    24,
+                    39,
+                    0.05
+                );
+
+            background:
+                #ffffff;
+        }
+
+        .message-input {
+            flex:
+                1
+                1
+                auto;
+
+            min-width:
+                0;
+
+            height:
+                44px;
+
+            border:
+                0;
+
+            outline:
+                none;
+
+            background:
+                transparent;
+
+            padding:
+                0
+                10px;
+
+            color:
+                #111827;
+
+            font-size:
+                14px;
+        }
+
+        .message-input::placeholder {
+            color:
+                #98a2b3;
+        }
+
+        .send-button {
+            width:
+                44px;
+
+            height:
+                44px;
+
+            flex:
+                0
+                0
+                auto;
+
+            display:
+                grid;
+
+            place-items:
+                center;
+
+            border:
+                0;
+
+            border-radius:
+                12px;
+
+            background:
+                #111827;
+
+            color:
+                #ffffff;
+
+            font-size:
+                17px;
+
+            cursor:
+                pointer;
+
+            transition:
+                transform
+                .15s
+                ease,
+                background
+                .15s
+                ease;
+        }
+
+        .send-button:hover {
+            background:
+                #1f2937;
+        }
+
+        .send-button:active {
+            transform:
+                scale(.96);
+        }
+
+        .send-button:disabled {
+            opacity:
+                .55;
+
+            cursor:
+                not-allowed;
+
+            transform:
+                none;
+        }
+
+
+        /* =====================================================
+           EMPTY / WELCOME
+        ===================================================== */
+
+        .welcome {
+            width:
+                min(520px, 100%);
+
+            margin:
+                auto;
+
+            text-align:
+                center;
+
+            padding:
+                30px
+                10px;
+        }
+
+        .welcome-icon {
+            width:
+                58px;
+
+            height:
+                58px;
+
+            margin:
+                0
+                auto
+                16px;
+
+            display:
+                grid;
+
+            place-items:
+                center;
+
+            border-radius:
+                18px;
+
+            background:
+                #111827;
+
+            color:
+                white;
+
+            font-size:
+                22px;
+
+            font-weight:
+                800;
+        }
+
+        .welcome h1 {
+            margin:
+                0
+                0
+                8px;
+
+            font-size:
+                24px;
+
+            letter-spacing:
+                -.5px;
+        }
+
+        .welcome p {
+            margin:
+                0;
+
+            color:
+                #7b8494;
+
+            font-size:
+                13px;
+
+            line-height:
+                1.65;
+        }
+
+
+        /* =====================================================
+           MOBILE
+        ===================================================== */
+
+        @media (max-width: 700px) {
+
+            body {
+                align-items:
+                    stretch;
+
+                padding:
+                    0;
+
+                background:
+                    #fafbfc;
+            }
+
+            .app {
+                width:
+                    100%;
+
+                height:
+                    100dvh;
+
+                min-height:
+                    0;
+
+                border:
+                    0;
+
+                border-radius:
+                    0;
+
+                box-shadow:
+                    none;
+            }
+
+            .header {
+                padding:
+                    15px
+                    16px;
+            }
+
+            .avatar {
+                width:
+                    40px;
+
+                height:
+                    40px;
+
+                border-radius:
+                    12px;
+
+                font-size:
+                    17px;
+            }
+
+            .restaurant-name {
+                font-size:
+                    14px;
+            }
+
+            .restaurant-status {
+                font-size:
+                    10px;
+            }
+
+            .reset-button {
+                min-height:
+                    34px;
+
+                padding:
+                    0
+                    10px;
+            }
+
+            .messages {
+                padding:
+                    20px
+                    14px;
+            }
+
+            .message {
+                max-width:
+                    90%;
+
+                font-size:
+                    14px;
+            }
+
+            .composer {
+                padding:
+                    10px;
+            }
+
+            .composer-inner {
+                border-radius:
+                    14px;
+            }
+
+            .message-input {
+                height:
+                    42px;
+
+                font-size:
+                    14px;
+            }
+
+            .send-button {
+                width:
+                    42px;
+
+                height:
+                    42px;
+            }
+
+            .welcome {
+                padding:
+                    25px
+                    8px;
+            }
+
+            .welcome h1 {
+                font-size:
+                    22px;
+            }
+
+        }
+
+        @media (max-width: 380px) {
+
+            .reset-button {
+                font-size:
+                    10px;
+            }
+
+            .messages {
+                padding-inline:
+                    10px;
+            }
+
+            .message {
+                max-width:
+                    94%;
+            }
+
+        }
+
+    </style>
+
+</head>
+
+<body>
+
+<div class="app">
+
+    <!-- =================================================
+         HEADER
+    ================================================== -->
+
+    <header class="header">
+
+        <div class="restaurant">
+
+            <div class="avatar">
+                🍨
+            </div>
+
+            <div class="restaurant-info">
+
+                <div class="restaurant-name">
+                    {{ business.name }}
+                </div>
+
+                <div class="restaurant-status">
+
+                    <span class="status-dot"></span>
+
+                    AI assistant online
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <div class="header-actions">
+
+            <button
+                type="button"
+                class="reset-button"
+                onclick="resetDemo()"
+            >
+                Reset
+            </button>
+
+        </div>
+
+    </header>
+
+
+    <!-- =================================================
+         MESSAGES
+    ================================================== -->
+
+    <section
+        id="messages"
+        class="messages"
+    >
+
+        <div class="welcome">
+
+            <div class="welcome-icon">
+                B
+            </div>
+
+            <h1>
+                How can I help?
+            </h1>
+
+            <p>
+                Ask about the menu, get a recommendation,
+                learn about the restaurant, or place an order.
+            </p>
+
+        </div>
+
+        <div
+            id="typing"
+            class="typing"
+        >
+            Typing...
+        </div>
+
+    </section>
+
+
+    <!-- =================================================
+         COMPOSER
+    ================================================== -->
+
+    <div class="composer">
+
+        <form
+            id="chat-form"
+        >
+
+            <div class="composer-inner">
+
+                <input
+                    id="message-input"
+                    class="message-input"
+                    type="text"
+                    placeholder="Message the restaurant..."
+                    autocomplete="off"
+                    maxlength="1000"
+                >
+
+                <button
+                    id="send-button"
+                    class="send-button"
+                    type="submit"
+                    aria-label="Send message"
+                >
+                    ↑
+                </button>
+
+            </div>
+
+        </form>
+
+    </div>
+
+</div>
+
+
+<script>
+
+    const form =
+        document.getElementById(
+            "chat-form"
+        );
+
+    const input =
+        document.getElementById(
+            "message-input"
+        );
+
+    const sendButton =
+        document.getElementById(
+            "send-button"
+        );
+
+    const messages =
+        document.getElementById(
+            "messages"
+        );
+
+    const typing =
+        document.getElementById(
+            "typing"
+        );
+
+
+    function scrollMessagesToBottom() {
+
+        requestAnimationFrame(
+            () => {
+
+                messages.scrollTop =
+                    messages.scrollHeight;
+
+            }
+        );
+
+    }
+
+
+    function createMessageContent(
+        container,
+        text
+    ) {
+
+        const normalized =
+            String(
+                text || ""
+            ).trim();
+
+        if (!normalized) {
+            return;
+        }
+
+        const blocks =
+            normalized.split(
+                /\n\s*\n/
+            );
+
+        blocks.forEach(
+            block => {
+
+                const cleanBlock =
+                    block.trim();
+
+                if (!cleanBlock) {
+                    return;
+                }
+
+                const lines =
+                    cleanBlock.split(
+                        "\n"
+                    );
+
+                const bulletLines =
+                    lines.filter(
+                        line =>
+                            line
+                                .trim()
+                                .startsWith("•")
+                    );
+
+                const regularLines =
+                    lines.filter(
+                        line =>
+                            !line
+                                .trim()
+                                .startsWith("•")
+                    );
+
+                if (
+                    regularLines.length
+                ) {
+
+                    const paragraph =
+                        document.createElement(
+                            "p"
+                        );
+
+                    paragraph.textContent =
+                        regularLines.join(
+                            "\n"
+                        );
+
+                    container.appendChild(
+                        paragraph
+                    );
+
+                }
+
+                if (
+                    bulletLines.length
+                ) {
+
+                    const list =
+                        document.createElement(
+                            "ul"
+                        );
+
+                    bulletLines.forEach(
+                        line => {
+
+                            const item =
+                                document.createElement(
+                                    "li"
+                                );
+
+                            item.textContent =
+                                line
+                                    .trim()
+                                    .replace(
+                                        /^•\s*/,
+                                        ""
+                                    );
+
+                            list.appendChild(
+                                item
+                            );
+
+                        }
+                    );
+
+                    container.appendChild(
+                        list
+                    );
+
+                }
+
+            }
+        );
+
+    }
+
+
+    function addMessage(
+        text,
+        type
+    ) {
+
+        const message =
+            document.createElement(
+                "div"
+            );
+
+        message.className =
+            "message " + type;
+
+        createMessageContent(
+            message,
+            text
+        );
+
+        messages.insertBefore(
+            message,
+            typing
+        );
+
+        scrollMessagesToBottom();
+
+    }
+
+
+    function showError(
+        text
+    ) {
+
+        addMessage(
+            text ||
+            "Something went wrong. Please try again.",
+            "assistant"
+        );
+
+    }
+
+
+    async function sendMessage(
+        text
+    ) {
+
+        text =
+            String(
+                text || ""
+            ).trim();
+
+        if (!text) {
+            return;
+        }
+
+        const welcome =
+            document.querySelector(
+                ".welcome"
+            );
+
+        if (welcome) {
+            welcome.remove();
+        }
+
+        addMessage(
+            text,
+            "user"
+        );
+
+        input.value =
+            "";
+
+        input.disabled =
+            true;
+
+        sendButton.disabled =
+            true;
+
+        typing.style.display =
+            "block";
+
+        scrollMessagesToBottom();
+
+        try {
+
+            const response =
+                await fetch(
+                    "{{ url_for('demo_chat') }}",
+                    {
+                        method:
+                            "POST",
+
+                        headers: {
+                            "Content-Type":
+                                "application/json"
+                        },
+
+                        body:
+                            JSON.stringify({
+                                message:
+                                    text
+                            })
+                    }
+                );
+
+            let data = {};
+
+            try {
+
+                data =
+                    await response.json();
+
+            } catch {
+
+                data =
+                    {};
+
+            }
+
+            if (
+                response.status === 410
+                && data.expired
+            ) {
+
+                showError(
+                    data.message ||
+                    "This demo trial has expired."
+                );
+
+                return;
+            }
+
+            if (!response.ok) {
+
+                throw new Error(
+                    data.message ||
+                    "The demo request failed."
+                );
+
+            }
+
+            addMessage(
+                data.message ||
+                "Sorry, I couldn't generate a response.",
+                "assistant"
+            );
+
+        } catch (error) {
+
+            console.error(
+                "Demo chat error:",
+                error
+            );
+
+            showError(
+                error.message
+            );
+
+        } finally {
+
+            typing.style.display =
+                "none";
+
+            input.disabled =
+                false;
+
+            sendButton.disabled =
+                false;
+
+            input.focus();
+
+            scrollMessagesToBottom();
+
+        }
+
+    }
+
+
+    async function resetDemo() {
+
+        const previousText =
+            input.value;
+
+        try {
+
+            const response =
+                await fetch(
+                    "{{ url_for('demo_reset') }}",
+                    {
+                        method:
+                            "POST"
+                    }
+                );
+
+            if (!response.ok) {
+
+                throw new Error(
+                    "Reset failed."
+                );
+
+            }
+
+            messages.innerHTML =
+                "";
+
+            const welcome =
+                document.createElement(
+                    "div"
+                );
+
+            welcome.className =
+                "welcome";
+
+            welcome.innerHTML =
+                `
+                    <div class="welcome-icon">
+                        B
+                    </div>
+
+                    <h1>
+                        How can I help?
+                    </h1>
+
+                    <p>
+                        Ask about the menu, get a recommendation,
+                        learn about the restaurant, or place an order.
+                    </p>
+                `;
+
+            messages.appendChild(
+                welcome
+            );
+
+            messages.appendChild(
+                typing
+            );
+
+            typing.style.display =
+                "none";
+
+            input.value =
+                previousText ||
+                "";
+
+            input.disabled =
+                false;
+
+            sendButton.disabled =
+                false;
+
+            input.focus();
+
+            scrollMessagesToBottom();
+
+        } catch (error) {
+
+            console.error(
+                "Demo reset failed:",
+                error
+            );
+
+        }
+
+    }
+
+
+    form.addEventListener(
+        "submit",
+        event => {
+
+            event.preventDefault();
+
+            sendMessage(
+                input.value
+            );
+
+        }
+    );
+
+
+    input.addEventListener(
+        "keydown",
+        event => {
+
+            if (
+                event.key === "Enter"
+                && !event.shiftKey
+            ) {
+
+                event.preventDefault();
+
+                sendMessage(
+                    input.value
+                );
+
+            }
+
+        }
+    );
+
+
+    input.focus();
+
+</script>
+
+</body>
+</html>

@@ -1,58 +1,437 @@
 {% extends "base.html" %}
 {% block title %}Botify • AI Business Platform{% endblock %}
+
 {% block content %}
 <section class="landing-page">
+
     <div class="landing-shell">
-        <div class="landing-badges reveal"><span>AI-powered</span><span>Built for business</span><span>Ships fast</span></div>
+
+        <div class="landing-badges reveal">
+            <span>AI-powered</span>
+            <span>Built for business</span>
+            <span>Ships fast</span>
+        </div>
+
         <div class="landing-hero">
+
             <div class="landing-copy reveal reveal-delay-1">
-                <div class="eyebrow-pill"><span class="eyebrow-dot mint"></span>AI Business Platform</div>
-                <h1>Let your business<br><em>run itself.</em></h1>
-                <p>Botify turns conversations into customers, orders and repeat business — with an AI assistant that works around the clock.</p>
+
+                <div class="eyebrow-pill">
+                    <span class="eyebrow-dot mint"></span>
+                    AI Business Platform
+                </div>
+
+                <h1>
+                    Let your business<br>
+                    <em>run itself.</em>
+                </h1>
+
+                <p>
+                    Botify turns conversations into customers,
+                    orders and repeat business — with an AI
+                    assistant that works around the clock.
+                </p>
+
                 <div class="hero-actions">
+
                     {% if session.get("user_id") %}
-                        <a href="/dashboard" class="btn-dark magnetic-target">Open workspace <b>↗</b></a>
+
+                        <a
+                            href="/dashboard"
+                            class="btn-dark magnetic-target"
+                        >
+                            Open workspace
+                            <b>↗</b>
+                        </a>
+
                     {% else %}
-                        <a href="/register" class="btn-dark magnetic-target">Start building <b>↗</b></a>
-                        <a href="/login" class="btn-glass magnetic-target">Sign in <span>→</span></a>
+
+                        <a
+                            href="/register"
+                            class="btn-dark magnetic-target"
+                        >
+                            Start building
+                            <b>↗</b>
+                        </a>
+
+                        <a
+                            href="/login"
+                            class="btn-glass magnetic-target"
+                        >
+                            Sign in
+                            <span>→</span>
+                        </a>
+
                     {% endif %}
+
+                    <!-- LIVE DEMO CTA -->
+                    <a
+                        href="{{ url_for('demo') }}"
+                        class="btn-demo magnetic-target"
+                    >
+                        Try AI Demo
+                        <span>↗</span>
+                    </a>
+
                 </div>
-                <div class="landing-proof"><span><i>✓</i> Customer conversations</span><span><i>✓</i> AI order capture</span><span><i>✓</i> Business analytics</span></div>
+
+                <div class="landing-proof">
+
+                    <span>
+                        <i>✓</i>
+                        Customer conversations
+                    </span>
+
+                    <span>
+                        <i>✓</i>
+                        AI order capture
+                    </span>
+
+                    <span>
+                        <i>✓</i>
+                        Business analytics
+                    </span>
+
+                </div>
+
             </div>
-            <div class="landing-stage reveal reveal-delay-2" aria-hidden="true">
+
+
+            <div
+                class="landing-stage reveal reveal-delay-2"
+                aria-hidden="true"
+            >
+
                 <div class="stage-halo"></div>
+
                 <div class="stage-card stage-card-main glass-deep">
-                    <div class="stage-top"><span class="stage-dots"><i></i><i></i><i></i></span><span>BOTIFY / LIVE</span></div>
-                    <div class="stage-content">
-                        <div class="stage-avatar">B</div>
-                        <div><small>AI assistant</small><strong>Good evening. How can I help?</strong></div>
+
+                    <div class="stage-top">
+
+                        <span class="stage-dots">
+                            <i></i>
+                            <i></i>
+                            <i></i>
+                        </span>
+
+                        <span>
+                            BOTIFY / LIVE
+                        </span>
+
                     </div>
-                    <div class="stage-message"><span>Customer wants to place an order</span><b>AI</b></div>
-                    <div class="stage-bars"><i></i><i></i><i></i></div>
-                    <div class="stage-footer"><span>Response time</span><strong>&lt; 2 sec</strong></div>
+
+                    <div class="stage-content">
+
+                        <div class="stage-avatar">
+                            B
+                        </div>
+
+                        <div>
+                            <small>
+                                AI assistant
+                            </small>
+
+                            <strong>
+                                Good evening.
+                                How can I help?
+                            </strong>
+                        </div>
+
+                    </div>
+
+                    <div class="stage-message">
+                        <span>
+                            Customer wants to place an order
+                        </span>
+
+                        <b>
+                            AI
+                        </b>
+                    </div>
+
+                    <div class="stage-bars">
+                        <i></i>
+                        <i></i>
+                        <i></i>
+                    </div>
+
+                    <div class="stage-footer">
+
+                        <span>
+                            Response time
+                        </span>
+
+                        <strong>
+                            &lt; 2 sec
+                        </strong>
+
+                    </div>
+
                 </div>
-                <div class="stage-float stage-float-one glass"><span>✦</span><strong>AI active</strong><small>24 / 7</small></div>
-                <div class="stage-float stage-float-two glass"><span>✓</span><strong>Order captured</strong><small>₦12,500</small></div>
-                <div class="stage-ring ring-one"></div><div class="stage-ring ring-two"></div>
+
+                <div
+                    class="stage-float stage-float-one glass"
+                >
+                    <span>✦</span>
+                    <strong>AI active</strong>
+                    <small>24 / 7</small>
+                </div>
+
+                <div
+                    class="stage-float stage-float-two glass"
+                >
+                    <span>✓</span>
+                    <strong>Order captured</strong>
+                    <small>₦12,500</small>
+                </div>
+
+                <div class="stage-ring ring-one"></div>
+                <div class="stage-ring ring-two"></div>
+
             </div>
+
         </div>
-        <div class="landing-marquee"><div>CONVERSATIONS <span>✦</span> ORDERS <span>✦</span> AUTOMATION <span>✦</span> ANALYTICS <span>✦</span> CONVERSATIONS <span>✦</span> ORDERS</div></div>
-        <div class="landing-section-head reveal"><span class="eyebrow-pill"><span class="eyebrow-dot sky"></span>One calm command center</span><h2>Everything your business needs,<br><em>without the busywork.</em></h2></div>
+
+
+        <div class="landing-marquee">
+
+            <div>
+                CONVERSATIONS
+                <span>✦</span>
+                ORDERS
+                <span>✦</span>
+                AUTOMATION
+                <span>✦</span>
+                ANALYTICS
+                <span>✦</span>
+                CONVERSATIONS
+                <span>✦</span>
+                ORDERS
+            </div>
+
+        </div>
+
+
+        <div class="landing-section-head reveal">
+
+            <span class="eyebrow-pill">
+                <span class="eyebrow-dot sky"></span>
+                One calm command center
+            </span>
+
+            <h2>
+                Everything your business needs,<br>
+                <em>without the busywork.</em>
+            </h2>
+
+        </div>
+
+
         <div class="landing-features">
-            <article class="landing-feature glass reveal reveal-delay-1"><span class="feature-number">01</span><div class="feature-icon tint-sky">✦</div><h3>AI conversations</h3><p>Give customers fast, natural answers while Botify keeps the context.</p><a href="/register">Explore <span>↗</span></a></article>
-            <article class="landing-feature glass reveal reveal-delay-2"><span class="feature-number">02</span><div class="feature-icon tint-peach">◈</div><h3>Orders, captured</h3><p>Turn messages into structured orders instead of copying details by hand.</p><a href="/register">Build it <span>↗</span></a></article>
-            <article class="landing-feature glass reveal reveal-delay-3"><span class="feature-number">03</span><div class="feature-icon tint-mint">▦</div><h3>Business control</h3><p>See customers, revenue and activity in a single polished workspace.</p><a href="/register">Get started <span>↗</span></a></article>
+
+            <article
+                class="landing-feature glass reveal reveal-delay-1"
+            >
+
+                <span class="feature-number">
+                    01
+                </span>
+
+                <div class="feature-icon tint-sky">
+                    ✦
+                </div>
+
+                <h3>
+                    AI conversations
+                </h3>
+
+                <p>
+                    Give customers fast, natural answers
+                    while Botify keeps the context.
+                </p>
+
+                <a href="/register">
+                    Explore
+                    <span>↗</span>
+                </a>
+
+            </article>
+
+
+            <article
+                class="landing-feature glass reveal reveal-delay-2"
+            >
+
+                <span class="feature-number">
+                    02
+                </span>
+
+                <div class="feature-icon tint-peach">
+                    ◈
+                </div>
+
+                <h3>
+                    Orders, captured
+                </h3>
+
+                <p>
+                    Turn messages into structured orders
+                    instead of copying details by hand.
+                </p>
+
+                <a href="/register">
+                    Build it
+                    <span>↗</span>
+                </a>
+
+            </article>
+
+
+            <article
+                class="landing-feature glass reveal reveal-delay-3"
+            >
+
+                <span class="feature-number">
+                    03
+                </span>
+
+                <div class="feature-icon tint-mint">
+                    ▦
+                </div>
+
+                <h3>
+                    Business control
+                </h3>
+
+                <p>
+                    See customers, revenue and activity
+                    in a single polished workspace.
+                </p>
+
+                <a href="/register">
+                    Get started
+                    <span>↗</span>
+                </a>
+
+            </article>
+
         </div>
-        <div class="landing-cta glass-deep reveal"><div><span class="eyebrow-pill"><span class="eyebrow-dot mint"></span>Ready when you are</span><h2>Make the next customer<br><em>feel effortless.</em></h2></div><a href="/register" class="btn-dark magnetic-target">Create your workspace <b>↗</b></a></div>
+
+
+        <!-- DEMO CTA -->
+
+        <div
+            class="landing-demo-cta glass reveal"
+        >
+
+            <div>
+
+                <span class="eyebrow-pill">
+                    <span class="eyebrow-dot sky"></span>
+                    See it in action
+                </span>
+
+                <h2>
+                    Talk to the restaurant AI<br>
+                    <em>before you build anything.</em>
+                </h2>
+
+                <p>
+                    Try the same restaurant assistant
+                    customers would use on WhatsApp.
+                    Explore the menu, ask questions,
+                    get recommendations and place an order.
+                </p>
+
+            </div>
+
+            <a
+                href="{{ url_for('demo') }}"
+                class="btn-dark magnetic-target"
+            >
+                Try the AI Demo
+                <b>↗</b>
+            </a>
+
+        </div>
+
+
+        <div
+            class="landing-cta glass-deep reveal"
+        >
+
+            <div>
+
+                <span class="eyebrow-pill">
+                    <span class="eyebrow-dot mint"></span>
+                    Ready when you are
+                </span>
+
+                <h2>
+                    Make the next customer<br>
+                    <em>feel effortless.</em>
+                </h2>
+
+            </div>
+
+            <a
+                href="/register"
+                class="btn-dark magnetic-target"
+            >
+                Create your workspace
+                <b>↗</b>
+            </a>
+
+        </div>
+
     </div>
+
 </section>
 {% endblock %}
+
+
 {% block scripts %}
+
 <script>
 (() => {
-    const els = document.querySelectorAll('.reveal');
-    const observer = new IntersectionObserver(entries => entries.forEach(entry => { if (entry.isIntersecting) entry.target.classList.add('is-visible'); }), {threshold:.12});
-    els.forEach(el => observer.observe(el));
+
+    const els =
+        document.querySelectorAll(
+            '.reveal'
+        );
+
+    const observer =
+        new IntersectionObserver(
+            entries => {
+
+                entries.forEach(
+                    entry => {
+
+                        if (
+                            entry.isIntersecting
+                        ) {
+
+                            entry.target.classList.add(
+                                'is-visible'
+                            );
+
+                        }
+
+                    }
+                );
+
+            },
+            {
+                threshold: .12
+            }
+        );
+
+    els.forEach(
+        el =>
+            observer.observe(el)
+    );
+
 })();
 </script>
+
 {% endblock %}

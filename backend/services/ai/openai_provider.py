@@ -1,5 +1,6 @@
 import os
 import logging
+import time
 
 from dotenv import load_dotenv
 from openai import OpenAI
@@ -14,30 +15,55 @@ logger = logging.getLogger(__name__)
 
 class OpenAIProvider(AIProvider):
     """
-    OpenRouter-backed AI provider.
+    Fast AI provider.
 
-    OpenRouter exposes an OpenAI-compatible API, so the
-    OpenAI Python SDK can be used with OpenRouter's base URL.
+    Uses Groq when GROQ_API_KEY is available.
+    Falls back to OpenRouter when it is not.
     """
 
     def __init__(self):
-        self.api_key = os.getenv("OPENROUTER_API_KEY")
+        self.groq_api_key = os.getenv(
+            "GROQ_API_KEY"
+        )
 
-        if not self.api_key:
-            raise RuntimeError(
-                "OPENROUTER_API_KEY is missing. "
-                "Add your OpenRouter API key to the .env file."
+        self.openrouter_api_key = os.getenv(
+            "OPENROUTER_API_KEY"
+        )
+
+        if self.groq_api_key:
+
+            self.client = OpenAI(
+                api_key=self.groq_api_key,
+                base_url="https://api.groq.com/openai/v1",
             )
 
-        self.client = OpenAI(
-            api_key=self.api_key,
-            base_url="https://openrouter.ai/api/v1",
-        )
+            self.provider_name = "Groq"
 
-        self.model = os.getenv(
-            "OPENROUTER_MODEL",
-            "openrouter/free",
-        )
+            self.model = os.getenv(
+                "GROQ_MODEL",
+                "openai/gpt-oss-20b",
+            )
+
+        elif self.openrouter_api_key:
+
+            self.client = OpenAI(
+                api_key=self.openrouter_api_key,
+                base_url="https://openrouter.ai/api/v1",
+            )
+
+            self.provider_name = "OpenRouter"
+
+            self.model = os.getenv(
+                "OPENROUTER_MODEL",
+                "openrouter/free",
+            )
+
+        else:
+
+            raise RuntimeError(
+                "Neither GROQ_API_KEY nor "
+                "OPENROUTER_API_KEY is configured."
+            )
 
     def generate(
         self,
@@ -48,13 +74,6 @@ class OpenAIProvider(AIProvider):
     ):
         """
         Generate an AI response.
-
-        conversation_history should contain messages like:
-
-        [
-            {"role": "user", "content": "Hi"},
-            {"role": "assistant", "content": "Hello!"},
-        ]
         """
 
         messages = [
@@ -64,20 +83,28 @@ class OpenAIProvider(AIProvider):
             }
         ]
 
-        # ------------------------------------------------------
-        # CONVERSATION HISTORY
-        # ------------------------------------------------------
-
         if conversation_history:
+
             for message in conversation_history:
 
-                if not isinstance(message, dict):
+                if not isinstance(
+                    message,
+                    dict
+                ):
                     continue
 
-                role = message.get("role")
-                content = message.get("content")
+                role = message.get(
+                    "role"
+                )
 
-                if role not in ("user", "assistant"):
+                content = message.get(
+                    "content"
+                )
+
+                if role not in (
+                    "user",
+                    "assistant"
+                ):
                     continue
 
                 if not content:
@@ -90,112 +117,100 @@ class OpenAIProvider(AIProvider):
                     }
                 )
 
-        # ------------------------------------------------------
-        # API REQUEST
-        # ------------------------------------------------------
-
         try:
 
-            response = self.client.chat.completions.create(
-                model=self.model,
-                messages=messages,
-                temperature=temperature,
-                max_tokens=max_tokens,
+            ai_start = time.perf_counter()
+
+            request_kwargs = {
+                "model": self.model,
+                "messages": messages,
+                "temperature": temperature,
+                "max_tokens": max_tokens,
+            }
+
+            response = None
+
+            for attempt in range(2):
+
+                try:
+
+                    response = (
+                        self.client
+                        .chat
+                        .completions
+                        .create(
+                            **request_kwargs
+                        )
+                    )
+
+                except Exception:
+                    if attempt == 1:
+                        raise
+                    continue
+
+                if not response.choices:
+
+                    if attempt == 0:
+
+                        logger.warning(
+                            "%s returned no choices; retrying once.",
+                            self.provider_name,
+                        )
+
+                        continue
+
+                    raise RuntimeError(
+                        "The AI provider returned "
+                        "no choices."
+                    )
+
+                choice = response.choices[0]
+
+                content = (
+                    choice.message.content
+                )
+
+                if content:
+
+                    content = str(
+                        content
+                    ).strip()
+
+                    if content:
+                        break
+
+                if attempt == 0:
+
+                    logger.warning(
+                        "%s returned an empty response; "
+                        "retrying once.",
+                        self.provider_name,
+                    )
+
+                    continue
+
+                raise RuntimeError(
+                    "The AI provider returned "
+                    "an empty response."
+                )
+
+            elapsed = (
+                time.perf_counter()
+                - ai_start
             )
 
-            # --------------------------------------------------
-            # CHECK RESPONSE
-            # --------------------------------------------------
-
-            if not response.choices:
-                raise RuntimeError(
-                    "The AI provider returned no choices."
-                )
-
-            choice = response.choices[0]
-
-            content = choice.message.content
-
-            # --------------------------------------------------
-            # EMPTY RESPONSE
-            # --------------------------------------------------
+            logger.warning(
+                "[PERF] %s %.2fs model=%s",
+                self.provider_name,
+                elapsed,
+                self.model,
+            )
 
             if not content:
 
-                finish_reason = getattr(
-                    choice,
-                    "finish_reason",
-                    None,
-                )
-
-                logger.warning(
-                    "OpenRouter returned empty content. "
-                    "model=%s finish_reason=%s",
-                    self.model,
-                    finish_reason,
-                )
-
-                # ------------------------------------------------
-                # RETRY
-                # ------------------------------------------------
-
-                logger.info(
-                    "Retrying OpenRouter request with "
-                    "larger max_tokens."
-                )
-
-                retry_response = (
-                    self.client.chat.completions.create(
-                        model=self.model,
-                        messages=messages,
-                        temperature=temperature,
-                        max_tokens=max(
-                            max_tokens,
-                            100,
-                        ),
-                    )
-                )
-
-                if not retry_response.choices:
-                    raise RuntimeError(
-                        "The AI provider returned no choices "
-                        "on retry."
-                    )
-
-                retry_choice = retry_response.choices[0]
-
-                content = retry_choice.message.content
-
-                if not content:
-
-                    retry_finish_reason = getattr(
-                        retry_choice,
-                        "finish_reason",
-                        None,
-                    )
-
-                    logger.error(
-                        "OpenRouter returned empty content "
-                        "after retry. "
-                        "model=%s finish_reason=%s",
-                        self.model,
-                        retry_finish_reason,
-                    )
-
-                    raise RuntimeError(
-                        "The AI provider returned an empty "
-                        "response after retry."
-                    )
-
-            # --------------------------------------------------
-            # FINAL RESPONSE
-            # --------------------------------------------------
-
-            content = str(content).strip()
-
-            if not content:
                 raise RuntimeError(
-                    "The AI provider returned empty text."
+                    "The AI provider returned "
+                    "empty text."
                 )
 
             return content
@@ -203,9 +218,11 @@ class OpenAIProvider(AIProvider):
         except Exception as exc:
 
             logger.exception(
-                "AI provider request failed"
+                "%s request failed",
+                self.provider_name,
             )
 
             raise RuntimeError(
-                f"AI provider request failed: {exc}"
+                f"{self.provider_name} "
+                f"request failed: {exc}"
             ) from exc

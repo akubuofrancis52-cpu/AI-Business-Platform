@@ -1,5 +1,6 @@
 import json
 import logging
+import re 
 
 from services.ai.openai_provider import OpenAIProvider
 from services.ai.menu_intelligence import resolve_menu_object
@@ -85,6 +86,176 @@ def _extract_json(response):
 # EXTRACT ORDER
 # ============================================================
 
+def _try_fast_order_extraction(
+    customer_message,
+    menu_items,
+):
+    """
+    Resolve simple single-item orders without an LLM.
+
+    Only activates when exactly one real menu item is
+    explicitly present in the customer message and the
+    message contains a clear ordering phrase.
+    """
+
+    text = str(
+        customer_message or ""
+    ).strip().lower()
+
+    if not text or not menu_items:
+        return None
+
+    # --------------------------------------------------------
+    # CLEAR ORDERING LANGUAGE
+    # --------------------------------------------------------
+
+    order_phrases = (
+        "i want ",
+        "i'd like ",
+        "id like ",
+        "i would like ",
+        "give me ",
+        "get me ",
+        "bring me ",
+        "i'll have ",
+        "ill have ",
+        "can i get ",
+        "can i have ",
+        "order ",
+    )
+
+    if not any(
+        phrase in text
+        for phrase in order_phrases
+    ):
+        return None
+
+    # Avoid treating obvious availability questions as orders.
+    question_phrases = (
+        "do you have",
+        "what do you have",
+        "what is on",
+        "what's on",
+        "is there",
+        "are there",
+    )
+
+    if any(
+        phrase in text
+        for phrase in question_phrases
+    ):
+        return None
+
+    # --------------------------------------------------------
+    # FIND EXACT MENU ITEMS
+    # --------------------------------------------------------
+
+    matches = []
+
+    for menu_item in menu_items:
+
+        menu_name = str(
+            menu_item.name or ""
+        ).strip()
+
+        if not menu_name:
+            continue
+
+        normalized_name = re.sub(
+            r"\s+",
+            " ",
+            re.sub(
+                r"[^\w\s]",
+                " ",
+                menu_name.lower(),
+            ),
+        ).strip()
+
+        if (
+            normalized_name
+            and normalized_name in text
+        ):
+            matches.append(
+                menu_item
+            )
+
+    # Only bypass the LLM when exactly one item matches.
+    if len(matches) != 1:
+        return None
+
+    menu_item = matches[0]
+
+    # --------------------------------------------------------
+    # QUANTITY
+    # --------------------------------------------------------
+
+    quantity = 1
+
+    number_match = re.search(
+        r"\b(\d+)\b",
+        text,
+    )
+
+    if number_match:
+
+        try:
+            quantity = max(
+                1,
+                int(
+                    number_match.group(1)
+                ),
+            )
+        except ValueError:
+            quantity = 1
+
+    else:
+
+        word_quantities = {
+            "one": 1,
+            "a": 1,
+            "an": 1,
+            "two": 2,
+            "three": 3,
+            "four": 4,
+            "five": 5,
+        }
+
+        for word, value in word_quantities.items():
+
+            if re.search(
+                rf"\b{word}\b",
+                text,
+            ):
+                quantity = value
+                break
+
+    price = float(
+        menu_item.price or 0
+    )
+
+    subtotal = (
+        price * quantity
+    )
+
+    return {
+        "items": [
+            {
+                "name": menu_item.name,
+                "quantity": quantity,
+                "price": price,
+                "subtotal": float(
+                    subtotal
+                ),
+            }
+        ],
+        "total": float(
+            subtotal
+        ),
+        "currency": "FCFA",
+        "status": "pending",
+        "unmatched": [],
+    }
+
 def extract_order(
     business_id,
     customer_message
@@ -132,6 +303,24 @@ def extract_order(
         }
 
     # ========================================================
+    # FAST EXACT-MENU ORDER PATH
+    # ========================================================
+
+    fast_result = _try_fast_order_extraction(
+        customer_message,
+        menu_items,
+    )
+
+    if fast_result is not None:
+
+        logger.info(
+            "Fast order extraction used for: %s",
+            customer_message,
+        )
+
+        return fast_result
+
+    # ========================================================
     # MENU NAMES
     # ========================================================
 
@@ -150,86 +339,38 @@ def extract_order(
     # ========================================================
 
     prompt = f"""
-You are a restaurant order extraction engine.
+You extract restaurant orders into JSON.
 
-Your ONLY job is to identify the food or drink items
-that the customer explicitly wants to order.
+Use ONLY exact items from the AVAILABLE MENU.
+Never invent products, prices, or descriptions.
 
-You are NOT the customer-facing assistant.
+Rules:
+- Return ONLY valid JSON.
+- "items" contains foods/drinks the customer explicitly wants.
+- Use the exact menu item name.
+- Quantity must be an integer; default to 1.
+- "a", "an", "one" = 1.
+- Handle obvious spelling mistakes when the intended menu item is clear.
+- Put requested items that cannot be matched into "unmatched".
+- If the customer is not requesting food/drinks, return empty "items".
+- Do not recommend, explain, greet, calculate prices, or calculate totals.
+- No markdown or text outside the JSON.
 
-Do not greet the customer.
-
-Do not explain anything.
-
-Do not recommend anything.
-
-Do not calculate prices.
-
-Do not calculate totals.
-
-Return ONLY valid JSON.
-
-============================================================
-AVAILABLE MENU ITEMS
-============================================================
-
+AVAILABLE MENU:
 {menu_text}
 
-============================================================
-RULES
-============================================================
-
-1. Only use menu items from the available menu list.
-
-2. Never invent a menu item.
-
-3. If the customer mentions a product that cannot be
-   matched to a real menu item, put it in "unmatched".
-
-4. Quantity must be an integer.
-
-5. If quantity is not specified, use 1.
-
-6. "a", "an", and "one" mean quantity 1.
-
-7. "two", "2", etc. mean quantity 2.
-
-8. Handle normal spelling mistakes when the intended
-   menu item is clear.
-
-9. Use the exact menu item name in the output.
-
-10. If the customer is NOT actually requesting a food
-    or drink item, return an empty items list.
-
-11. Do not create products from descriptions.
-
-12. Do not create products that are not on the menu.
-
-13. Do not include explanations.
-
-14. Do not use markdown.
-
-15. Do not write anything outside the JSON object.
-
-============================================================
-REQUIRED FORMAT
-============================================================
-
+REQUIRED JSON:
 {{
-    "items": [
-        {{
-            "name": "Exact Menu Item Name",
-            "quantity": 1
-        }}
-    ],
-    "unmatched": []
+  "items": [
+    {{
+      "name": "Exact Menu Item Name",
+      "quantity": 1
+    }}
+  ],
+  "unmatched": []
 }}
 
-============================================================
-CUSTOMER MESSAGE
-============================================================
-
+CUSTOMER:
 {customer_message}
 """
 
@@ -242,7 +383,7 @@ CUSTOMER MESSAGE
     response = ai.generate(
         prompt,
         temperature=0,
-        max_tokens=300,
+        max_tokens=120,
     )
 
     logger.info(

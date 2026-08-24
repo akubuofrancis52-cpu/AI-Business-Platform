@@ -1,9 +1,13 @@
 /* =========================================================
    BOTIFY — MASTER STYLESHEET
-   Loads the existing design system + premium SaaS frontend
+   Desktop design preserved
+   Mobile rendering optimized for smoother scrolling
 ========================================================= */
 
-/* Core design system */
+/* =========================================================
+   CORE DESIGN SYSTEM
+========================================================= */
+
 @import url("variables.css");
 @import url("background.css");
 @import url("intro.css");
@@ -15,12 +19,6 @@
 @import url("dashboard.css");
 @import url("chat.css");
 @import url("animations.css");
-
-/*
-   Premium Botify SaaS frontend.
-   This is the large 78 KB stylesheet containing
-   the newer landing/auth/dashboard design.
-*/
 @import url("saas_frontend.css");
 
 
@@ -37,6 +35,7 @@
 html {
     margin: 0;
     padding: 0;
+
     font-family:
         Inter,
         system-ui,
@@ -44,17 +43,34 @@ html {
         BlinkMacSystemFont,
         "Segoe UI",
         sans-serif;
+
     scroll-behavior: smooth;
+
+    overflow-x: hidden;
 }
 
 body {
     margin: 0;
     min-height: 100vh;
-    color: var(--ink, #15161b);
-    background: var(--bg, #fbfcff);
+
+    color:
+        var(
+            --ink,
+            #15161b
+        );
+
+    background:
+        var(
+            --bg,
+            #fbfcff
+        );
+
     font-family: inherit;
+
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+
+    overflow-x: hidden;
 }
 
 img,
@@ -86,24 +102,41 @@ a {
 .page-content {
     position: relative;
     z-index: 1;
-    min-height: calc(100vh - 100px);
-    padding-bottom: 100px;
-    animation: pageReveal 0.55s ease both;
+
+    min-height:
+        calc(100vh - 100px);
+
+    padding-bottom:
+        100px;
+
+    animation:
+        pageReveal
+        0.55s
+        ease
+        both;
+
+    backface-visibility: hidden;
 }
 
 .container,
 .container-fluid {
     width: 100%;
-    max-width: 1180px;
-    margin-inline: auto;
+
+    max-width:
+        1180px;
+
+    margin-inline:
+        auto;
 }
 
 .container {
-    padding-inline: 20px;
+    padding-inline:
+        20px;
 }
 
 .container-fluid {
-    padding-inline: 20px;
+    padding-inline:
+        20px;
 }
 
 
@@ -114,44 +147,73 @@ a {
 .glass,
 .glass-deep {
     position: relative;
+
     overflow: hidden;
+
+    backface-visibility: hidden;
 }
 
 .glass {
-    background: var(
-        --surface,
-        rgba(255, 255, 255, 0.72)
-    );
+    background:
+        var(
+            --surface,
+            rgba(255, 255, 255, 0.72)
+        );
 
-    backdrop-filter: blur(22px) saturate(140%);
-    -webkit-backdrop-filter: blur(22px) saturate(140%);
+    backdrop-filter:
+        blur(22px)
+        saturate(140%);
 
-    border: 1px solid var(
-        --border,
-        rgba(255, 255, 255, 0.78)
-    );
+    -webkit-backdrop-filter:
+        blur(22px)
+        saturate(140%);
 
-    box-shadow: var(
-        --shadow-soft,
-        0 24px 60px -28px rgba(60, 70, 110, 0.35)
-    );
+    border:
+        1px solid
+        var(
+            --border,
+            rgba(255, 255, 255, 0.78)
+        );
+
+    box-shadow:
+        var(
+            --shadow-soft,
+            0
+            24px
+            60px
+            -28px
+            rgba(60, 70, 110, 0.35)
+        );
 }
 
 .glass-deep {
-    background: var(
-        --surface-deep,
-        rgba(255, 255, 255, 0.42)
-    );
+    background:
+        var(
+            --surface-deep,
+            rgba(255, 255, 255, 0.42)
+        );
 
-    backdrop-filter: blur(28px) saturate(150%);
-    -webkit-backdrop-filter: blur(28px) saturate(150%);
+    backdrop-filter:
+        blur(28px)
+        saturate(150%);
 
-    border: 1px solid rgba(255, 255, 255, 0.7);
+    -webkit-backdrop-filter:
+        blur(28px)
+        saturate(150%);
 
-    box-shadow: var(
-        --shadow-float,
-        0 40px 90px -36px rgba(50, 60, 105, 0.45)
-    );
+    border:
+        1px solid
+        rgba(255, 255, 255, 0.7);
+
+    box-shadow:
+        var(
+            --shadow-float,
+            0
+            40px
+            90px
+            -36px
+            rgba(50, 60, 105, 0.45)
+        );
 }
 
 
@@ -164,7 +226,11 @@ a {
 }
 
 .text-muted {
-    color: var(--slate2, #5c606e) !important;
+    color:
+        var(
+            --slate2,
+            #5c606e
+        ) !important;
 }
 
 .text-center {
@@ -193,12 +259,17 @@ a {
 ========================================================= */
 
 :focus-visible {
-    outline: 3px solid rgba(80, 120, 255, 0.35);
-    outline-offset: 3px;
+    outline:
+        3px solid
+        rgba(80, 120, 255, 0.35);
+
+    outline-offset:
+        3px;
 }
 
 ::selection {
-    background: rgba(120, 160, 255, 0.25);
+    background:
+        rgba(120, 160, 255, 0.25);
 }
 
 
@@ -207,33 +278,387 @@ a {
 ========================================================= */
 
 @keyframes pageReveal {
+
     from {
         opacity: 0;
-        transform: translateY(8px);
+
+        transform:
+            translateY(8px);
     }
 
     to {
         opacity: 1;
-        transform: translateY(0);
+
+        transform:
+            translateY(0);
     }
 }
 
 
 /* =========================================================
-   MOBILE
+   MOBILE BASE
 ========================================================= */
 
 @media (max-width: 768px) {
 
     .container,
     .container-fluid {
-        padding-inline: 16px;
+        padding-inline:
+            16px;
     }
 
     .page-content {
-        min-height: calc(100vh - 80px);
-        padding-bottom: 60px;
+        min-height:
+            calc(100vh - 80px);
+
+        padding-bottom:
+            60px;
+
+        animation:
+            none;
     }
+
+    /*
+       Native scrolling is preferred on touch devices.
+    */
+
+    html {
+        scroll-behavior:
+            auto;
+    }
+
+    body {
+        -webkit-overflow-scrolling:
+            touch;
+    }
+
+
+    /* =====================================================
+       MOBILE GLASS OPTIMIZATION
+    ===================================================== */
+
+    /*
+       Backdrop blur is one of the most expensive effects
+       in the current design on mobile.
+    */
+
+    .glass,
+    .glass-deep {
+        backdrop-filter:
+            none !important;
+
+        -webkit-backdrop-filter:
+            none !important;
+    }
+
+    .glass {
+        background:
+            rgba(
+                255,
+                255,
+                255,
+                0.86
+            ) !important;
+    }
+
+    .glass-deep {
+        background:
+            rgba(
+                255,
+                255,
+                255,
+                0.74
+            ) !important;
+    }
+
+    .glass,
+    .glass-deep {
+        box-shadow:
+            0
+            18px
+            45px
+            -26px
+            rgba(
+                50,
+                60,
+                105,
+                0.20
+            ) !important;
+    }
+
+
+    /* =====================================================
+       LANDING PAGE PERFORMANCE
+    ===================================================== */
+
+    /*
+       Keep the background shapes visible but eliminate their
+       expensive continuous blur/animation work.
+    */
+
+    .aurora,
+    .floating-circle {
+        animation:
+            none !important;
+
+        filter:
+            none !important;
+
+        transform:
+            none !important;
+
+        will-change:
+            auto !important;
+    }
+
+
+    /*
+       The landing badges use their own backdrop-filter rather
+       than the global .glass class.
+    */
+
+    .landing-badges span {
+        backdrop-filter:
+            none !important;
+
+        -webkit-backdrop-filter:
+            none !important;
+
+        background:
+            rgba(
+                255,
+                255,
+                255,
+                0.84
+            ) !important;
+    }
+
+
+    /*
+       The hero halo is decorative. Keep it visible but static.
+    */
+
+    .stage-halo {
+        animation:
+            none !important;
+
+        filter:
+            none !important;
+
+        transform:
+            none !important;
+
+        will-change:
+            auto !important;
+    }
+
+
+    /*
+       The main hero card stays tilted but no longer constantly
+       moves up and down.
+    */
+
+    .stage-card-main {
+        animation:
+            none !important;
+
+        transform:
+            rotate(-3deg) !important;
+
+        will-change:
+            auto !important;
+    }
+
+
+    /*
+       Floating cards remain visible but static.
+    */
+
+    .stage-float {
+        animation:
+            none !important;
+
+        will-change:
+            auto !important;
+    }
+
+
+    /*
+       Rotating rings are one of the easiest things to remove
+       from the rendering loop while keeping the same design.
+    */
+
+    .stage-ring {
+        animation:
+            none !important;
+
+        transform:
+            none !important;
+
+        will-change:
+            auto !important;
+    }
+
+
+    /*
+       Keep the rings visible but make them slightly lighter.
+    */
+
+    .stage-ring {
+        opacity:
+            0.45;
+    }
+
+    .ring-two {
+        opacity:
+            0.25;
+    }
+
+
+    /*
+       The marquee continuously repaints the page.
+       Keep the text but stop the movement on mobile.
+    */
+
+    .landing-marquee div {
+        animation:
+            none !important;
+
+        transform:
+            none !important;
+    }
+
+
+    /*
+       Reveal transitions are shortened significantly.
+    */
+
+    .reveal {
+        transition:
+            opacity
+            0.3s
+            ease,
+            transform
+            0.3s
+            ease;
+    }
+
+    .reveal-delay-1,
+    .reveal-delay-2,
+    .reveal-delay-3 {
+        transition-delay:
+            0s;
+    }
+
+
+    /*
+       Prevent hover-oriented transforms from being triggered
+       unnecessarily on touch devices.
+    */
+
+    .landing-feature:hover,
+    .btn-dark:hover,
+    .btn-glass:hover,
+    .business-card:hover,
+    .quick-card:hover {
+        transform:
+            none !important;
+
+        box-shadow:
+            inherit;
+    }
+
+
+    /*
+       Don't keep decorative elements permanently promoted
+       to GPU layers.
+    */
+
+    .stage-halo,
+    .stage-card-main,
+    .stage-float,
+    .stage-ring,
+    .landing-marquee,
+    .landing-feature,
+    .landing-cta {
+        will-change:
+            auto !important;
+    }
+
+
+    /* =====================================================
+       BELOW-FOLD CONTENT
+    ===================================================== */
+
+    /*
+       Give the browser permission to skip rendering parts of
+       the landing page that aren't currently visible.
+    */
+
+    .landing-features,
+    .landing-cta {
+        content-visibility:
+            auto;
+
+        contain-intrinsic-size:
+            300px;
+    }
+
+
+    /* =====================================================
+       LANDING LAYOUT
+    ===================================================== */
+
+    .landing-page {
+        overflow-x:
+            hidden;
+    }
+
+    .landing-shell,
+    .landing-hero,
+    .landing-stage {
+        max-width:
+            100%;
+
+        overflow-x:
+            hidden;
+    }
+
+}
+
+
+/* =========================================================
+   SMALL PHONES
+========================================================= */
+
+@media (max-width: 480px) {
+
+    html,
+    body {
+        overflow-x:
+            hidden;
+    }
+
+    .page-content {
+        padding-bottom:
+            40px;
+    }
+
+    /*
+       Slightly reduce hero complexity on very small screens.
+       No content is removed.
+    */
+
+    .stage-ring {
+        opacity:
+            0.30;
+    }
+
+    .ring-two {
+        opacity:
+            0.16;
+    }
+
 }
 
 
@@ -244,15 +669,191 @@ a {
 @media (prefers-reduced-motion: reduce) {
 
     html {
-        scroll-behavior: auto;
+        scroll-behavior:
+            auto;
     }
 
     *,
     *::before,
     *::after {
-        animation-duration: 0.01ms !important;
-        animation-iteration-count: 1 !important;
-        transition-duration: 0.01ms !important;
-        scroll-behavior: auto !important;
+
+        animation-duration:
+            0.01ms !important;
+
+        animation-iteration-count:
+            1 !important;
+
+        transition-duration:
+            0.01ms !important;
+
+        scroll-behavior:
+            auto !important;
     }
+
+    .reveal {
+        opacity:
+            1 !important;
+
+        transform:
+            none !important;
+    }
+
+}
+
+/* =========================================================
+   DEMO CTA CARD
+========================================================= */
+
+.landing-demo-cta {
+    position: relative;
+    margin-top: 75px;
+    padding: 38px 42px;
+
+    border-radius: 34px !important;
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 25px;
+
+    overflow: hidden;
+
+    background:
+        linear-gradient(
+            135deg,
+            rgba(255, 216, 194, 0.64),
+            rgba(255, 255, 255, 0.52),
+            rgba(207, 227, 255, 0.68)
+        ) !important;
+
+    border:
+        1px solid
+        rgba(255, 255, 255, 0.78);
+
+    box-shadow:
+        var(
+            --shadow-float,
+            0 28px 70px -30px rgba(50, 60, 105, 0.25)
+        );
+}
+
+.landing-demo-cta h2 {
+    margin:
+        15px
+        0
+        10px;
+
+    font-size:
+        clamp(34px, 4.3vw, 58px);
+
+    line-height:
+        0.94;
+
+    letter-spacing:
+        -0.06em;
+
+    font-weight:
+        900;
+}
+
+.landing-demo-cta h2 em {
+    font-style:
+        normal;
+
+    color:
+        #697080;
+}
+
+.landing-demo-cta p {
+    max-width:
+        620px;
+
+    margin:
+        12px
+        0
+        0;
+
+    color:
+        #727784;
+
+    font-size:
+        13px;
+
+    line-height:
+        1.7;
+}
+
+.landing-demo-cta .btn-dark {
+    flex:
+        0
+        0
+        auto;
+
+    min-height:
+        55px;
+
+    padding-inline:
+        22px;
+
+    white-space:
+        nowrap;
+}
+
+
+/* =========================================================
+   MOBILE DEMO CTA
+========================================================= */
+
+@media (max-width: 900px) {
+
+    .landing-demo-cta {
+        display:
+            block;
+
+        text-align:
+            center;
+    }
+
+    .landing-demo-cta .eyebrow-pill {
+        justify-content:
+            center;
+    }
+
+    .landing-demo-cta p {
+        margin-inline:
+            auto;
+    }
+
+    .landing-demo-cta .btn-dark {
+        margin-top:
+            24px;
+    }
+
+}
+
+
+@media (max-width: 640px) {
+
+    .landing-demo-cta {
+        margin-top:
+            55px;
+
+        padding:
+            28px
+            20px;
+
+        border-radius:
+            28px !important;
+    }
+
+    .landing-demo-cta h2 {
+        font-size:
+            39px;
+    }
+
+    .landing-demo-cta .btn-dark {
+        width:
+            100%;
+    }
+
 }

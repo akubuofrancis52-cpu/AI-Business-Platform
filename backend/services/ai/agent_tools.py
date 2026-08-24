@@ -402,50 +402,72 @@ def get_active_order(business_id, phone):
 # PENDING ORDER
 # ============================================================
 
-def get_pending_order(business_id, phone):
+def get_pending_order(
+    business_id,
+    phone,
+):
+    """
+    Retrieve the latest pending order using only the database
+    columns required by the agent.
+    """
 
-    customer = Customer.query.filter_by(
-        business_id=business_id,
-        phone=phone
-    ).first()
+    customer = (
+        Customer.query
+        .with_entities(
+            Customer.id,
+        )
+        .filter(
+            Customer.business_id == business_id,
+            Customer.phone == phone,
+        )
+        .first()
+    )
 
     if not customer:
         return {
             "success": False,
-            "message": "Customer not found."
+            "message": "Customer not found.",
         }
 
-    preview = PendingOrder.query.filter_by(
-        business_id=business_id,
-        customer_id=customer.id,
-        status="pending"
-    ).order_by(
-        PendingOrder.id.desc()
-    ).first()
+    preview = (
+        PendingOrder.query
+        .with_entities(
+            PendingOrder.id,
+            PendingOrder.items_json,
+            PendingOrder.total_price,
+            PendingOrder.status,
+        )
+        .filter(
+            PendingOrder.business_id == business_id,
+            PendingOrder.customer_id == customer.id,
+            PendingOrder.status == "pending",
+        )
+        .order_by(
+            PendingOrder.id.desc()
+        )
+        .first()
+    )
 
     if not preview:
         return {
             "success": False,
-            "message": "No pending order preview."
+            "message": "No pending order preview.",
         }
 
     try:
-
         items = json.loads(
             preview.items_json
         )
-
     except (
         json.JSONDecodeError,
-        TypeError
+        TypeError,
     ):
-
         return {
             "success": False,
             "message": (
                 "The pending order preview "
                 "could not be read."
-            )
+            ),
         }
 
     return {
@@ -456,8 +478,8 @@ def get_pending_order(business_id, phone):
             "total": float(
                 preview.total_price or 0
             ),
-            "status": preview.status
-        }
+            "status": preview.status,
+        },
     }
 
 
@@ -807,8 +829,60 @@ def confirm_pending_order(
             order_item
         )
 
+        # ========================================================
+    # DEMO PAYMENT
     # ========================================================
-    # CREATE PAYDUNYA CHECKOUT
+
+    is_demo_order = (
+        str(phone).startswith("DEMO-")
+    )
+
+    if is_demo_order:
+
+        order.mark_as_paid(
+            payment_method="Demo",
+            transaction_id=(
+                f"DEMO-{order.id}"
+            ),
+        )
+
+        order.status = "Completed"
+
+        preview.status = "confirmed"
+
+        db.session.commit()
+
+        return {
+            "success": True,
+
+            "order": {
+                "id": order.id,
+                "status": order.status,
+                "payment_status": (
+                    order.payment_status
+                ),
+                "total": final_total,
+                "currency": "FCFA",
+                "items": final_items,
+            },
+
+            "payment": {
+                "provider": "Demo",
+                "status": "Paid",
+                "checkout_url": None,
+                "token": None,
+            },
+
+            "message": (
+                f"Demo order #{order.id} "
+                "has been confirmed successfully. "
+                "Payment was simulated for this demonstration."
+            ),
+        }
+
+
+    # ========================================================
+    # CREATE REAL PAYDUNYA CHECKOUT
     # ========================================================
 
     try:
@@ -822,7 +896,9 @@ def confirm_pending_order(
 
     except Exception as exc:
 
-        print(f"PAYDUNYA CHECKOUT ERROR: {exc}")
+        print(
+            f"PAYDUNYA CHECKOUT ERROR: {exc}"
+        )
 
         db.session.rollback()
 
@@ -889,11 +965,26 @@ def confirm_pending_order(
 
     preview.status = "confirmed"
 
+    print(
+        "[DEBUG] About to commit PayDunya order",
+        flush=True,
+    )
+
     db.session.commit()
+
+    print(
+        "[DEBUG] PayDunya order commit completed",
+        flush=True,
+    )
 
     # ========================================================
     # RETURN PAYMENT INFORMATION
     # ========================================================
+
+    print(
+        "[DEBUG] Returning PayDunya payment result",
+        flush=True,
+    )
 
     return {
         "success": True,
