@@ -268,10 +268,6 @@ def pending_order_confirmation_is_valid(
     return True
 
 
-# ============================================================
-# CONFIRMATION
-# ============================================================
-
 CONFIRMATION_PHRASES = {
     "yes",
     "yes please",
@@ -302,8 +298,18 @@ CONFIRMATION_PHRASES = {
     "looks good",
     "thats good",
     "that is good",
-}
 
+    # French
+    "oui",
+    "oui merci",
+    "oui s'il vous plaît",
+    "oui s il vous plait",
+    "je confirme",
+    "confirmer",
+    "confirme",
+    "d'accord",
+    "d accord",
+}
 
 REJECTION_PHRASES = {
     "no",
@@ -316,8 +322,17 @@ REJECTION_PHRASES = {
     "dont place it",
     "do not place it",
     "cancel it",
-}
 
+    # French
+    "non",
+    "non merci",
+    "annuler",
+    "annule",
+    "je ne veux pas",
+    "je ne veux plus",
+    "laissez tomber",
+    "laisse tomber",
+}
 
 def is_confirmation(message):
     text = normalize_text(
@@ -333,7 +348,6 @@ def is_rejection(message):
     )
 
     return text in REJECTION_PHRASES
-
 
 # ============================================================
 # PENDING ORDER HELPERS
