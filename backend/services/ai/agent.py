@@ -3088,8 +3088,9 @@ def classify_message_fast(message):
     # ORDER INTENT
     # --------------------------------------------------------
 
-    if contains_any(
-        FAST_GENERIC_ORDER_PHRASES
+    if (
+        contains_any(FAST_GENERIC_ORDER_PHRASES)
+        and not contains_any(FAST_FOOD_PATTERNS)
     ):
         return "chat"
 
@@ -4075,25 +4076,6 @@ def run_agent(
                             message,
                         ),
                     }
-
-            order_prompt = {
-                    "French": "Bien sûr. Que souhaitez-vous commander ?",
-                    "Spanish": "Claro. ¿Qué le gustaría pedir?",
-                    "Portuguese": "Claro. O que gostaria de pedir?",
-                    "Italian": "Certo. Cosa desidera ordinare?",
-                    "German": "Gerne. Was möchten Sie bestellen?",
-                }.get(
-                    language,
-                    "Sure. What would you like to order?"
-                )
-
-            return {
-                    "type": "response",
-                    "message": customer_response(
-                        order_prompt,
-                        message,
-                    ),
-                }
 
             return build_tool_response(
                 provider=get_provider(),
