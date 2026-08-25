@@ -318,10 +318,9 @@ def execute_order_action(
                     float(menu.price)
                     * quantity
                 ),
-                order_id=order.id
             )
 
-            db.session.add(
+            order.items.append(
                 order_item
             )
 
