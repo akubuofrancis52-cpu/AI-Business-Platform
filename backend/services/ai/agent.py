@@ -4,6 +4,7 @@ import re
 import time
 from functools import lru_cache
 from database.db import db
+from contextvars import ContextVar
 
 from services.ai.openai_provider import OpenAIProvider
 from services.ai.menu_intelligence import (
@@ -23,6 +24,10 @@ from services.ai.agent_tools import (
     cancel_active_order,
 )
 
+CUSTOMER_LANGUAGE = ContextVar(
+    "customer_language",
+    default="English",
+)
 
 logger = logging.getLogger(__name__)
 
@@ -170,7 +175,11 @@ def customer_response(
 ):
     """
     Standardize a customer-facing response and optionally
-    add a natural emoji.
+    add
+    a natural emoji.
+
+    The current customer language is taken from the
+    request-scoped CUSTOMER_LANGUAGE context.
     """
 
     message = clean_text(
@@ -179,6 +188,63 @@ def customer_response(
 
     if not message:
         return ""
+
+    language = CUSTOMER_LANGUAGE.get()
+
+    fixed_translations = {
+        "French": {
+            "Sure. What would you like to order?":
+                "Bien sûr. Que souhaitez-vous commander ?",
+
+            "Sure! Let me know how I can help with the restaurant.":
+                "Bien sûr ! Dites-moi comment je peux vous aider avec le restaurant.",
+
+            "I'm here to help. What would you like to know?":
+                "Je suis là pour vous aider. Que souhaitez-vous savoir ?",
+
+            "I'm the restaurant's AI assistant, so I can only help with the menu, orders, delivery, and other restaurant-related questions.":
+                "Je suis l'assistant IA du restaurant. Je peux vous aider avec le menu, les commandes, la livraison et les autres questions liées au restaurant.",
+
+            "I couldn't retrieve that restaurant information right now.":
+                "Je n'arrive pas à récupérer ces informations du restaurant pour le moment.",
+
+            "I couldn't create the order preview right now. Please try again.":
+                "Je n'arrive pas à créer l'aperçu de la commande pour le moment. Veuillez réessayer.",
+
+            "I couldn't modify the order right now.":
+                "Je n'arrive pas à modifier la commande pour le moment.",
+
+            "Your order has been updated.":
+                "Votre commande a été mise à jour.",
+
+            "I couldn't cancel the order right now. Please try again.":
+                "Je n'arrive pas à annuler la commande pour le moment. Veuillez réessayer.",
+
+            "I couldn't confirm the order right now. Please try again.":
+                "Je n'arrive pas à confirmer la commande pour le moment. Veuillez réessayer.",
+
+            "I couldn't find any menu items right now. Please try again later.":
+                "Je ne trouve aucun article du menu pour le moment. Veuillez réessayer plus tard.",
+
+            "I'm unable to access the menu right now. Please try again.":
+                "Je n'arrive pas à accéder au menu pour le moment. Veuillez réessayer.",
+
+            "Here are some good options:":
+                "Voici quelques bonnes options :",
+
+            "I couldn't get recommendations right now. Please try the menu instead.":
+                "Je n'arrive pas à obtenir de recommandations pour le moment. Veuillez consulter le menu à la place.",
+        }
+    }
+
+    translated = (
+        fixed_translations
+        .get(language, {})
+        .get(message)
+    )
+
+    if translated:
+        message = translated
 
     return add_natural_emoji(
         message,
@@ -1370,7 +1436,7 @@ INPUT:
             translated = provider.generate(
                 prompt,
                 temperature=0,
-                max_tokens=120,
+                max_tokens=300,
             )
 
             translated = clean_text(
@@ -2450,7 +2516,11 @@ def build_menu_response(
         or []
     )
 
-    if not results:
+    full_menu = bool(
+        tool_result.get("full_menu")
+    )
+
+    if not results and not full_menu:
 
         return {
             "type": "response",
@@ -2540,8 +2610,19 @@ def build_menu_response(
             ),
         }
 
+    menu_header = {
+        "French": "🍽️ *Notre Menu*",
+        "Spanish": "🍽️ *Nuestro Menú*",
+        "Portuguese": "🍽️ *Nosso Menu*",
+        "Italian": "🍽️ *Il Nostro Menu*",
+        "German": "🍽️ *Unsere Speisekarte*",
+    }.get(
+        language,
+        "🍽️ *Our Menu*"
+    )
+
     lines = [
-        "🍽️ *Our Menu*",
+        menu_header,
         "",
     ]
 
@@ -2606,15 +2687,26 @@ def build_menu_response(
 
     lines.append("")
 
-    lines.append(
+    order_prompt = {
+        "French": "Que souhaitez-vous commander ?",
+        "Spanish": "¿Qué le gustaría pedir?",
+        "Portuguese": "O que gostaria de pedir?",
+        "Italian": "Cosa desidera ordinare?",
+        "German": "Was möchten Sie bestellen?",
+    }.get(
+        language,
         "What would you like to order?"
     )
 
+    lines.append(
+        order_prompt
+    )
+
     lines = translate_menu_for_customer(
-    lines,
-    language,
-    provider=provider,
-)
+        lines,
+        language,
+        provider=provider,
+    )
 
     response = "\n".join(
         lines
@@ -3123,7 +3215,7 @@ Return ONLY the category name.
         result = provider.generate(
             prompt,
             temperature=0,
-            max_tokens=5,
+            max_tokens=50,
         )
 
         result = normalize_text(
@@ -3506,20 +3598,43 @@ def run_agent(
     )
 
     greeting_responses = {
-        "hi": "Hi! How can I help you today?",
-        "hello": "Hello! How can I help you today?",
-        "hey": "Hey! How can I help you today?",
-        "good morning": "Good morning! How can I help you today?",
-        "good afternoon": "Good afternoon! How can I help you today?",
-        "good evening": "Good evening! How can I help you today?",
+        "English": {
+            "hi": "Hi! How can I help you today?",
+            "hello": "Hello! How can I help you today?",
+            "hey": "Hey! How can I help you today?",
+            "good morning": "Good morning! How can I help you today?",
+            "good afternoon": "Good afternoon! How can I help you today?",
+            "good evening": "Good evening! How can I help you today?",
+        },
+        "French": {
+            "bonjour": "Bonjour ! Comment puis-je vous aider ?",
+            "bonsoir": "Bonsoir ! Comment puis-je vous aider ?",
+            "salut": "Salut ! Comment puis-je vous aider ?",
+        },
+        "Spanish": {
+            "hola": "¡Hola! ¿Cómo puedo ayudarte?",
+        },
+        "Portuguese": {
+            "olá": "Olá! Como posso ajudá-lo?",
+        },
+        "Italian": {
+            "ciao": "Ciao! Come posso aiutarti?",
+        },
+        "German": {
+            "hallo": "Hallo! Wie kann ich Ihnen helfen?",
+        },
     }
 
-    greeting_response = greeting_responses.get(
+    language_greetings = greeting_responses.get(
+        language,
+        greeting_responses["English"]
+    )
+
+    greeting_response = language_greetings.get(
         normalized_message
     )
 
     if greeting_response:
-
         return {
             "type": "response",
             "message": customer_response(
@@ -3961,11 +4076,21 @@ def run_agent(
                         ),
                     }
 
-                return {
+            order_prompt = {
+                    "French": "Bien sûr. Que souhaitez-vous commander ?",
+                    "Spanish": "Claro. ¿Qué le gustaría pedir?",
+                    "Portuguese": "Claro. O que gostaria de pedir?",
+                    "Italian": "Certo. Cosa desidera ordinare?",
+                    "German": "Gerne. Was möchten Sie bestellen?",
+                }.get(
+                    language,
+                    "Sure. What would you like to order?"
+                )
+
+            return {
                     "type": "response",
                     "message": customer_response(
-                        "Sure. What would you "
-                        "like to order?",
+                        order_prompt,
                         message,
                     ),
                 }

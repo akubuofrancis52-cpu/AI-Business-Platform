@@ -128,6 +128,12 @@ class OpenAIProvider(AIProvider):
                 "max_tokens": max_tokens,
             }
 
+            if (
+                self.provider_name == "Groq"
+                and self.model.startswith("openai/gpt-oss")
+            ):
+                request_kwargs["reasoning_effort"] = "low"
+
             response = None
 
             for attempt in range(2):
