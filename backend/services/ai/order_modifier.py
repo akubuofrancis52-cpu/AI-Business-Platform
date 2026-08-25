@@ -112,10 +112,24 @@ Return exactly this structure:
 
 Rules:
 
+- For add_item:
+  - item_name must be the menu item the customer wants to add.
+  - Extract the complete item name from the customer's message.
+  - Phrases such as "add another", "add one more", "I want another",
+    "give me another", or "add 2 more" refer to adding that item.
+  - Example:
+    "Add another Signature Lebanese Shawarma"
+    must produce:
+    "action": "add_item",
+    "item_name": "Signature Lebanese Shawarma",
+    "quantity": 1
+
 - item_name must refer to an item already in the order when using
   remove_item, set_quantity, or replace_item.
 - quantity must be an integer when relevant.
 - new_item_name is only used for replace_item.
+- Do not invent items.
+- If the request is unclear, use unknown.
 - Do not invent items.
 - If the request is unclear, use unknown.
 """
