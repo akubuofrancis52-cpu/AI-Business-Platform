@@ -91,11 +91,16 @@ def _try_fast_order_extraction(
     menu_items,
 ):
     """
-    Resolve simple single-item orders without an LLM.
+    Resolve obvious menu-item orders locally without an LLM.
 
-    Only activates when exactly one real menu item is
-    explicitly present in the customer message and the
-    message contains a clear ordering phrase.
+    Handles:
+    - Exact menu names
+    - Common shortened names
+    - Multiple items
+    - Basic numeric quantities
+
+    Returns None when the request is ambiguous so the LLM
+    can handle it.
     """
 
     text = str(
@@ -122,6 +127,11 @@ def _try_fast_order_extraction(
         "can i get ",
         "can i have ",
         "order ",
+        "je veux ",
+        "je voudrais ",
+        "donnez-moi ",
+        "donne-moi ",
+        "je prendrai ",
     )
 
     if not any(
@@ -130,7 +140,10 @@ def _try_fast_order_extraction(
     ):
         return None
 
-    # Avoid treating obvious availability questions as orders.
+    # --------------------------------------------------------
+    # AVOID AVAILABILITY QUESTIONS
+    # --------------------------------------------------------
+
     question_phrases = (
         "do you have",
         "what do you have",
@@ -138,6 +151,8 @@ def _try_fast_order_extraction(
         "what's on",
         "is there",
         "are there",
+        "do you serve",
+        "what can i get",
     )
 
     if any(
@@ -147,10 +162,117 @@ def _try_fast_order_extraction(
         return None
 
     # --------------------------------------------------------
-    # FIND EXACT MENU ITEMS
+    # NORMALIZATION
     # --------------------------------------------------------
 
-    matches = []
+    def normalize(value):
+        value = str(
+            value or ""
+        ).lower()
+
+        value = re.sub(
+            r"[^\w\s]",
+            " ",
+            value,
+        )
+
+        value = re.sub(
+            r"\s+",
+            " ",
+            value,
+        )
+
+        return value.strip()
+
+    normalized_text = normalize(text)
+
+    # --------------------------------------------------------
+    # COMMON MENU ALIASES
+    # --------------------------------------------------------
+
+    aliases = {
+        "shawarma": (
+            "shawarma",
+            "lebanese shawarma",
+            "shawarma libanais",
+        ),
+
+        "lemonade": (
+            "lemonade",
+            "limonade",
+            "limonades",
+        ),
+
+        "club sandwich": (
+            "club sandwich",
+            "sandwich",
+            "club sandwich varié",
+        ),
+
+        "french fries": (
+            "french fries",
+            "fries",
+            "frites",
+            "frites croquantes",
+        ),
+
+        "margherita pizza": (
+            "margherita pizza",
+            "margherita pizzas",
+            "pizza margherita",
+            "pizzas margherita",
+            "pizza margherita classique",
+            "pizzas margherita classiques",
+),
+
+        "chicken cheese pizza": (
+            "chicken cheese pizza",
+            "loaded chicken pizza",
+            "pizza poulet fromage",
+            "pizza poulet et fromage",
+            "pizza poulet & fromage garnie",
+        ),
+
+        "caramel sundae": (
+            "caramel sundae",
+            "sundae caramel",
+            "sundae caramel croquant",
+        ),
+
+        "chocolate ice cream": (
+            "chocolate ice cream",
+            "chocolate scoop",
+            "chocolate cone",
+            "chocolat",
+            "chocolat surchargé",
+            "corne de chocolat",
+        ),
+
+        "vanilla cornetto": (
+            "vanilla cornetto",
+            "cornetto",
+            "cornetto vanille",
+            "cornetto classique à la vanille",
+        ),
+
+        "fruit ice cream": (
+            "fruit ice cream",
+            "glace aux fruits",
+            "glace aux fruits mélangés",
+            "tasse de glace aux fruits mélangés",
+        ),
+
+        "strawberry gelato": (
+            "strawberry gelato",
+            "gelato aux fraises",
+        ),
+    }
+
+    # --------------------------------------------------------
+    # BUILD MENU MATCHES
+    # --------------------------------------------------------
+
+    candidates = []
 
     for menu_item in menu_items:
 
@@ -161,84 +283,181 @@ def _try_fast_order_extraction(
         if not menu_name:
             continue
 
-        normalized_name = re.sub(
-            r"\s+",
-            " ",
-            re.sub(
-                r"[^\w\s]",
-                " ",
-                menu_name.lower(),
-            ),
-        ).strip()
+        normalized_name = normalize(
+            menu_name
+        )
 
-        if (
+        candidates.append(
+            {
+                "item": menu_item,
+                "name": menu_name,
+                "normalized": normalized_name,
+            }
+        )
+
+    # --------------------------------------------------------
+    # FIND MATCHES
+    # --------------------------------------------------------
+
+    matched = {}
+
+    for candidate in candidates:
+
+        menu_item = candidate["item"]
+        menu_name = candidate["name"]
+        normalized_name = candidate["normalized"]
+
+        terms = {
             normalized_name
-            and normalized_name in text
-        ):
-            matches.append(
-                menu_item
+        }
+
+        # Add safe aliases based on the actual menu item.
+        for alias, variants in aliases.items():
+
+            if (
+                alias in normalized_name
+                or normalized_name in variants
+            ):
+                terms.update(
+                    variants
+                )
+
+        matched_terms = []
+
+        for term in terms:
+
+            normalized_term = normalize(
+                term
             )
 
-    # Only bypass the LLM when exactly one item matches.
-    if len(matches) != 1:
-        return None
+            if not normalized_term:
+                continue
 
-    menu_item = matches[0]
+            if re.search(
+                rf"\b{re.escape(normalized_term)}\b",
+                normalized_text,
+            ):
+                matched_terms.append(
+                    normalized_term
+                )
+
+        if not matched_terms:
+            continue
+
+        # ----------------------------------------------------
+        # AMBIGUOUS GENERIC TERMS
+        # ----------------------------------------------------
+
+        generic_terms = {
+            "pizza",
+            "sandwich",
+            "ice cream",
+            "dessert",
+        }
+
+        if any(
+            term in generic_terms
+            for term in matched_terms
+        ):
+            continue
+
+        matched[
+            menu_item.id
+        ] = {
+            "item": menu_item,
+            "terms": matched_terms,
+        }
+
+    # --------------------------------------------------------
+    # NO LOCAL MATCH
+    # --------------------------------------------------------
+
+    if not matched:
+        return None
 
     # --------------------------------------------------------
     # QUANTITY
     # --------------------------------------------------------
 
-    quantity = 1
+    quantity_words = {
+        "one": 1,
+        "a": 1,
+        "an": 1,
+        "two": 2,
+        "three": 3,
+        "four": 4,
+        "five": 5,
 
-    number_match = re.search(
-        r"\b(\d+)\b",
-        text,
-    )
+        # French
+        "un": 1,
+        "une": 1,
+        "deux": 2,
+        "trois": 3,
+        "quatre": 4,
+        "cinq": 5,
+    }
 
-    if number_match:
+    # --------------------------------------------------------
+    # BUILD RESULT
+    # --------------------------------------------------------
 
-        try:
-            quantity = max(
-                1,
-                int(
-                    number_match.group(1)
-                ),
+    extracted_items = []
+
+    for match in matched.values():
+
+        menu_item = match["item"]
+
+        quantity = 1
+
+        # Look for a number immediately before the
+        # matched menu term.
+        for term in match["terms"]:
+
+            pattern = (
+                rf"\b(\d+)\s+"
+                rf"{re.escape(term)}\b"
             )
-        except ValueError:
-            quantity = 1
 
-    else:
+            number_match = re.search(
+                pattern,
+                normalized_text,
+            )
 
-        word_quantities = {
-            "one": 1,
-            "a": 1,
-            "an": 1,
-            "two": 2,
-            "three": 3,
-            "four": 4,
-            "five": 5,
-        }
+            if number_match:
 
-        for word, value in word_quantities.items():
+                quantity = max(
+                    1,
+                    int(
+                        number_match.group(1)
+                    ),
+                )
 
-            if re.search(
-                rf"\b{word}\b",
-                text,
-            ):
-                quantity = value
                 break
 
-    price = float(
-        menu_item.price or 0
-    )
+            # Word quantity.
+            for word, value in quantity_words.items():
 
-    subtotal = (
-        price * quantity
-    )
+                word_pattern = (
+                    rf"\b{re.escape(word)}\s+"
+                    rf"{re.escape(term)}\b"
+                )
 
-    return {
-        "items": [
+                if re.search(
+                    word_pattern,
+                    normalized_text,
+                ):
+                    quantity = value
+                    break
+
+        price = float(
+            menu_item.price or 0
+        )
+
+        subtotal = (
+            price * quantity
+        )
+
+        extracted_items.append(
             {
                 "name": menu_item.name,
                 "quantity": quantity,
@@ -247,10 +466,24 @@ def _try_fast_order_extraction(
                     subtotal
                 ),
             }
-        ],
-        "total": float(
-            subtotal
-        ),
+        )
+
+    if not extracted_items:
+        return None
+
+    total = sum(
+        item["subtotal"]
+        for item in extracted_items
+    )
+
+    logger.info(
+        "Fast multi-item order extraction used for: %s",
+        customer_message,
+    )
+
+    return {
+        "items": extracted_items,
+        "total": float(total),
         "currency": "FCFA",
         "status": "pending",
         "unmatched": [],

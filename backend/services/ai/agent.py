@@ -69,6 +69,66 @@ def normalize_text(value):
     return text.strip()
 
 # ============================================================
+# CUSTOMER LANGUAGE DETECTION
+# ============================================================
+
+def detect_customer_language(message, fallback="English"):
+    """
+    Detect the customer's language from the message.
+
+    Uses strong French markers for deterministic detection.
+    Falls back to the supplied language when no strong marker
+    is found.
+    """
+
+    text = normalize_text(message)
+
+    if not text:
+        return fallback
+
+    french_markers = (
+        "bonjour",
+        "bonsoir",
+        "salut",
+        "merci",
+        "s il vous plait",
+        "svp",
+        "je voudrais",
+        "je veux",
+        "j aimerais",
+        "combien",
+        "combien coute",
+        "quel est",
+        "quelle est",
+        "une pizza",
+        "une commande",
+        "commander",
+        "commande",
+        "livraison",
+        "annuler",
+        "annule",
+        "confirme",
+        "confirmer",
+        "oui",
+        "non",
+        "avec",
+        "sans",
+        "pour moi",
+        "dans mon",
+        "ma commande",
+        "mon commande",
+    )
+
+    if any(
+        marker in text
+        for marker in french_markers
+    ):
+        return "French"
+
+    return fallback
+
+
+# ============================================================
 # EMOJI HELPER
 # ============================================================
 
@@ -138,7 +198,7 @@ def add_natural_emoji(message, customer_message=""):
         for word in (
             "thank",
             "thanks",
-            "appreciate",
+            "merci",
         )
     ):
         emoji = "😊"
@@ -148,9 +208,9 @@ def add_natural_emoji(message, customer_message=""):
         for word in (
             "confirm",
             "yes",
+            "oui",
             "okay",
             "correct",
-            "place",
         )
     ):
         emoji = "✅"
@@ -174,12 +234,7 @@ def customer_response(
     customer_message="",
 ):
     """
-    Standardize a customer-facing response and optionally
-    add
-    a natural emoji.
-
-    The current customer language is taken from the
-    request-scoped CUSTOMER_LANGUAGE context.
+    Standardize a customer-facing response.
     """
 
     message = clean_text(
@@ -234,6 +289,54 @@ def customer_response(
 
             "I couldn't get recommendations right now. Please try the menu instead.":
                 "Je n'arrive pas à obtenir de recommandations pour le moment. Veuillez consulter le menu à la place.",
+
+            "Customer not found.":
+                "Client introuvable.",
+
+            "Order not found.":
+                "Commande introuvable.",
+
+            "No active order found.":
+                "Aucune commande active trouvée.",
+
+            "No pending order found.":
+                "Aucune commande en attente trouvée.",
+
+            "Your order was cancelled.":
+                "Votre commande a été annulée.",
+
+            "Your order has been cancelled.":
+                "Votre commande a été annulée.",
+
+            "I couldn't find your order.":
+                "Je n'ai pas trouvé votre commande.",
+
+            "I couldn't find the item in your order.":
+                "Je n'ai pas trouvé cet article dans votre commande.",
+
+            "I couldn't process that request.":
+                "Je n'ai pas pu traiter cette demande.",
+
+            "I processed your request, but I couldn't generate a response right now.":
+                "J'ai traité votre demande, mais je n'arrive pas à générer une réponse pour le moment.",
+
+            "Payment is required to complete your order.":
+                "Un paiement est requis pour compléter votre commande.",
+
+            "Payment is required to complete the order.":
+                "Un paiement est requis pour compléter la commande.",
+
+            "Please try again.":
+                "Veuillez réessayer.",
+
+            "What would you like to order?":
+                "Que souhaitez-vous commander ?",
+
+            "What would you like to know?":
+                "Que souhaitez-vous savoir ?",
+
+            "Sure! How can I help you?":
+                "Bien sûr ! Comment puis-je vous aider ?",
         }
     }
 
@@ -245,6 +348,31 @@ def customer_response(
 
     if translated:
         message = translated
+
+    # Structured order/payment responses should not receive
+    # automatic conversational emojis.
+    structured_response_markers = (
+        "Your order:",
+        "Votre commande",
+        "Total:",
+        "Total :",
+        "Order #",
+        "Commande #",
+        "Payment received.",
+        "Paiement reçu.",
+        "Payment is required",
+        "Le paiement est requis",
+        "Please confirm your order.",
+        "Veuillez confirmer votre commande.",
+        "Pay here:",
+        "Payez ici :",
+    )
+
+    if any(
+        marker in message
+        for marker in structured_response_markers
+    ):
+        return message
 
     return add_natural_emoji(
         message,
@@ -275,6 +403,12 @@ CONFIRMATION_PHRASES = {
     "confirm",
     "confirmed",
     "confirm it",
+    "yes pls confirm it",
+    "yes pls confirm",
+    "yes please confirm it",
+    "yes please confirm",
+    "yes confirm it",
+    "yes confirm",
     "go ahead",
     "go for it",
     "place it",
@@ -335,11 +469,57 @@ REJECTION_PHRASES = {
 }
 
 def is_confirmation(message):
-    text = normalize_text(
-        message
+    text = normalize_text(message)
+
+    if not text:
+        return False
+
+    if text in CONFIRMATION_PHRASES:
+        return True
+
+    english_patterns = (
+        "i confirm",
+        "i confirm my order",
+        "confirm my order",
+        "confirm the order",
+        "i want to confirm",
+        "i want to confirm my order",
+        "i would like to confirm",
+        "i would like to confirm my order",
+        "please confirm",
+        "yes confirm",
+        "yes please confirm",
     )
 
-    return text in CONFIRMATION_PHRASES
+    if any(
+        text == pattern
+        or text.startswith(pattern + " ")
+        for pattern in english_patterns
+    ):
+        return True
+
+    french_patterns = (
+        "je confirme",
+        "je confirme ma commande",
+        "je veux confirmer",
+        "je veux confirmer ma commande",
+        "je souhaite confirmer",
+        "je souhaite confirmer ma commande",
+        "confirme ma commande",
+        "confirmer ma commande",
+        "oui je confirme",
+        "oui confirme",
+        "oui confirmer",
+    )
+
+    if any(
+        text == pattern
+        or text.startswith(pattern + " ")
+        for pattern in french_patterns
+    ):
+        return True
+
+    return False
 
 
 def is_rejection(message):
@@ -1389,7 +1569,11 @@ def translate_order_preview_for_customer(
     provider=None,
 ):
     """
-    Translate order-response lines only when necessary.
+    Translate customer-facing order preview text.
+
+    Structured restaurant order previews use deterministic
+    translations for supported languages so predictable menu
+    names and system phrases do not require an LLM call.
     """
 
     if not language or not lines:
@@ -1399,84 +1583,143 @@ def translate_order_preview_for_customer(
         language
     ).strip()
 
-    if (
-        not language_name
-        or language_name.lower()
-        in (
-            "english",
-            "en",
-            "en-us",
-            "en-gb",
-        )
+    if not language_name:
+        return lines
+
+    # --------------------------------------------------------
+    # ENGLISH
+    # --------------------------------------------------------
+
+    if language_name.lower() in (
+        "english",
+        "en",
+        "en-us",
+        "en-gb",
     ):
         return lines
 
-    order_text = "\n".join(
-        lines
-    )
+    # --------------------------------------------------------
+    # FRENCH
+    # --------------------------------------------------------
 
-    # Reuse the existing provider when available.
-    if provider is not None:
+    if language_name.lower() in (
+        "french",
+        "fr",
+        "fr-fr",
+    ):
 
-        prompt = f"""
-Translate the following restaurant message into {language_name}.
+        translations = {
+            "Your order:": "Votre commande :",
+            "Please confirm your order.": (
+                "Veuillez confirmer votre commande."
+            ),
+            "Total:": "Total :",
 
-STRICT RULES:
-- Translate only the existing text.
-- Do NOT add a heading.
-- Do NOT add a title.
-- Do NOT add a confirmation section.
-- Do NOT add a greeting.
-- Do NOT add extra sentences.
-- Do NOT add or remove lines.
-- Return EXACTLY the same number of lines as the input.
-- Keep the same line order.
-- Keep quantities exactly unchanged.
-- Keep prices exactly unchanged.
-- Keep "FCFA" exactly unchanged.
-- Keep order numbers exactly unchanged.
-- Keep URLs exactly unchanged.
-- Keep emojis exactly unchanged.
-- Keep WhatsApp Markdown such as *bold* exactly intact.
-- Do NOT convert FCFA into another currency.
-- Return ONLY the translated text.
+            "Lemonade": "Limonade",
 
-INPUT:
-{order_text}
-"""
+            "Classic Margherita Pizza": (
+                "Pizza Margherita Classique"
+            ),
 
-        try:
+            "Loaded Chicken & Cheese Pizza": (
+                "Pizza Poulet & Fromage Garnie"
+            ),
 
-            translated = provider.generate(
-                prompt,
-                temperature=0,
-                max_tokens=300,
+            "Crispy French Fries": (
+                "Frites Croquantes"
+            ),
+
+            "Assorted Club Sandwich": (
+                "Club Sandwich Varié"
+            ),
+
+            "Classic Vanilla Cornetto Cone": (
+                "Cornetto Classique à la Vanille"
+            ),
+
+            "Chocolate Overload Scoop / Cone": (
+                "Tasse / Corne de Chocolat Surchargé"
+            ),
+
+            "Strawberry Fruit Gelato": (
+                "Gelato aux Fraises"
+            ),
+
+            "Caramel Crunch Sundae": (
+                "Sundae Caramel Croquant"
+            ),
+
+            "Mixed Fruit-Flavored Ice Cream Cup": (
+                "Tasse de Glace aux Fruits Mélangés"
+            ),
+
+            "Signature Lebanese Shawarma": (
+                "Shawarma Libanais Signature"
+            ),
+        }
+
+        translated_lines = []
+
+        for line in lines:
+
+            translated_line = line
+
+            # Complete system phrases.
+            if translated_line in translations:
+
+                translated_line = translations[
+                    translated_line
+                ]
+
+            else:
+
+                # Menu names while preserving Markdown.
+                for (
+                    english_name,
+                    french_name,
+                ) in translations.items():
+
+                    if english_name in (
+                        "Your order:",
+                        "Please confirm your order.",
+                        "Total:",
+                    ):
+                        continue
+
+                    translated_line = translated_line.replace(
+                        f"*{english_name}*",
+                        f"*{french_name}*",
+                    )
+
+                    translated_line = translated_line.replace(
+                        english_name,
+                        french_name,
+                    )
+
+                # Total line.
+                if translated_line.startswith(
+                    "Total:"
+                ):
+
+                    translated_line = translated_line.replace(
+                        "Total:",
+                        "Total :",
+                        1,
+                    )
+
+            translated_lines.append(
+                translated_line
             )
 
-            translated = clean_text(
-                translated
-            )
+        return translated_lines
 
-            if translated:
-                return translated.splitlines()
-
-        except Exception:
-
-            logger.exception(
-                "Failed to translate order preview to %s",
-                language_name,
-            )
-
-        return lines
-
-    # Cached fallback.
-    translated = _translate_order_text_cached(
-        order_text,
-        language_name,
-    )
-
-    if translated:
-        return translated.splitlines()
+    # --------------------------------------------------------
+    # OTHER LANGUAGES
+    # --------------------------------------------------------
+    #
+    # Do not introduce an LLM call here for structured order
+    # responses. Returning the canonical text is safer than
+    # potentially changing quantities, prices, or line structure.
 
     return lines
 
@@ -2097,28 +2340,73 @@ def build_tool_response(
                 f"{currency}"
             )
 
-        lines = [
-            (
-                f"Order #{confirmed_order_id} has been "
-                "created successfully."
-            ),
-            "",
-            f"Total: {confirmed_total_text}",
-            "",
-            "Payment is required to complete your order.",
-        ]
+        # --------------------------------------------------------
+        # BUILD CONFIRMATION RESPONSE
+        # --------------------------------------------------------
 
-        if checkout_url:
+        if language == "French":
 
-            lines.extend([
+            lines = [
+                (
+                    f"Commande #{confirmed_order_id} "
+                    "a été créée avec succès."
+                ),
                 "",
-                f"Pay here: {checkout_url}",
-            ])
+                f"Total : {confirmed_total_text}",
+            ]
 
-        lines = translate_order_preview_for_customer(
-            lines,
-            language,
-            provider=provider,
+            if payment.get("demo") or payment.get("status") == "Paid":
+                lines.extend([
+                    "",
+                    "Paiement reçu. Votre commande est confirmée."
+                ])
+            else:
+                lines.extend([
+                    "",
+                    "Le paiement est requis pour finaliser "
+                    "votre commande."
+                ])
+
+            if checkout_url:
+                lines.extend([
+                    "",
+                    f"Payez ici : {checkout_url}",
+                ])
+
+        else:
+
+            lines = [
+                (
+                    f"Order #{confirmed_order_id} has been "
+                    "created successfully."
+                ),
+                "",
+                f"Total: {confirmed_total_text}",
+            ]
+
+            if payment.get("demo") or payment.get("status") == "Paid":
+                lines.extend([
+                    "",
+                    "Payment received. Your order is confirmed."
+                ])
+            else:
+                lines.extend([
+                    "",
+                    "Payment is required to complete your order."
+                ])
+
+            if checkout_url:
+                lines.extend([
+                    "",
+                    f"Pay here: {checkout_url}",
+                ])
+
+        return make_response(
+            "\n".join(lines)
+        )
+
+        return make_response(
+            "\n".join(lines)
         )
 
         return make_response(
@@ -2368,7 +2656,7 @@ MENU:
         translated = provider.generate(
             prompt,
             temperature=0,
-            max_tokens=300,
+            max_tokens=800,
         )
 
         translated = clean_text(
@@ -2455,7 +2743,7 @@ MENU:
             translated = provider.generate(
                 prompt,
                 temperature=0,
-                max_tokens=300,
+                max_tokens=800,
             )
 
             translated = clean_text(
@@ -2865,6 +3153,7 @@ FAST_RESTAURANT_INFO_PHRASES = (
 )
 
 FAST_ORDER_PHRASES = (
+    # English
     "i want ",
     "i'd like ",
     "id like ",
@@ -2877,6 +3166,23 @@ FAST_ORDER_PHRASES = (
     "can i have ",
     "i would like ",
     "order ",
+
+    # French
+    "je veux ",
+    "je voudrais ",
+    "j'aimerais ",
+    "j aimerais ",
+    "jaimerais ",
+    "je souhaite ",
+    "je vais prendre ",
+    "je prends ",
+    "je peux avoir ",
+    "je peux commander ",
+    "je voudrais commander ",
+    "je veux commander ",
+    "je souhaite commander ",
+    "donne moi ",
+    "donnez moi ",
 )
 
 FAST_GENERIC_ORDER_PHRASES = (
@@ -2890,6 +3196,7 @@ FAST_GENERIC_ORDER_PHRASES = (
 )
 
 FAST_FOOD_PATTERNS = (
+    # English
     "pizza",
     "shawarma",
     "burger",
@@ -2910,6 +3217,25 @@ FAST_FOOD_PATTERNS = (
     "cake",
     "rice",
     "pasta",
+
+    # French
+    "limonade",
+    "limonades",
+    "frites",
+    "sandwich",
+    "poulet",
+    "glace",
+    "boisson",
+    "boissons",
+    "café",
+    "cafe",
+    "jus",
+    "eau",
+    "gâteau",
+    "gateau",
+    "riz",
+    "pâtes",
+    "pates",
 )
 
 FAST_FALLBACK_FOOD_PATTERNS = (
@@ -3577,13 +3903,29 @@ def run_agent(
         message
     )
 
+    # ========================================================
+    # CUSTOMER LANGUAGE
+    # ========================================================
+
+    detected_language = detect_customer_language(
+        message,
+        fallback=language,
+    )
+
+    language = detected_language
+
+    CUSTOMER_LANGUAGE.set(
+        language
+    )
+
     if not message:
 
         return {
             "type": "response",
-            "message": (
+            "message": customer_response(
                 "I'm here to help. "
-                "What would you like to know?"
+                "What would you like to know?",
+                message,
             ),
         }
 
@@ -3792,19 +4134,6 @@ def run_agent(
     if quantity_update:
 
         return quantity_update
-
-    # ========================================================
-    # FAST CLASSIFICATION
-    # ========================================================
-
-    classification = classify_message_fast(
-        message
-    )
-
-    logger.info(
-        "Restaurant AI fast classification: %s",
-        classification,
-    )
 
     # ========================================================
     # FAST CLASSIFICATION

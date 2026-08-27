@@ -135,6 +135,7 @@ class OpenAIProvider(AIProvider):
                 request_kwargs["reasoning_effort"] = "low"
 
             response = None
+            content = ""
 
             for attempt in range(2):
 
@@ -150,8 +151,10 @@ class OpenAIProvider(AIProvider):
                     )
 
                 except Exception:
+
                     if attempt == 1:
                         raise
+
                     continue
 
                 if not response.choices:
