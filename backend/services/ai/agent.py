@@ -1609,8 +1609,9 @@ def translate_order_preview_for_customer(
     ):
 
         translations = {
-            "Your order:": "Votre commande :",
-            "Please confirm your order.": (
+    "Your order:": "Votre commande :",
+    "Your updated order:": "Votre commande mise à jour :",
+    "Please confirm your order.": (
                 "Veuillez confirmer votre commande."
             ),
             "Total:": "Total :",
@@ -3043,6 +3044,7 @@ FAST_CANCEL_PHRASES = (
 )
 
 FAST_MODIFY_PHRASES = (
+    # English
     "change my order",
     "change the order",
     "modify my order",
@@ -3060,6 +3062,36 @@ FAST_MODIFY_PHRASES = (
     "make it two",
     "make it three",
     "make it one",
+
+    # French
+    "ajoute ",
+    "ajouter ",
+    "ajoute à ma commande",
+    "ajouter à ma commande",
+    "ajoute a ma commande",
+    "ajouter a ma commande",
+    "je veux ajouter",
+    "je voudrais ajouter",
+    "je souhaite ajouter",
+    "enleve ",
+    "enlever ",
+    "enlève ",
+    "retire ",
+    "retirer ",
+    "supprime ",
+    "supprimer ",
+    "enlève de ma commande",
+    "retire de ma commande",
+    "supprime de ma commande",
+    "change ma commande",
+    "modifier ma commande",
+    "modifie ma commande",
+    "change la quantité",
+    "change la quantite",
+    "mets ",
+    "met ",
+    "mets-en ",
+    "mets en ",
 )
 
 FAST_MENU_PHRASES = (
@@ -3239,6 +3271,7 @@ FAST_FOOD_PATTERNS = (
 )
 
 FAST_FALLBACK_FOOD_PATTERNS = (
+    # English
     "pizza",
     "shawarma",
     "burger",
@@ -3252,6 +3285,20 @@ FAST_FALLBACK_FOOD_PATTERNS = (
     "cone",
     "drink",
     "food",
+
+    # French
+    "limonade",
+    "limonades",
+    "frites",
+    "sandwich",
+    "poulet",
+    "glace",
+    "boisson",
+    "boissons",
+    "pizza",
+    "shawarma",
+    "burger",
+    "jus",
 )
 
 FAST_ORDER_VERBS = (
@@ -3886,6 +3933,771 @@ def update_pending_order_quantity(
         ),
     }
 
+def modify_pending_order(
+    business_id,
+    phone,
+    message,
+    language,
+):
+    """
+    Modify an existing pending order preview locally.
+
+    Supports straightforward add-item and remove-item requests
+    without creating a real Order or calling the LLM.
+    """
+
+    from models.customer import Customer
+    from models.pending_order import PendingOrder
+    from database.db import db
+    from services.ai.order_extractor import extract_order
+
+    text = normalize_text(
+        message
+    )
+
+    # --------------------------------------------------------
+    # DETECT MODIFICATION TYPE
+    # --------------------------------------------------------
+
+    add_markers = (
+        "ajoute ",
+        "ajouter ",
+        "ajoute-moi ",
+        "ajoute moi ",
+        "ajouter-moi ",
+        "ajouter moi ",
+        "je veux ajouter ",
+        "je voudrais ajouter ",
+        "je souhaite ajouter ",
+        "add ",
+        "add to my order ",
+        "i want to add ",
+        "i would like to add ",
+    )
+
+    remove_markers = (
+        "enlève ",
+        "enleve ",
+        "enlever ",
+        "retire ",
+        "retirer ",
+        "supprime ",
+        "supprimer ",
+        "enlève de ma commande ",
+        "enleve de ma commande ",
+        "retire de ma commande ",
+        "supprime de ma commande ",
+        "remove ",
+        "remove from my order ",
+        "take off ",
+        "take it off ",
+        "delete ",
+    )
+
+    set_quantity_markers = (
+        "mets ",
+        "met ",
+        "mets en ",
+        "mets-en ",
+        "change ",
+        "change la quantité de ",
+        "change la quantite de ",
+        "set ",
+        "make ",
+    )
+
+    is_add = any(
+        text.startswith(marker)
+        for marker in add_markers
+    )
+
+    is_remove = any(
+        text.startswith(marker)
+        for marker in remove_markers
+    )
+
+    is_set_quantity = any(
+        text.startswith(marker)
+        for marker in set_quantity_markers
+    )
+
+    if not is_add and not is_remove and not is_set_quantity:
+        return None
+
+    # --------------------------------------------------------
+    # FIND CUSTOMER
+    # --------------------------------------------------------
+
+    customer = Customer.query.filter_by(
+        business_id=business_id,
+        phone=phone,
+    ).first()
+
+    if not customer:
+        return None
+
+    # --------------------------------------------------------
+    # FIND PENDING PREVIEW
+    # --------------------------------------------------------
+
+    preview = (
+        PendingOrder.query
+        .filter_by(
+            business_id=business_id,
+            customer_id=customer.id,
+            status="pending",
+        )
+        .order_by(
+            PendingOrder.id.desc()
+        )
+        .first()
+    )
+
+    if not preview:
+        return None
+
+    # --------------------------------------------------------
+    # LOAD EXISTING PREVIEW
+    # --------------------------------------------------------
+
+    try:
+
+        items = json.loads(
+            preview.items_json
+        )
+
+    except (
+        json.JSONDecodeError,
+        TypeError,
+    ):
+
+        return {
+            "type": "response",
+            "message": customer_response(
+                "I couldn't read your pending order.",
+                message,
+            ),
+        }
+
+    if not isinstance(items, list):
+        items = []
+
+    # ========================================================
+    # ADD ITEM
+    # ========================================================
+
+    if is_add:
+
+        extracted = extract_order(
+            business_id,
+            message,
+        )
+
+        new_items = extracted.get(
+            "items",
+            [],
+        )
+
+        if not new_items:
+            return {
+                "type": "response",
+                "message": customer_response(
+                    "I couldn't identify the item you want to add.",
+                    message,
+                ),
+            }
+
+        for new_item in new_items:
+
+            if not isinstance(
+                new_item,
+                dict,
+            ):
+                continue
+
+            new_name = clean_text(
+                new_item.get("name")
+                or ""
+            )
+
+            if not new_name:
+                continue
+
+            try:
+
+                new_quantity = max(
+                    1,
+                    int(
+                        new_item.get(
+                            "quantity",
+                            1,
+                        )
+                        or 1
+                    ),
+                )
+
+                new_price = float(
+                    new_item.get(
+                        "price",
+                        0,
+                    )
+                    or 0
+                )
+
+            except (
+                TypeError,
+                ValueError,
+            ):
+
+                continue
+
+            existing = None
+
+            for item in items:
+
+                if not isinstance(
+                    item,
+                    dict,
+                ):
+                    continue
+
+                existing_name = clean_text(
+                    item.get("name")
+                    or ""
+                )
+
+                if (
+                    existing_name.lower()
+                    == new_name.lower()
+                ):
+
+                    existing = item
+                    break
+
+            if existing:
+
+                try:
+
+                    current_quantity = max(
+                        1,
+                        int(
+                            existing.get(
+                                "quantity",
+                                1,
+                            )
+                            or 1
+                        ),
+                    )
+
+                except (
+                    TypeError,
+                    ValueError,
+                ):
+
+                    current_quantity = 1
+
+                existing["quantity"] = (
+                    current_quantity
+                    + new_quantity
+                )
+
+                existing["price"] = new_price
+
+                existing["subtotal"] = (
+                    new_price
+                    * existing["quantity"]
+                )
+
+            else:
+
+                items.append({
+                    "name": new_name,
+                    "quantity": new_quantity,
+                    "price": new_price,
+                    "subtotal": (
+                        new_price
+                        * new_quantity
+                    ),
+                })
+
+    # ========================================================
+    # REMOVE ITEM
+    # ========================================================
+
+    elif is_remove:
+
+        # Convert a removal request into a normal order-style
+        # phrase so the existing fast extractor can identify
+        # the menu item and quantity locally.
+        remove_prefixes = (
+            "enlève ",
+            "enleve ",
+            "enlever ",
+            "retire ",
+            "retirer ",
+            "supprime ",
+            "supprimer ",
+            "enlève de ma commande ",
+            "enleve de ma commande ",
+            "retire de ma commande ",
+            "supprime de ma commande ",
+            "remove ",
+            "remove from my order ",
+            "take off ",
+            "take it off ",
+            "delete ",
+        )
+
+        extraction_message = text
+
+        for prefix in remove_prefixes:
+
+            if extraction_message.startswith(prefix):
+                extraction_message = (
+                    extraction_message[len(prefix):].strip()
+                )
+                break
+
+        if not extraction_message:
+            return {
+                "type": "response",
+                "message": customer_response(
+                    "I couldn't identify the item you want to remove.",
+                    message,
+                ),
+            }
+
+        extraction_message = (
+            f"je voudrais {extraction_message}"
+        )
+
+        extracted = extract_order(
+            business_id,
+            extraction_message,
+        )
+
+        requested_items = extracted.get(
+            "items",
+            [],
+        )
+
+        if not requested_items:
+
+            return {
+                "type": "response",
+                "message": customer_response(
+                    "I couldn't identify the item you want to remove.",
+                    message,
+                ),
+            }
+
+        for requested in requested_items:
+
+            if not isinstance(
+                requested,
+                dict,
+            ):
+                continue
+
+            requested_name = clean_text(
+                requested.get("name")
+                or ""
+            )
+
+            if not requested_name:
+                continue
+
+            try:
+
+                remove_quantity = max(
+                    1,
+                    int(
+                        requested.get(
+                            "quantity",
+                            1,
+                        )
+                        or 1
+                    ),
+                )
+
+            except (
+                TypeError,
+                ValueError,
+            ):
+
+                remove_quantity = 1
+
+            target = None
+
+            for item in items:
+
+                if not isinstance(
+                    item,
+                    dict,
+                ):
+                    continue
+
+                item_name = clean_text(
+                    item.get("name")
+                    or ""
+                )
+
+                if (
+                    item_name.lower()
+                    == requested_name.lower()
+                ):
+
+                    target = item
+                    break
+
+            if not target:
+
+                return {
+                    "type": "response",
+                    "message": customer_response(
+                        (
+                            f"I couldn't find "
+                            f"'{requested_name}' "
+                            "in your pending order."
+                        ),
+                        message,
+                    ),
+                }
+
+            try:
+
+                current_quantity = max(
+                    1,
+                    int(
+                        target.get(
+                            "quantity",
+                            1,
+                        )
+                        or 1
+                    ),
+                )
+
+            except (
+                TypeError,
+                ValueError,
+            ):
+
+                current_quantity = 1
+
+            remaining_quantity = (
+                current_quantity
+                - remove_quantity
+            )
+
+            if remaining_quantity <= 0:
+
+                items.remove(
+                    target
+                )
+
+            else:
+
+                target["quantity"] = (
+                    remaining_quantity
+                )
+
+                try:
+
+                    price = float(
+                        target.get(
+                            "price",
+                            0,
+                        )
+                        or 0
+                    )
+
+                except (
+                    TypeError,
+                    ValueError,
+                ):
+
+                    price = 0.0
+
+                target["subtotal"] = (
+                    price
+                    * remaining_quantity
+                )
+
+    # ========================================================
+    # SET QUANTITY
+    # ========================================================
+
+    elif is_set_quantity:
+
+        extraction_message = text
+
+        for prefix in set_quantity_markers:
+
+            if extraction_message.startswith(prefix):
+                extraction_message = (
+                    extraction_message[len(prefix):].strip()
+                )
+                break
+
+        if not extraction_message:
+            return {
+                "type": "response",
+                "message": customer_response(
+                    "I couldn't identify the item and quantity.",
+                    message,
+                ),
+            }
+
+        extraction_message = (
+            f"je voudrais {extraction_message}"
+        )
+
+        extracted = extract_order(
+            business_id,
+            extraction_message,
+        )
+
+        requested_items = extracted.get(
+            "items",
+            [],
+        )
+
+        if not requested_items:
+            return {
+                "type": "response",
+                "message": customer_response(
+                    "I couldn't identify the item and quantity.",
+                    message,
+                ),
+            }
+
+        for requested in requested_items:
+
+            if not isinstance(
+                requested,
+                dict,
+            ):
+                continue
+
+            requested_name = clean_text(
+                requested.get("name")
+                or ""
+            )
+
+            if not requested_name:
+                continue
+
+            try:
+
+                requested_quantity = max(
+                    1,
+                    int(
+                        requested.get(
+                            "quantity",
+                            1,
+                        )
+                        or 1
+                    ),
+                )
+
+            except (
+                TypeError,
+                ValueError,
+            ):
+                continue
+
+            target = None
+
+            for item in items:
+
+                if not isinstance(
+                    item,
+                    dict,
+                ):
+                    continue
+
+                item_name = clean_text(
+                    item.get("name")
+                    or ""
+                )
+
+                if (
+                    item_name.lower()
+                    == requested_name.lower()
+                ):
+                    target = item
+                    break
+
+            if not target:
+
+                return {
+                    "type": "response",
+                    "message": customer_response(
+                        (
+                            f"I couldn't find "
+                            f"'{requested_name}' "
+                            "in your pending order."
+                        ),
+                        message,
+                    ),
+                }
+
+            try:
+
+                price = float(
+                    target.get(
+                        "price",
+                        0,
+                    )
+                    or 0
+                )
+
+            except (
+                TypeError,
+                ValueError,
+            ):
+
+                price = 0.0
+
+            target["quantity"] = requested_quantity
+
+            target["price"] = price
+
+            target["subtotal"] = (
+                price
+                * requested_quantity
+            )
+
+    # --------------------------------------------------------
+    # EMPTY ORDER CHECK
+    # --------------------------------------------------------
+
+    if not items:
+
+        return {
+            "type": "response",
+            "message": customer_response(
+                "Your pending order is now empty.",
+                message,
+            ),
+        }
+
+    # --------------------------------------------------------
+    # RECALCULATE TOTAL
+    # --------------------------------------------------------
+
+    total = 0.0
+
+    for item in items:
+
+        if not isinstance(
+            item,
+            dict,
+        ):
+            continue
+
+        try:
+
+            quantity = max(
+                1,
+                int(
+                    item.get(
+                        "quantity",
+                        1,
+                    )
+                    or 1
+                ),
+            )
+
+            price = float(
+                item.get(
+                    "price",
+                    0,
+                )
+                or 0
+            )
+
+        except (
+            TypeError,
+            ValueError,
+        ):
+
+            continue
+
+        item["quantity"] = quantity
+        item["price"] = price
+        item["subtotal"] = (
+            price * quantity
+        )
+
+        total += item["subtotal"]
+
+    # --------------------------------------------------------
+    # SAVE
+    # --------------------------------------------------------
+
+    preview.items_json = json.dumps(
+        items,
+        ensure_ascii=False,
+    )
+
+    preview.total_price = float(
+        total
+    )
+
+    db.session.commit()
+
+    # --------------------------------------------------------
+    # BUILD RESPONSE
+    # --------------------------------------------------------
+
+    lines = [
+        "Your updated order:",
+        "",
+    ]
+
+    for item in items:
+
+        if not isinstance(
+            item,
+            dict,
+        ):
+            continue
+
+        name = clean_text(
+            item.get("name")
+            or "Item"
+        )
+
+        quantity = item.get(
+            "quantity",
+            1,
+        )
+
+        lines.append(
+            f"• *{name}* × {quantity}"
+        )
+
+    lines.extend([
+        "",
+        f"Total: {total:,.0f} FCFA",
+        "",
+        "Please confirm your order.",
+    ])
+
+    lines = translate_order_preview_for_customer(
+        lines,
+        language,
+        provider=None,
+    )
+
+    return {
+        "type": "response",
+        "message": customer_response(
+            "\n".join(lines),
+            message,
+        ),
+    }
 
 # ============================================================
 # MAIN AGENT
@@ -4420,15 +5232,83 @@ def run_agent(
                         ),
                     }
 
-            return build_tool_response(
-                provider=get_provider(),
-                business_id=business_id,
-                phone=phone,
-                message=message,
-                language=language,
-                history=history,
-                tool_result=result,
-            )
+            # ------------------------------------------------
+            # FAST ORDER PREVIEW RESPONSE
+            # ------------------------------------------------
+
+            if result.get("success"):
+
+                preview = result.get(
+                    "preview"
+                )
+
+                if preview:
+                    items = preview.get(
+                        "items",
+                        [],
+                    )
+
+                    total = preview.get(
+                        "total",
+                        0,
+                    )
+
+                    lines = [
+                        "Your order:",
+                        "",
+                    ]
+
+                    for item in items:
+
+                        if not isinstance(
+                            item,
+                            dict,
+                        ):
+                            continue
+
+                        name = clean_text(
+                            item.get("name")
+                            or "Item"
+                        )
+
+                        quantity = item.get(
+                            "quantity",
+                            1,
+                        )
+
+                        lines.append(
+                            f"• *{name}* × {quantity}"
+                        )
+
+                    lines.extend([
+                        "",
+                        f"Total: {float(total):,.0f} FCFA",
+                        "",
+                        "Please confirm your order.",
+                    ])
+
+                    lines = translate_order_preview_for_customer(
+                        lines,
+                        language,
+                        provider=None,
+                    )
+
+                    return {
+                        "type": "response",
+                        "message": customer_response(
+                            "\n".join(lines),
+                            message,
+                        ),
+                    }
+
+                return {
+                    "type": "response",
+                    "message": customer_response(
+                        result.get("message")
+                        or "Your order preview is ready.",
+                        message,
+                    ),
+                }
 
         except Exception:
 
@@ -4450,6 +5330,16 @@ def run_agent(
     # ========================================================
 
     if classification == "modify_order":
+
+        pending_modification = modify_pending_order(
+            business_id,
+            phone,
+            message,
+            language,
+        )
+
+        if pending_modification is not None:
+            return pending_modification
 
         try:
 
@@ -4555,6 +5445,30 @@ def run_agent(
     # ========================================================
 
     if classification == "cancel_order":
+
+        # ----------------------------------------------------
+        # CANCEL PENDING ORDER PREVIEW FIRST
+        # ----------------------------------------------------
+
+        pending_cancel = discard_pending_order(
+            business_id,
+            phone,
+        )
+
+        if pending_cancel.get("success"):
+            return {
+                "type": "response",
+                "message": customer_response(
+                    "Votre aperçu de commande a été annulé."
+                    if language == "French"
+                    else "Your pending order preview has been cancelled.",
+                    message,
+                ),
+            }
+
+        # ----------------------------------------------------
+        # OTHERWISE CANCEL AN ACTIVE ORDER
+        # ----------------------------------------------------
 
         try:
 

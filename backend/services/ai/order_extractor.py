@@ -115,6 +115,7 @@ def _try_fast_order_extraction(
     # --------------------------------------------------------
 
     order_phrases = (
+        # English
         "i want ",
         "i'd like ",
         "id like ",
@@ -127,11 +128,27 @@ def _try_fast_order_extraction(
         "can i get ",
         "can i have ",
         "order ",
+
+        # French ordering
         "je veux ",
         "je voudrais ",
         "donnez-moi ",
         "donne-moi ",
         "je prendrai ",
+        "je souhaite ",
+        "je peux avoir ",
+        "je vais prendre ",
+
+        # French pending-order additions
+        "ajoute ",
+        "ajouter ",
+        "ajoute-moi ",
+        "ajoute moi ",
+        "ajouter-moi ",
+        "ajouter moi ",
+        "je veux ajouter ",
+        "je voudrais ajouter ",
+        "je souhaite ajouter ",
     )
 
     if not any(
