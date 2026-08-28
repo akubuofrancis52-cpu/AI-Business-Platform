@@ -102,18 +102,21 @@ def create_checkout_invoice(
     items,
 ):
 
-    if APP_ENV != "production":
+    # Allow sandbox payments during development.
+    # Live payments require production mode.
+    if PAYDUNYA_MODE == "production":
+
+        if APP_ENV != "production":
+            raise RuntimeError(
+                "PayDunya production payments require "
+                "APP_ENV=production."
+            )
+
+    elif PAYDUNYA_MODE != "sandbox":
 
         raise RuntimeError(
-            "PayDunya payments are disabled "
-            "outside production."
-        )
-
-    if PAYDUNYA_MODE != "production":
-
-        raise RuntimeError(
-            "PayDunya production payments are disabled "
-            "unless PAYDUNYA_MODE=production."
+            "PAYDUNYA_MODE must be either "
+            "'sandbox' or 'production'."
         )
 
     if not is_configured():
@@ -173,10 +176,6 @@ def create_checkout_invoice(
             "name": (
                 customer.name
                 or "Customer"
-            ),
-            "phone": (
-                customer.phone
-                or ""
             ),
         },
     }
