@@ -35,3 +35,4 @@ instance/*.db
 # Python test/cache
 .pytest_cache/
 .coverage
+services/ai/agent.py.corrupted-backup
