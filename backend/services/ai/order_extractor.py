@@ -350,9 +350,9 @@ def _try_fast_order_extraction(
             if not normalized_term:
                 continue
 
-            if re.search(
-                rf"\b{re.escape(normalized_term)}\b",
-                normalized_text,
+            if (
+                normalized_term
+                in normalized_text
             ):
                 matched_terms.append(
                     normalized_term
@@ -430,13 +430,9 @@ def _try_fast_order_extraction(
         # matched menu term.
         for term in match["terms"]:
 
-            pattern = (
-                rf"\b(\d+)\s+"
-                rf"{re.escape(term)}\b"
-            )
-
+            # Numeric quantity.
             number_match = re.search(
-                pattern,
+                rf"(\d+)\s+{re.escape(term)}",
                 normalized_text,
             )
 
@@ -455,8 +451,8 @@ def _try_fast_order_extraction(
             for word, value in quantity_words.items():
 
                 word_pattern = (
-                    rf"\b{re.escape(word)}\s+"
-                    rf"{re.escape(term)}\b"
+                    rf"{re.escape(word)}\s+"
+                    rf"{re.escape(term)}"
                 )
 
                 if re.search(

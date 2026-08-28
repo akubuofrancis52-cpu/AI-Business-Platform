@@ -3659,6 +3659,17 @@ def update_pending_order_quantity(
     """
     Handle quantity-only follow-ups for an existing
     pending order preview.
+
+    Supports:
+    - "make it 2"
+    - "make it two"
+    - "make it 2 lemonades"
+    - "make it two lemonades"
+    - "change it to 3 pizzas"
+    - "set 4 lemonades"
+    - French equivalents such as "mets 3 limonades"
+
+    Item-qualified requests modify only the specified item.
     """
 
     from models.customer import Customer
@@ -3668,44 +3679,121 @@ def update_pending_order_quantity(
         message
     )
 
-    quantity_match = re.fullmatch(
-        r"(?:"
-        r"i will have|"
-        r"i ll have|"
-        r"ill have|"
-        r"i want|"
-        r"i would like|"
-        r"make it|"
-        r"make that|"
-        r"give me|"
-        r"two please|"
-        r"three please|"
-        r"four please|"
-        r"five please|"
-        r"one please"
-        r")?"
-        r"\s*"
-        r"(?:"
-        r"\d+|"
-        r"one|"
-        r"two|"
-        r"three|"
-        r"four|"
-        r"five"
-        r")"
-        r"\s*(?:please)?",
-        text,
-    )
-
-    if not quantity_match:
+    if not text:
         return None
 
-    quantity_text = (
-        quantity_match.group(0)
-        .strip()
-        .split()
-        [-1]
+    # --------------------------------------------------------
+    # QUANTITY / ITEM FOLLOW-UP PREFIXES
+    # --------------------------------------------------------
+
+    quantity_prefixes = (
+        "make it ",
+        "make that ",
+        "change it to ",
+        "change it ",
+        "set ",
+        "mets ",
+        "met ",
+        "mets en ",
+        "mets-en ",
+        "change la quantité de ",
+        "change la quantite de ",
     )
+
+    # --------------------------------------------------------
+    # DETERMINE WHETHER THIS IS A QUANTITY FOLLOW-UP
+    # --------------------------------------------------------
+
+    matched_prefix = None
+
+    for prefix in quantity_prefixes:
+
+        if text.startswith(prefix):
+            matched_prefix = prefix
+            break
+
+    # Keep support for the original quantity-only forms.
+    if matched_prefix is None:
+
+        quantity_only_match = re.fullmatch(
+            r"(?:"
+            r"i will have|"
+            r"i ll have|"
+            r"ill have|"
+            r"i want|"
+            r"i would like|"
+            r"make it|"
+            r"make that|"
+            r"give me|"
+            r"two please|"
+            r"three please|"
+            r"four please|"
+            r"five please|"
+            r"one please"
+            r")?"
+            r"\s*"
+            r"(?:"
+            r"\d+|"
+            r"one|"
+            r"two|"
+            r"three|"
+            r"four|"
+            r"five"
+            r")"
+            r"\s*(?:please)?",
+            text,
+        )
+
+        if not quantity_only_match:
+            return None
+
+        quantity_text = (
+            quantity_only_match.group(0)
+            .strip()
+            .split()[-1]
+        )
+
+        item_text = ""
+
+    else:
+
+        remainder = (
+            text[len(matched_prefix):]
+            .strip()
+        )
+
+        if not remainder:
+            return None
+
+        item_text = remainder
+
+        quantity_match = re.match(
+            r"^(?P<quantity>\d+|one|two|three|four|five)"
+            r"(?:\s+please)?"
+            r"(?:\s+)?"
+            r"(?P<item>.*)$",
+            remainder,
+        )
+
+        if not quantity_match:
+            return None
+
+        quantity_text = (
+            quantity_match.group(
+                "quantity"
+            )
+        )
+
+        item_text = (
+            quantity_match.group(
+                "item"
+            )
+            .strip()
+        )
+
+    # --------------------------------------------------------
+    # QUANTITY WORDS
+    # --------------------------------------------------------
 
     word_quantities = {
         "one": 1,
@@ -3713,6 +3801,14 @@ def update_pending_order_quantity(
         "three": 3,
         "four": 4,
         "five": 5,
+
+        # French
+        "un": 1,
+        "une": 1,
+        "deux": 2,
+        "trois": 3,
+        "quatre": 4,
+        "cinq": 5,
     }
 
     try:
@@ -3721,16 +3817,13 @@ def update_pending_order_quantity(
 
             quantity = max(
                 1,
-                int(
-                    quantity_text
-                ),
+                int(quantity_text),
             )
 
         else:
 
-            quantity = (
-                word_quantities
-                .get(quantity_text)
+            quantity = word_quantities.get(
+                quantity_text
             )
 
     except (
@@ -3743,6 +3836,10 @@ def update_pending_order_quantity(
     if quantity is None:
         return None
 
+    # --------------------------------------------------------
+    # FIND CUSTOMER
+    # --------------------------------------------------------
+
     customer = (
         Customer.query
         .filter_by(
@@ -3754,6 +3851,10 @@ def update_pending_order_quantity(
 
     if not customer:
         return None
+
+    # --------------------------------------------------------
+    # FIND PENDING PREVIEW
+    # --------------------------------------------------------
 
     preview = (
         PendingOrder.query
@@ -3770,6 +3871,10 @@ def update_pending_order_quantity(
 
     if not preview:
         return None
+
+    # --------------------------------------------------------
+    # LOAD ITEMS
+    # --------------------------------------------------------
 
     try:
 
@@ -3791,7 +3896,78 @@ def update_pending_order_quantity(
 
         return None
 
-    target = items[-1]
+    # --------------------------------------------------------
+    # FIND TARGET
+    # --------------------------------------------------------
+
+    target = None
+
+    if item_text:
+
+        # Remove polite words that can appear after the item.
+        item_text = re.sub(
+            r"\s+please$",
+            "",
+            item_text,
+        ).strip()
+
+        # Resolve the requested item through the existing
+        # fast menu extractor.
+        from services.ai.order_extractor import extract_order
+
+        extraction_message = (
+            f"je voudrais {quantity_text} {item_text}"
+        )
+
+        extracted = extract_order(
+            business_id,
+            extraction_message,
+        )
+
+        requested_items = extracted.get(
+            "items",
+            [],
+        )
+
+        if not requested_items:
+            return None
+
+        requested = requested_items[0]
+
+        requested_name = clean_text(
+            requested.get("name")
+            or ""
+        )
+
+        if not requested_name:
+            return None
+
+        for item in items:
+
+            if not isinstance(
+                item,
+                dict,
+            ):
+                continue
+
+            item_name = clean_text(
+                item.get("name")
+                or ""
+            )
+
+            if (
+                item_name.lower()
+                == requested_name.lower()
+            ):
+                target = item
+                break
+
+    else:
+
+        # Original behavior:
+        # a quantity-only follow-up applies to the
+        # most recently added item.
+        target = items[-1]
 
     if not isinstance(
         target,
@@ -3800,10 +3976,9 @@ def update_pending_order_quantity(
 
         return None
 
-    target_name = clean_text(
-        target.get("name")
-        or "Item"
-    )
+    # --------------------------------------------------------
+    # UPDATE QUANTITY
+    # --------------------------------------------------------
 
     try:
 
@@ -3827,6 +4002,10 @@ def update_pending_order_quantity(
     target["subtotal"] = (
         unit_price * quantity
     )
+
+    # --------------------------------------------------------
+    # RECALCULATE TOTAL
+    # --------------------------------------------------------
 
     total = 0.0
 
@@ -3879,16 +4058,24 @@ def update_pending_order_quantity(
             item["subtotal"]
         )
 
+    # --------------------------------------------------------
+    # SAVE
+    # --------------------------------------------------------
+
     preview.items_json = json.dumps(
         items,
         ensure_ascii=False,
     )
 
-    preview.total_price = (
-        float(total)
+    preview.total_price = float(
+        total
     )
 
     db.session.commit()
+
+    # --------------------------------------------------------
+    # BUILD RESPONSE
+    # --------------------------------------------------------
 
     lines = [
         "Your updated order:",
@@ -3924,6 +4111,12 @@ def update_pending_order_quantity(
         "",
         "Please confirm your order.",
     ])
+
+    lines = translate_order_preview_for_customer(
+        lines,
+        CUSTOMER_LANGUAGE.get(),
+        provider=None,
+    )
 
     return {
         "type": "response",
