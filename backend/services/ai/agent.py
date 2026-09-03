@@ -12,6 +12,15 @@ from services.ai.menu_intelligence import (
     recommend_menu,
 )
 
+from models.customer_interaction import CustomerInteraction
+from models.customer_preference import CustomerPreference
+from services.customer_memory import (
+    learn_explicit_customer_preference,
+    get_customer_relationship_stage,
+)
+from models.customer import Customer
+from models.order import Order
+
 from services.ai.agent_tools import (
     tool_search_menu,
     get_customer,
@@ -1189,6 +1198,331 @@ def get_restaurant_info(
 
 
 # ============================================================
+# COMPLEMENTARY ORDER SUGGESTION
+# ============================================================
+
+def recommendation_opted_out(message):
+    """Return True when the customer explicitly declines suggestions."""
+
+    text = normalize_text(message)
+
+    if not text:
+        return False
+
+    compact = re.sub(
+        r"[^a-z0-9]+",
+        " ",
+        text,
+    ).strip()
+
+    opt_out_phrases = (
+        "no thanks",
+        "no thank you",
+        "nothing else",
+        "just that",
+        "just this",
+        "thats all",
+        "that's all",
+        "that is all",
+        "all good",
+        "no more",
+        "dont suggest",
+        "don't suggest",
+        "do not suggest",
+        "dont recommend",
+        "don't recommend",
+        "do not recommend",
+        "stop recommending",
+        "no suggestions",
+        "without suggestions",
+    )
+
+    compact_phrases = tuple(
+        re.sub(
+            r"[^a-z0-9]+",
+            " ",
+            phrase.lower(),
+        ).strip()
+        for phrase in opt_out_phrases
+    )
+
+    return any(
+        phrase in compact
+        for phrase in compact_phrases
+    )
+
+
+# ============================================================
+# COMPLEMENTARY ORDER SUGGESTION
+# ============================================================
+
+def build_complementary_suggestion(
+    business_id,
+    order_items,
+    customer_id=None,
+):
+    """Return one optional complementary menu suggestion."""
+
+    try:
+        from models.menu import Menu
+
+        ordered_names = {
+            str(item.get("name", "")).strip().lower()
+            for item in (order_items or [])
+            if isinstance(item, dict)
+        }
+
+        menu_items = (
+            Menu.query
+            .filter_by(
+                business_id=business_id,
+                available=True,
+            )
+            .all()
+        )
+
+        if not menu_items:
+            return None
+
+        preferences = []
+
+        if customer_id:
+
+            preferences = (
+                CustomerPreference.query
+                .filter_by(
+                    customer_id=customer_id,
+                    business_id=business_id,
+                )
+                .order_by(
+                    CustomerPreference.strength.desc(),
+                    CustomerPreference.updated_at.desc(),
+                )
+                .limit(12)
+                .all()
+            )
+
+        def category_text(item):
+            return str(
+                item.category or ""
+            ).strip().lower()
+
+        def item_name(item):
+            return str(
+                item.name or ""
+            ).strip().lower()
+
+        ordered_categories = set()
+
+        for item in menu_items:
+
+            if item_name(item) in ordered_names:
+                ordered_categories.add(
+                    category_text(item)
+                )
+
+        food_category = (
+            "fast food & restaurant specialties"
+        )
+
+        drink_category = "drinks"
+
+        dessert_category = (
+            "italian ice creams & desserts"
+        )
+
+        # Main meal -> suggest a drink first.
+        has_main = any(
+            food_category == category
+            for category in ordered_categories
+        )
+
+        has_drink = any(
+            drink_category == category
+            for category in ordered_categories
+        )
+
+        if has_main and not has_drink:
+
+            candidates = [
+                item
+                for item in menu_items
+                if (
+                    category_text(item) == drink_category
+                    and item_name(item) not in ordered_names
+                )
+            ]
+
+            if candidates:
+
+                candidates.sort(
+                    key=lambda item: (
+                        max(
+                            (
+                                preference.strength
+                                for preference in preferences
+                                if preference.preference_type
+                                in (
+                                    "favorite_item",
+                                    "frequent_item",
+                                    "explicit_like",
+                                    "explicit_preference",
+                                    "ordered_item",
+                                )
+                                and normalize_text(
+                                    preference.preference_value
+                                )
+                                in normalize_text(
+                                    item.name
+                                )
+                            ),
+                            default=0,
+                        ),
+                        item.name.lower(),
+                    ),
+                    reverse=True,
+                )
+
+                item = candidates[0]
+
+                return (
+                    "You could also add "
+                    f"{item.name} if you'd like a drink."
+                )
+
+        # Main meal + drink -> suggest one dessert.
+        if has_main and has_drink:
+
+            has_dessert = any(
+                dessert_category == category
+                for category in ordered_categories
+            )
+
+            if not has_dessert:
+
+                candidates = [
+                    item
+                    for item in menu_items
+                    if (
+                        category_text(item) == dessert_category
+                        and item_name(item) not in ordered_names
+                    )
+                ]
+
+                if candidates:
+
+                    candidates.sort(
+                        key=lambda item: (
+                            max(
+                                (
+                                    preference.strength
+                                    for preference in preferences
+                                    if preference.preference_type
+                                    in (
+                                        "favorite_item",
+                                        "frequent_item",
+                                        "explicit_like",
+                                        "explicit_preference",
+                                        "ordered_item",
+                                    )
+                                    and normalize_text(
+                                        preference.preference_value
+                                    )
+                                    in normalize_text(
+                                        item.name
+                                    )
+                                ),
+                                default=0,
+                            ),
+                            item.name.lower(),
+                        ),
+                        reverse=True,
+                    )
+
+                    item = candidates[0]
+
+                    return (
+                        "You could also add "
+                        f"{item.name} if you'd like something sweet."
+                    )
+
+    except Exception:
+
+        logger.exception(
+            "Failed to build complementary suggestion."
+        )
+
+    return None
+
+
+# ============================================================
+# CUSTOMER MEMORY CONTEXT
+# ============================================================
+
+def build_customer_memory_context(
+    customer_id,
+    business_id,
+):
+    """Return compact durable customer memory for AI prompts."""
+
+    if not customer_id:
+        return "No customer memory available."
+
+    try:
+
+        preferences = (
+            CustomerPreference.query
+            .filter_by(
+                customer_id=customer_id,
+                business_id=business_id,
+            )
+            .order_by(
+                CustomerPreference.strength.desc(),
+                CustomerPreference.updated_at.desc(),
+            )
+            .limit(12)
+            .all()
+        )
+
+        if not preferences:
+            return "No customer memory available."
+
+        lines = []
+
+        for preference in preferences:
+
+            value = clean_text(
+                preference.preference_value
+            )
+
+            if not value:
+                continue
+
+            preference_type = (
+                preference.preference_type
+                or "preference"
+            )
+
+            lines.append(
+                f"- {preference_type}: {value}"
+            )
+
+        return (
+            "\n".join(lines)
+            if lines
+            else "No customer memory available."
+        )
+
+    except Exception:
+
+        logger.exception(
+            "Failed to build customer memory context."
+        )
+
+        return "No customer memory available."
+
+
+# ============================================================
 # RESTAURANT PROMPT
 # ============================================================
 
@@ -1199,6 +1533,7 @@ def build_agent_prompt(
     language,
     history,
     pending,
+    customer_id=None,
 ):
     """
     Build the natural-response prompt efficiently.
@@ -1220,6 +1555,16 @@ def build_agent_prompt(
     menu = restaurant.get(
         "menu",
         [],
+    )
+
+    customer_memory = build_customer_memory_context(
+        customer_id=customer_id,
+        business_id=business_id,
+    )
+
+    relationship_stage = get_customer_relationship_stage(
+        customer_id=customer_id,
+        business_id=business_id,
     )
 
     # --------------------------------------------------------
@@ -1363,6 +1708,10 @@ MENU:
 CUSTOMER:
 Phone: {phone}
 Language: {language}
+Relationship stage: {relationship_stage}
+
+CUSTOMER MEMORY:
+{customer_memory}
 
 RECENT CONVERSATION:
 {history_text}
@@ -1371,7 +1720,27 @@ PENDING ORDER:
 {pending_text}
 
 PURPOSE:
-Help only with:
+Help the customer naturally with restaurant-related requests.
+
+You are a helpful restaurant assistant, not a rigid command interface.
+
+CONVERSATION RULES:
+- Understand what the customer is actually saying before responding.
+- Respond naturally and conversationally.
+- Use the recent conversation to understand context.
+- If the customer is casually commenting, acknowledge the comment naturally.
+- If the customer says they were only browsing, checking the menu, deciding,
+  or not ready to order, do not push them to place an order.
+- If the customer says "I was just checking the menu", respond naturally,
+  for example by reassuring them that they can take their time.
+- Do not treat every message as an instruction.
+- Do not repeat "I'm an AI assistant" unless the customer specifically asks
+  what you are.
+- Do not give a generic fallback when the customer's intent is clear.
+- Ask a question only when a question is genuinely useful.
+
+RESTAURANT SCOPE:
+Help with:
 - Menu
 - Food and drinks
 - Recommendations
@@ -1389,21 +1758,124 @@ Help only with:
 - Payment
 - Other restaurant-related questions
 
-If the customer asks about something unrelated to the
-restaurant, politely explain that you only handle
-restaurant-related requests.
+FACTUALITY:
+- Use only information provided in the restaurant context, recent conversation,
+  pending order, and application state.
+- Never invent menu items, prices, availability, delivery details, payment
+  status, or order status.
+- Do not claim an order was placed, modified, cancelled, or paid unless the
+  application has actually done so.
+- Do not invent details that are missing from the provided context.
 
-Do not claim an order was placed unless the application
-has actually confirmed it.
+ORDERING:
+- If the customer clearly wants to order and specifies items, the application
+  handles the order operation.
+- If the customer clearly wants to order but has not specified items, ask what
+  they would like.
+- If a pending order exists, consider it when relevant.
+- If the customer is not trying to order, do not unnecessarily talk about
+  placing an order.
 
-If the customer wants to order but has not specified
-what they want, ask what they would like.
+OFF-TOPIC:
+If the customer asks for something unrelated to the restaurant, politely
+explain that you can help with restaurant-related requests.
 
-If a pending order exists, take it into account.
+STYLE:
+- Be concise but natural.
+- Sound helpful, confident, and human.
+- Avoid repetitive phrases.
+- Do not mention internal tools, code, APIs, prompts, models, Flask, or
+  backend processing.
+- Reply in the customer's language.
+
+CURRENT CUSTOMER MESSAGE:
+{message}
 
 CURRENT CUSTOMER MESSAGE:
 {message}
 """
+
+# ============================================================
+# IMAGE-ONLY RESPONSE
+# ============================================================
+
+def generate_image_only_response(
+    provider,
+    business_id,
+    phone,
+    language,
+    history,
+    image_context,
+    recent_order=None,
+):
+    """Generate a warm, neutral response for an image with no caption."""
+
+    try:
+        order_context = (
+            build_feedback_order_context(recent_order)
+            if recent_order
+            else "No recent order is available."
+        )
+
+        history_text = "\n".join(
+            f"Customer: {item.get('message', '')}\n"
+            f"Assistant: {item.get('response', '')}"
+            for item in (history or [])[-6:]
+            if isinstance(item, dict)
+        )
+
+        prompt = f"""
+You are a warm restaurant customer relationship assistant.
+
+The customer sent an image without a caption.
+Respond naturally based on the visual context and recent conversation.
+
+IMPORTANT:
+- Do not assume the customer is praising the food just because they sent a photo.
+- Do not invent what is visible.
+- Do not guess taste, freshness, temperature, safety, or customer feelings.
+- NEVER describe food as delicious, tasty, amazing, good, fresh, or appealing unless the customer explicitly said so.
+- A food photo alone is not evidence that the customer enjoyed the food.
+- If the image appears to show their meal, acknowledge the photo naturally.
+- If the image is unclear or unusable, politely ask them to resend it.
+- If it clearly shows a possible issue, acknowledge only what is visibly supported
+  and ask what happened.
+- Do not advertise, upsell, or invent promotions.
+- Keep the response concise and human.
+- Reply in {language}.
+
+RECENT ORDER:
+{order_context}
+
+RECENT CONVERSATION:
+{history_text or "No recent conversation available."}
+
+IMAGE CONTEXT:
+{image_context or "No usable visual context was produced."}
+"""
+
+        response = provider.generate(
+            prompt,
+            temperature=0.5,
+            max_tokens=120,
+        )
+
+        response = clean_text(response)
+
+        if response:
+            return response
+
+    except Exception:
+        logger.exception(
+            "Image-only natural response failed."
+        )
+
+    return (
+        "Thanks for sharing the photo. "
+        "If there's anything you'd like me to know about it, "
+        "feel free to tell me."
+    )
+
 
 # ============================================================
 # NATURAL RESPONSE
@@ -1417,6 +1889,7 @@ def generate_natural_response(
     language,
     history,
     pending,
+    customer_id=None,
 ):
     """
     Generate a concise natural customer response.
@@ -1434,6 +1907,7 @@ def generate_natural_response(
             language=language,
             history=history,
             pending=pending,
+            customer_id=customer_id,
         )
 
     except Exception:
@@ -3391,6 +3865,420 @@ FAST_CHAT_PHRASES = (
 
 
 # ============================================================
+# CUSTOMER FEEDBACK / RELATIONSHIP INTELLIGENCE
+# ============================================================
+
+FAST_FEEDBACK_PHRASES = (
+    "was delicious",
+    "was amazing",
+    "was great",
+    "was really good",
+    "was so good",
+    "was nice",
+    "was really nice",
+    "was lovely",
+    "was really lovely",
+    "was excellent",
+    "was really excellent",
+    "was fantastic",
+    "was really fantastic",
+    "was incredible",
+    "was really incredible",
+    "was wonderful",
+    "was really wonderful",
+    "was tasty",
+    "loved it",
+    "love it",
+    "really enjoyed",
+    "really liked",
+    "i enjoyed",
+    "i liked it",
+    "i loved",
+    "very good",
+    "so delicious",
+    "really delicious",
+    "thank you for the food",
+    "thanks for the food",
+    "food was good",
+    "food was amazing",
+    "food was delicious",
+    "meal was good",
+    "meal was amazing",
+    "meal was delicious",
+    "that was delicious",
+    "that was amazing",
+    "that was really good",
+    "that was really nice",
+    "that was lovely",
+    "that hit the spot",
+    "you guys nailed it",
+    "you nailed it",
+    "absolutely loved it",
+    "i absolutely loved it",
+    "the food was incredible",
+    "the food was excellent",
+    "the food was fantastic",
+    "the meal was incredible",
+    "the meal was excellent",
+    "the meal was fantastic",
+    "i really enjoyed this",
+    "i really enjoyed that",
+)
+
+FAST_COMPLAINT_PHRASES = (
+    "was cold",
+    "food was cold",
+    "meal was cold",
+    "was not good",
+    "wasn't good",
+    "wasnt good",
+    "not good",
+    "not happy",
+    "unhappy",
+    "disappointed",
+    "disappointing",
+    "terrible",
+    "bad food",
+    "food was bad",
+    "meal was bad",
+    "wrong order",
+    "missing item",
+    "missing items",
+    "something was missing",
+    "late delivery",
+    "arrived late",
+    "arrived cold",
+    "too cold",
+)
+
+
+def classify_customer_feedback(message):
+
+    text = normalize_text(message)
+
+    if not text:
+        return None
+
+    if any(
+        phrase in text
+        for phrase in FAST_COMPLAINT_PHRASES
+    ):
+        return "negative"
+
+    if any(
+        phrase in text
+        for phrase in FAST_FEEDBACK_PHRASES
+    ):
+        return "positive"
+
+    return None
+
+
+def classify_customer_feedback_ai(
+    provider,
+    message,
+):
+    """
+    Classify feedback sentiment only when the fast local
+    detector cannot determine it.
+
+    Returns:
+        positive / negative / neutral
+    """
+
+    prompt = f"""
+Classify the sentiment of this restaurant customer feedback.
+
+CUSTOMER MESSAGE:
+{message}
+
+Return exactly ONE category:
+
+positive
+negative
+neutral
+
+positive:
+The customer is clearly praising, enjoying, loving, or expressing
+strong satisfaction with the food, restaurant, service, or experience.
+
+negative:
+The customer is clearly unhappy, disappointed, complaining, or
+reporting a problem with the food, restaurant, service, delivery,
+or experience.
+
+neutral:
+The message is feedback but the sentiment is unclear or mixed.
+
+Return ONLY the category name.
+"""
+
+    try:
+
+        result = provider.generate(
+            prompt,
+            temperature=0,
+            max_tokens=20,
+        )
+
+        result = normalize_text(
+            result
+        ).strip(
+            " .,!?:;"
+        )
+
+        if result in (
+            "positive",
+            "negative",
+            "neutral",
+        ):
+            return result
+
+    except Exception:
+
+        logger.exception(
+            "AI feedback sentiment classification failed."
+        )
+
+    return "neutral"
+
+
+def get_recent_relevant_order(
+    customer_id,
+    business_id,
+):
+
+    """
+    Return the most relevant recent customer order.
+
+    Priority:
+    1. Completed / Delivered / Paid orders
+    2. Most recent non-cancelled order
+    """
+
+    completed_statuses = (
+        "Completed",
+        "Delivered",
+        "Paid",
+    )
+
+    completed_order = (
+        Order.query
+        .filter(
+            Order.customer_id == customer_id,
+            Order.business_id == business_id,
+            (
+                Order.status.in_(completed_statuses)
+                | (
+                    db.func.lower(
+                        db.func.coalesce(
+                            Order.payment_status,
+                            ""
+                        )
+                    ) == "paid"
+                )
+            ),
+        )
+        .order_by(
+            Order.id.desc()
+        )
+        .first()
+    )
+
+    if completed_order:
+        return completed_order
+
+    cancelled_status = db.func.lower(
+        db.func.coalesce(
+            Order.status,
+            ""
+        )
+    ).in_(
+        (
+            "cancelled",
+            "canceled",
+        )
+    )
+
+    return (
+        Order.query
+        .filter(
+            Order.customer_id == customer_id,
+            Order.business_id == business_id,
+            ~cancelled_status,
+        )
+        .order_by(
+            Order.id.desc()
+        )
+        .first()
+    )
+
+
+
+def save_customer_interaction(
+    customer,
+    business_id,
+    message,
+    interaction_type,
+    sentiment=None,
+    order=None,
+    metadata=None,
+):
+
+    interaction = CustomerInteraction(
+        customer_id=customer.id,
+        business_id=business_id,
+        order_id=(
+            order.id
+            if order
+            else None
+        ),
+        interaction_type=interaction_type,
+        sentiment=sentiment,
+        message=message,
+        metadata_json=(
+            json.dumps(
+                metadata,
+                ensure_ascii=False
+            )
+            if metadata
+            else None
+        ),
+    )
+
+    db.session.add(
+        interaction
+    )
+
+    return interaction
+
+
+def build_feedback_order_context(order):
+
+    if not order:
+        return (
+            "No recent completed order was found."
+        )
+
+    items = getattr(
+        order,
+        "items",
+        []
+    )
+
+    lines = []
+
+    for item in items:
+        lines.append(
+            f"{item.name} × {item.quantity}"
+        )
+
+    return (
+        "\n".join(lines)
+        or "Order found, but item details are unavailable."
+    )
+
+
+def generate_feedback_response(
+    provider,
+    business_id,
+    phone,
+    message,
+    language,
+    history,
+    customer,
+    sentiment,
+    order=None,
+    image_context=None,
+):
+
+    order_context = build_feedback_order_context(
+        order
+    )
+
+    history_text = format_history(
+        history
+    )
+
+    prompt = f"""
+You are the relationship assistant for a restaurant.
+
+The customer is sharing feedback about their restaurant experience.
+
+Your job is to make the customer feel genuinely appreciated and increase
+the likelihood that they will want to return, without sounding like an ad.
+
+CUSTOMER MESSAGE:
+{message}
+
+CUSTOMER LANGUAGE:
+{language}
+
+FEEDBACK SENTIMENT:
+{sentiment}
+
+RECENT ORDER:
+{order_context}
+
+RECENT CONVERSATION:
+{history_text}
+
+IMAGE CONTEXT:
+{image_context or "No image was provided."}
+
+POSITIVE FEEDBACK BEHAVIOR:
+- Thank the customer naturally.
+- If the recent order contains a specific item and it is relevant, you may
+  mention that item naturally.
+- Do not list every item unless the customer is clearly discussing the full order.
+- Reinforce the positive experience without exaggerating.
+- A warm invitation to return is encouraged when natural.
+- Do not immediately push another sale.
+- Do not invent promotions, discounts, coupons, or offers.
+- Do not sound like a marketing campaign.
+
+NEGATIVE FEEDBACK BEHAVIOR:
+- Acknowledge the customer's experience.
+- Apologize when appropriate.
+- Focus on understanding and resolving the problem.
+- Do not upsell.
+- Do not invent compensation, refunds, or staff actions.
+
+FACTUALITY:
+- Only use information contained in the recent order, recent conversation,
+  image context, and restaurant context supplied by the application.
+- Never invent ingredients, prices, availability, order status, or image details.
+- Do not claim the restaurant did something unless the application has confirmed it.
+
+STYLE:
+- Warm, natural, human, and concise.
+- Do not repeat the same phrase every time.
+- Do not sound robotic.
+- Do not mention AI, tools, APIs, prompts, models, Flask, or backend systems.
+- Reply only with the customer-facing message.
+- Reply in the customer's language.
+
+Write the response now.
+"""
+
+    response = provider.generate(
+        prompt,
+        temperature=0.65,
+        max_tokens=180,
+    )
+
+    return (
+        response.strip()
+        if response
+        else customer_response(
+            "Thank you for your feedback. "
+            "We really appreciate you taking the time to let us know.",
+            message,
+        )
+    )
+
+
+# ============================================================
 # FAST INTENT CLASSIFICATION
 # ============================================================
 
@@ -3412,13 +4300,64 @@ def classify_message_fast(message):
         )
 
     # --------------------------------------------------------
-    # OFF-TOPIC
+    # CANCEL ORDER
     # --------------------------------------------------------
 
     if contains_any(
-        FAST_OFF_TOPIC_PHRASES
+        FAST_CANCEL_PHRASES
     ):
-        return "off_topic"
+        return "cancel_order"
+
+    # --------------------------------------------------------
+    # CONTEXTUAL CONVERSATION OVERRIDES
+    # --------------------------------------------------------
+
+    conversational_phrases = (
+        "i was just checking the menu",
+        "i was just checking",
+        "just checking the menu",
+        "just checking",
+        "i'm just checking the menu",
+        "im just checking the menu",
+        "i am just checking the menu",
+        "i'm just browsing",
+        "im just browsing",
+        "i am just browsing",
+        "just browsing",
+        "i was just browsing",
+        "i'm only browsing",
+        "im only browsing",
+        "i am only browsing",
+        "just looking",
+        "i was just looking",
+        "i'm still deciding",
+        "im still deciding",
+        "i am still deciding",
+        "still deciding what to get",
+        "still deciding",
+        "i haven't decided",
+        "i havent decided",
+        "not sure what to get",
+        "i'm not sure what to get",
+        "im not sure what to get",
+    )
+
+    if any(
+        phrase in text
+        for phrase in conversational_phrases
+    ):
+        return "chat"
+
+    # --------------------------------------------------------
+    # CUSTOMER FEEDBACK / COMPLAINT
+    # --------------------------------------------------------
+
+    feedback_sentiment = classify_customer_feedback(
+        message
+    )
+
+    if feedback_sentiment:
+        return "feedback"
 
     # --------------------------------------------------------
     # HUNGER / RECOMMENDATION
@@ -3445,6 +4384,41 @@ def classify_message_fast(message):
     if contains_any(
         FAST_MODIFY_PHRASES
     ):
+        return "modify_order"
+
+    # Common natural-language additions/removals should stay
+    # on the fast local path instead of falling through to the LLM.
+    modify_prefixes = (
+        "add ",
+        "add a ",
+        "add an ",
+        "add some ",
+        "add to my order ",
+        "i want to add ",
+        "i would like to add ",
+        "i'd like to add ",
+        "please add ",
+        "actually add ",
+        "remove ",
+        "remove a ",
+        "remove an ",
+        "take off ",
+        "take out ",
+        "delete ",
+        "actually remove ",
+        "actually take off ",
+        "please remove ",
+        "enlève ",
+        "enleve ",
+        "retire ",
+        "supprime ",
+        "ajoute ",
+        "ajouter ",
+        "retirer ",
+        "supprimer ",
+    )
+
+    if text.startswith(modify_prefixes):
         return "modify_order"
 
     if (
@@ -3627,6 +4601,7 @@ Return ONLY the category name.
             "menu_search",
             "restaurant_info",
             "recommendation",
+            "feedback",
         }
 
         if result in valid_categories:
@@ -4181,8 +5156,12 @@ def modify_pending_order(
         "retire de ma commande ",
         "supprime de ma commande ",
         "remove ",
+        "actually remove ",
+        "please remove ",
         "remove from my order ",
+        "actually remove from my order ",
         "take off ",
+        "actually take off ",
         "take it off ",
         "delete ",
     )
@@ -4902,6 +5881,7 @@ def run_agent(
     message,
     language="English",
     history=None,
+    image_context=None,
 ):
 
     message = clean_text(
@@ -4937,6 +5917,35 @@ def run_agent(
     history = history or []
 
     # ========================================================
+    # EXPLICIT CUSTOMER PREFERENCE MEMORY
+    # ========================================================
+
+    try:
+
+        customer = Customer.query.filter_by(
+            phone=phone,
+            business_id=business_id,
+        ).first()
+
+        if customer:
+
+            learn_explicit_customer_preference(
+                customer=customer,
+                business_id=business_id,
+                message=message,
+            )
+
+            db.session.commit()
+
+    except Exception:
+
+        db.session.rollback()
+
+        logger.exception(
+            "Explicit customer preference learning failed."
+        )
+
+    # ========================================================
     # LAZY PROVIDER
     # ========================================================
 
@@ -4950,6 +5959,63 @@ def run_agent(
             provider = OpenAIProvider()
 
         return provider
+
+    # ========================================================
+    # IMAGE-ONLY RELATIONSHIP RESPONSE
+    # ========================================================
+
+    normalized_message = normalize_text(
+        message
+    )
+
+    if image_context and normalized_message == "customer sent a photo":
+
+        customer = Customer.query.filter_by(
+            phone=phone,
+            business_id=business_id,
+        ).first()
+
+        recent_order = None
+
+        if customer:
+            recent_order = get_recent_relevant_order(
+                customer.id,
+                business_id,
+            )
+
+            try:
+                save_customer_interaction(
+                    customer=customer,
+                    business_id=business_id,
+                    message=message,
+                    interaction_type="image",
+                    sentiment=None,
+                    order=recent_order,
+                )
+
+                db.session.commit()
+
+            except Exception:
+                db.session.rollback()
+                logger.exception(
+                    "Failed to save customer image interaction."
+                )
+
+        return {
+            "type": "response",
+            "message": customer_response(
+                generate_image_only_response(
+                    provider=get_provider(),
+                    business_id=business_id,
+                    phone=phone,
+                    language=language,
+                    history=history,
+                    image_context=image_context,
+                    recent_order=recent_order,
+                ),
+                message,
+            ),
+        }
 
     # ========================================================
     # FAST GREETING
@@ -5170,16 +6236,96 @@ def run_agent(
     )
 
     # ========================================================
+    # CUSTOMER FEEDBACK / RELATIONSHIP RESPONSE
+    # ========================================================
+
+    if classification == "feedback":
+
+        customer = Customer.query.filter_by(
+            phone=phone,
+            business_id=business_id,
+        ).first()
+
+        if not customer:
+
+            return {
+                "type": "response",
+                "message": customer_response(
+                    "Thank you for your feedback. "
+                    "We really appreciate you taking "
+                    "the time to let us know.",
+                    message,
+                ),
+            }
+
+        feedback_sentiment = classify_customer_feedback(
+            message
+        )
+
+        if not feedback_sentiment:
+
+            feedback_sentiment = (
+                classify_customer_feedback_ai(
+                    get_provider(),
+                    message,
+                )
+            )
+
+        recent_order = (
+            get_recent_relevant_order(
+                customer.id,
+                business_id,
+            )
+        )
+
+        try:
+
+            save_customer_interaction(
+                customer=customer,
+                business_id=business_id,
+                message=message,
+                interaction_type="feedback",
+                sentiment=feedback_sentiment,
+                order=recent_order,
+            )
+
+            db.session.commit()
+
+        except Exception:
+
+            db.session.rollback()
+
+            logger.exception(
+                "Failed to save customer feedback interaction."
+            )
+
+        return {
+            "type": "response",
+            "message": generate_feedback_response(
+                provider=get_provider(),
+                business_id=business_id,
+                phone=phone,
+                message=message,
+                language=language,
+                history=history,
+                customer=customer,
+                sentiment=feedback_sentiment,
+                order=recent_order,
+                image_context=image_context,
+            ),
+        }
+
+    # ========================================================
     # FAST CHAT RESPONSE
     # ========================================================
 
     if classification == "chat":
 
-        chat_responses = {
-            # ------------------------------------------------
-            # GREETINGS
-            # ------------------------------------------------
+        # ----------------------------------------------------
+        # KEEP VERY SIMPLE CHAT FAST AND LOCAL
+        # ----------------------------------------------------
 
+        chat_responses = {
             "hi": "Hi! How can I help you today?",
             "hello": "Hello! How can I help you today?",
             "hey": "Hey! How can I help you today?",
@@ -5187,93 +6333,46 @@ def run_agent(
             "good afternoon": "Good afternoon! How can I help you today?",
             "good evening": "Good evening! How can I help you today?",
 
-            # ------------------------------------------------
-            # ENGLISH ACKNOWLEDGEMENTS
-            # ------------------------------------------------
+            "thanks": (
+                "You're welcome! "
+                "Let me know if you need anything else."
+            ),
+            "thank you": (
+                "You're welcome! "
+                "Let me know if you need anything else."
+            ),
+            "thank": (
+                "You're welcome! "
+                "Let me know if you need anything else."
+            ),
 
-            "thanks": "You're welcome! Let me know if you'd like anything from the menu.",
-            "thank you": "You're welcome! Let me know if you'd like anything from the menu.",
-            "thank": "You're welcome! Let me know if you'd like anything from the menu.",
             "okay": "Alright! Let me know if you need anything.",
             "ok": "Alright! Let me know if you need anything.",
             "alright": "Alright! Let me know if you need anything.",
-
-            # ------------------------------------------------
-            # FRENCH
-            # ------------------------------------------------
 
             "bonjour": "Bonjour ! Comment puis-je vous aider ?",
             "bonsoir": "Bonsoir ! Comment puis-je vous aider ?",
             "salut": "Salut ! Comment puis-je vous aider ?",
             "merci": "Avec plaisir ! N'hésitez pas si vous avez besoin de quoi que ce soit.",
 
-            # ------------------------------------------------
-            # GERMAN
-            # ------------------------------------------------
-
             "hallo": "Hallo! Wie kann ich Ihnen helfen?",
             "guten morgen": "Guten Morgen! Wie kann ich Ihnen helfen?",
             "guten abend": "Guten Abend! Wie kann ich Ihnen helfen?",
             "danke": "Gerne! Lassen Sie mich wissen, wenn Sie etwas brauchen.",
 
-            # ------------------------------------------------
-            # SPANISH
-            # ------------------------------------------------
-
             "hola": "¡Hola! ¿Cómo puedo ayudarte?",
             "buenos dias": "¡Buenos días! ¿Cómo puedo ayudarte?",
             "gracias": "¡De nada! Avísame si necesitas algo más.",
-
-            # ------------------------------------------------
-            # PORTUGUESE
-            # ------------------------------------------------
 
             "ola": "Olá! Como posso ajudar?",
             "bom dia": "Bom dia! Como posso ajudar?",
             "obrigado": "De nada! Avise-me se precisar de mais alguma coisa.",
             "obrigada": "De nada! Avise-me se precisar de mais alguma coisa.",
 
-            # ------------------------------------------------
-            # ITALIAN
-            # ------------------------------------------------
-
             "ciao": "Ciao! Come posso aiutarti?",
             "buongiorno": "Buongiorno! Come posso aiutarti?",
             "grazie": "Prego! Fammi sapere se hai bisogno di altro.",
         }
-
-        # ----------------------------------------------------
-        # ACKNOWLEDGEMENT PHRASES
-        # ----------------------------------------------------
-
-        acknowledgement_phrases = (
-            "ok thank you",
-            "okay thank you",
-            "alright thank you",
-            "thanks a lot",
-            "thank you very much",
-            "thanks a lot",
-            "merci beaucoup",
-            "grazie mille",
-            "muchas gracias",
-            "obrigado muito",
-            "obrigada muito",
-            "danke schön",
-            "danke schon",
-        )
-
-        if any(
-            phrase in normalized_message
-            for phrase in acknowledgement_phrases
-        ):
-
-            return {
-                "type": "response",
-                "message": customer_response(
-                    "You're welcome! Let me know if you'd like anything else from the menu.",
-                    message,
-                ),
-            }
 
         direct_chat_response = chat_responses.get(
             normalized_message
@@ -5289,13 +6388,36 @@ def run_agent(
                 ),
             }
 
-        return {
-            "type": "response",
-            "message": customer_response(
-                "Sure! Let me know how I can help with the restaurant.",
-                message,
+        # ----------------------------------------------------
+        # CONTEXTUAL CONVERSATION
+        # ----------------------------------------------------
+
+        if pending is None:
+
+            pending = get_pending_order(
+                business_id,
+                phone,
+            )
+
+        customer = Customer.query.filter_by(
+            phone=phone,
+            business_id=business_id,
+        ).first()
+
+        return generate_natural_response(
+            provider=get_provider(),
+            business_id=business_id,
+            phone=phone,
+            message=message,
+            language=language,
+            history=history,
+            pending=pending,
+            customer_id=(
+                customer.id
+                if customer
+                else None
             ),
-        }
+        )
 
     # ========================================================
     # OFF TOPIC
@@ -5393,6 +6515,323 @@ def run_agent(
                 ),
             }
 
+        # --------------------------------------------------------
+        # CONTEXTUAL ORDER REFERENCE RESOLUTION
+        # --------------------------------------------------------
+
+        normalized_message = normalize_text(
+            message
+        )
+
+        contextual_reference_phrases = (
+            "the one",
+            "that one",
+            "this one",
+            "the chicken one",
+            "the pizza one",
+            "that pizza",
+            "this pizza",
+            "i'll take that",
+            "ill take that",
+            "i will take that",
+            "i'll take the",
+            "ill take the",
+            "i will take the",
+            "give me that",
+            "give me the",
+            "i want that one",
+            "i want the",
+            "i'll have that",
+            "ill have that",
+            "i will have that",
+        )
+
+        is_contextual_reference = any(
+            phrase in normalized_message
+            for phrase in contextual_reference_phrases
+        )
+
+        if is_contextual_reference:
+
+            try:
+
+                from models.menu import Menu
+
+                menu_items = (
+                    Menu.query
+                    .filter_by(
+                        business_id=business_id,
+                        available=True,
+                    )
+                    .order_by(
+                        Menu.category.asc(),
+                        Menu.name.asc(),
+                    )
+                    .all()
+                )
+
+                menu_context = "\n".join(
+                    f"- {clean_text(item.name)}"
+                    for item in menu_items
+                    if item.name
+                )
+
+                history_text = format_history(
+                    history
+                )
+
+                prompt = f"""
+You resolve a customer's contextual restaurant order reference.
+
+CUSTOMER MESSAGE:
+{message}
+
+RECENT CONVERSATION:
+{history_text}
+
+AVAILABLE MENU:
+{menu_context}
+
+TASK:
+Determine whether the customer is referring to one specific menu item
+based on the current message and recent conversation.
+
+Return ONLY valid JSON:
+
+{{
+  "item": "Exact Menu Item Name",
+  "quantity": 1
+}}
+
+RULES:
+- Use ONLY an exact item from the available menu.
+- Use the conversation to resolve references such as "the chicken one",
+  "that pizza", "the one you mentioned", or "I'll take that one".
+- Do not guess when the reference is genuinely ambiguous.
+- If the reference cannot be resolved confidently, return:
+  {{"item": null, "quantity": 0}}
+- Quantity must be an integer.
+"""
+
+                response = get_provider().generate(
+                    prompt,
+                    temperature=0,
+                    max_tokens=120,
+                )
+
+                response = clean_text(
+                    response
+                )
+
+                resolved = None
+
+                try:
+                    resolved = json.loads(
+                        response
+                    )
+
+                except (
+                    json.JSONDecodeError,
+                    TypeError,
+                ):
+
+                    start = response.find("{")
+                    end = response.rfind("}")
+
+                    if (
+                        start != -1
+                        and end != -1
+                        and end > start
+                    ):
+                        try:
+                            resolved = json.loads(
+                                response[
+                                    start:end + 1
+                                ]
+                            )
+                        except (
+                            json.JSONDecodeError,
+                            TypeError,
+                        ):
+                            resolved = None
+
+                if isinstance(
+                    resolved,
+                    dict,
+                ):
+
+                    resolved_name = clean_text(
+                        resolved.get("item")
+                        or ""
+                    )
+
+                    try:
+
+                        resolved_quantity = max(
+                            1,
+                            int(
+                                resolved.get(
+                                    "quantity",
+                                    1,
+                                )
+                                or 1
+                            ),
+                        )
+
+                    except (
+                        TypeError,
+                        ValueError,
+                    ):
+
+                        resolved_quantity = 1
+
+                    if resolved_name:
+
+                        matched_menu_item = None
+
+                        for menu_item in menu_items:
+
+                            menu_name = clean_text(
+                                menu_item.name
+                                or ""
+                            )
+
+                            if (
+                                menu_name.lower()
+                                == resolved_name.lower()
+                            ):
+
+                                matched_menu_item = (
+                                    menu_name
+                                )
+                                break
+
+                        if matched_menu_item:
+
+                            resolved_order_message = (
+                                f"order "
+                                f"{resolved_quantity} "
+                                f"{matched_menu_item}"
+                            )
+
+                            result = create_order_preview(
+                                business_id,
+                                phone,
+                                resolved_order_message,
+                            )
+
+                            if result.get("success"):
+
+                                preview = result.get(
+                                    "preview"
+                                )
+
+                                if preview:
+
+                                    items = preview.get(
+                                        "items",
+                                        [],
+                                    )
+
+                                    total = preview.get(
+                                        "total",
+                                        0,
+                                    )
+
+                                    lines = [
+                                        "Your order:",
+                                        "",
+                                    ]
+
+                                    for item in items:
+
+                                        if not isinstance(
+                                            item,
+                                            dict,
+                                        ):
+                                            continue
+
+                                        name = clean_text(
+                                            item.get("name")
+                                            or "Item"
+                                        )
+
+                                        quantity = item.get(
+                                            "quantity",
+                                            1,
+                                        )
+
+                                        lines.append(
+                                            f"• *{name}* × {quantity}"
+                                        )
+
+                                    suggestion = None
+
+                                    if not recommendation_opted_out(message):
+                                        suggestion = build_complementary_suggestion(
+                                            business_id,
+                                            items,
+                                            customer_id=(
+                                                customer.id
+                                                if customer
+                                                else None
+                                            ),
+                                        )
+
+                                    if suggestion:
+                                        logger.info(
+                                            "Recommendation decision: "
+                                            "business_id=%s customer_id=%s "
+                                            "suggestion=%r source=order_preview",
+                                            business_id,
+                                            customer.id if customer else None,
+                                            suggestion,
+                                        )
+                                        lines.append("")
+                                        lines.append(
+                                            suggestion
+                                        )
+
+                                    lines.extend([
+                                        "",
+                                        (
+                                            f"Total: "
+                                            f"{float(total):,.0f} FCFA"
+                                        ),
+                                        "",
+                                        (
+                                            "Please confirm "
+                                            "your order."
+                                        ),
+                                    ])
+
+                                    lines = (
+                                        translate_order_preview_for_customer(
+                                            lines,
+                                            language,
+                                            provider=None,
+                                        )
+                                    )
+
+                                    return {
+                                        "type": "response",
+                                        "message": customer_response(
+                                            "\n".join(lines),
+                                            message,
+                                        ),
+                                    }
+
+            except Exception:
+
+                logger.exception(
+                    "Contextual order reference resolution failed."
+                )
+
+        # --------------------------------------------------------
+        # NORMAL EXPLICIT ORDER PATH
+        # --------------------------------------------------------
+
+
         try:
 
             result = create_order_preview(
@@ -5471,6 +6910,33 @@ def run_agent(
 
                         lines.append(
                             f"• *{name}* × {quantity}"
+                        )
+
+                    suggestion = None
+
+                    if not recommendation_opted_out(message):
+                        suggestion = build_complementary_suggestion(
+                            business_id,
+                            items,
+                            customer_id=(
+                                customer.id
+                                if customer
+                                else None
+                            ),
+                        )
+
+                    if suggestion:
+                        logger.info(
+                            "Recommendation decision: "
+                            "business_id=%s customer_id=%s "
+                            "suggestion=%r source=order_preview",
+                            business_id,
+                            customer.id if customer else None,
+                            suggestion,
+                        )
+                        lines.append("")
+                        lines.append(
+                            suggestion
                         )
 
                     lines.extend([
@@ -5765,6 +7231,62 @@ def run_agent(
             }
 
     # ========================================================
+    # CUSTOMER PREFERENCE MEMORY
+    # ========================================================
+
+    customer_preference_context = "No customer preference memory available."
+
+    try:
+        customer = Customer.query.filter_by(
+            phone=phone,
+            business_id=business_id,
+        ).first()
+
+        if customer:
+            preferences = (
+                CustomerPreference.query
+                .filter_by(
+                    customer_id=customer.id,
+                    business_id=business_id,
+                )
+                .order_by(
+                    CustomerPreference.strength.desc(),
+                    CustomerPreference.updated_at.desc(),
+                )
+                .limit(8)
+                .all()
+            )
+
+            preference_lines = []
+
+            for preference in preferences:
+
+                value = clean_text(
+                    preference.preference_value
+                )
+
+                if not value:
+                    continue
+
+                preference_lines.append(
+                    (
+                        f"- {preference.preference_type}: "
+                        f"{value} "
+                        f"(strength {preference.strength})"
+                    )
+                )
+
+            if preference_lines:
+                customer_preference_context = (
+                    "\n".join(preference_lines)
+                )
+
+    except Exception:
+        logger.exception(
+            "Failed to load customer preference memory."
+        )
+
+    # ========================================================
     # RECOMMENDATION
     # ========================================================
 
@@ -5772,9 +7294,19 @@ def run_agent(
 
         try:
 
+            customer = Customer.query.filter_by(
+                phone=phone,
+                business_id=business_id,
+            ).first()
+
             recommendations = recommend_menu(
                 business_id,
-                limit=3,
+                limit=5,
+                customer_id=(
+                    customer.id
+                    if customer
+                    else None
+                ),
             )
 
             if not recommendations:
@@ -5787,11 +7319,15 @@ def run_agent(
                     ),
                 }
 
-            lines = [
-                "Here are some good options:"
-            ]
+            recommendation_lines = []
 
             for item in recommendations:
+
+                if not isinstance(
+                    item,
+                    dict,
+                ):
+                    continue
 
                 name = clean_text(
                     item.get("name")
@@ -5800,6 +7336,7 @@ def run_agent(
 
                 description = clean_text(
                     item.get("description")
+                    or ""
                 )
 
                 price = item.get(
@@ -5810,7 +7347,7 @@ def run_agent(
                 try:
 
                     price_text = (
-                        f"{float(price):,.0f}"
+                        f"{float(price):,.0f} FCFA"
                     )
 
                 except (
@@ -5818,30 +7355,103 @@ def run_agent(
                     ValueError,
                 ):
 
-                    price_text = str(
-                        price
+                    price_text = (
+                        f"{price} FCFA"
                     )
 
-                lines.append(
-                    f"*{name}* — {price_text} FCFA"
+                recommendation_lines.append(
+                    (
+                        f"- {name} | "
+                        f"{price_text} | "
+                        f"{description}"
+                    )
                 )
 
-                if description:
-
-                    lines.append(
-                        description
-                    )
-
-            lines.append(
-                "\nWould you like any of these?"
+            recommendation_context = (
+                "\n".join(
+                    recommendation_lines
+                )
             )
+
+            history_text = format_history(
+                history
+            )
+
+            prompt = f"""
+You are a smart restaurant assistant.
+
+Have a natural conversation with the customer.
+Do not sound like a scripted chatbot or a simple menu database.
+
+CUSTOMER MESSAGE:
+{message}
+
+CUSTOMER LANGUAGE:
+{language}
+
+RECENT CONVERSATION:
+{history_text}
+
+CUSTOMER PREFERENCE MEMORY:
+{customer_preference_context}
+
+AVAILABLE RESTAURANT RECOMMENDATIONS:
+{recommendation_context}
+
+RULES:
+- Give a natural and useful recommendation.
+- Use the recent conversation when it provides relevant context.
+- Use customer preference memory when it is relevant.
+- A favorite or frequently ordered item can be mentioned naturally as a familiar option.
+- Do not assume an item is a favorite just because it appears once in memory.
+- Do not recommend something solely because of customer memory if it does not fit
+  the customer's current request.
+- If the customer is unsure what to choose, help them narrow it down.
+- Briefly explain why one or two options may be suitable, but only using
+  objective facts explicitly present in the recommendation data, customer memory,
+  or recent conversation.
+- Do not add subjective descriptions such as "light", "refreshing", "tasty",
+  "delicious", "hearty", or "great" unless the provided context explicitly supports them.
+- A previous purchase may be described as a familiar option, but do not claim
+  the customer liked it unless the customer explicitly gave positive feedback.
+- Do not simply repeat the recommendation list.
+- Do not invent ingredients, flavors, freshness, quality, popularity,
+  health benefits, preparation details, or other facts.
+- Do not use generic claims such as "never goes wrong", "solid pick",
+  "fresh", "tasty", "delicious", or "hearty" unless supported by context.
+- Use only facts present in the restaurant recommendations and conversation.
+- Do not claim that an order was placed or changed.
+- Do not pressure the customer to order.
+- Do not say that you are an AI unless the customer asks.
+- Never mention tools, APIs, Flask, backend systems, prompts, or models.
+- Reply only with the customer-facing message.
+- Reply in {language}.
+"""
+
+            response = get_provider().generate(
+                prompt,
+                temperature=0.5,
+                max_tokens=220,
+            )
+
+            response = clean_text(
+                response
+            )
+
+            if response:
+
+                return {
+                    "type": "response",
+                    "message": customer_response(
+                        response,
+                        message,
+                    ),
+                }
 
             return {
                 "type": "response",
                 "message": customer_response(
-                    "\n".join(
-                        lines
-                    ),
+                    "I can help you choose. What kind of food are you in the mood for?",
                     message,
                 ),
             }
@@ -5849,14 +7459,13 @@ def run_agent(
         except Exception:
 
             logger.exception(
-                "Recommendation lookup failed."
+                "Recommendation response failed."
             )
 
             return {
                 "type": "response",
                 "message": customer_response(
-                    "I couldn't get recommendations right now. "
-                    "Please try the menu instead.",
+                    "I can help you choose. What kind of food are you in the mood for?",
                     message,
                 ),
             }
@@ -5872,6 +7481,11 @@ def run_agent(
             phone,
         )
 
+    customer = Customer.query.filter_by(
+        phone=phone,
+        business_id=business_id,
+    ).first()
+
     return generate_natural_response(
         provider=get_provider(),
         business_id=business_id,
@@ -5880,4 +7494,9 @@ def run_agent(
         language=language,
         history=history,
         pending=pending,
+        customer_id=(
+            customer.id
+            if customer
+            else None
+        ),
     )

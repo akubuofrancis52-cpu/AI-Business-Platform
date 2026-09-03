@@ -12,6 +12,12 @@ from services.ai.order_extractor import extract_order
 from services.ai.order_modifier import interpret_order_request
 from services.ai.order_executor import execute_order_action
 
+from services.inventory import (
+    filter_inventory_available_menu_items,
+    reserve_inventory_for_order,
+    consume_inventory_for_order,
+)
+
 from services.payments.paydunya import (
     create_checkout_invoice,
 )
@@ -80,6 +86,11 @@ def tool_search_menu(business_id, query):
         "what's on the menu",
         "whats on the menu",
         "what do you have",
+        "what do you guys have",
+        "what food do you have",
+        "what foods do you have",
+        "what food do you guys have",
+        "what foods do you guys have",
         "what do you serve",
         "list menu",
         "list the menu",
@@ -213,6 +224,11 @@ def tool_search_menu(business_id, query):
         "list",
         "what is on",
         "what do you have",
+        "what do you guys have",
+        "what food do you have",
+        "what foods do you have",
+        "what food do you guys have",
+        "what foods do you guys have",
         "what do you serve",
 
         # French
@@ -278,6 +294,7 @@ def tool_search_menu(business_id, query):
 
     is_full_menu = (
         menu_query in full_menu_phrases
+        or has_full_menu_intent
         or (
             has_menu_word
             and has_full_menu_intent
@@ -292,6 +309,11 @@ def tool_search_menu(business_id, query):
 
         menu_items = get_menu_items(
             business_id
+        )
+
+        menu_items = filter_inventory_available_menu_items(
+            menu_items,
+            quantity=1,
         )
 
         results = []
@@ -325,10 +347,20 @@ def tool_search_menu(business_id, query):
     # NORMAL MENU SEARCH
     # ========================================================
 
+    menu_items = get_menu_items(
+        business_id
+    )
+
+    menu_items = filter_inventory_available_menu_items(
+        menu_items,
+        quantity=1,
+    )
+
     results = search_menu(
         business_id,
         query,
-        limit=5
+        limit=5,
+        menu_items=menu_items,
     )
 
     return {
@@ -830,6 +862,37 @@ def confirm_pending_order(
         )
 
         # ========================================================
+    # RESERVE INVENTORY
+    # ========================================================
+
+    inventory_result = reserve_inventory_for_order(order)
+
+    if not inventory_result.get("success"):
+
+        db.session.rollback()
+
+        ingredient_name = inventory_result.get(
+            "ingredient_name"
+        )
+
+        if ingredient_name:
+            message = (
+                f"Sorry, this order cannot be confirmed because "
+                f"{ingredient_name} is no longer available."
+            )
+        else:
+            message = (
+                "Sorry, this order cannot be confirmed because "
+                "one or more ingredients are no longer available."
+            )
+
+        return {
+            "success": False,
+            "message": message,
+            "inventory_error": inventory_result.get("reason")
+        }
+
+    # ========================================================
     # DEMO PAYMENT
     # ========================================================
 
@@ -845,6 +908,21 @@ def confirm_pending_order(
                 f"DEMO-{order.id}"
             ),
         )
+
+        # Demo payment completes the order immediately, so consume
+        # the inventory that was just reserved.
+        consumed = consume_inventory_for_order(order.id)
+
+        if consumed < len(inventory_result.get("reservations", [])):
+            db.session.rollback()
+
+            return {
+                "success": False,
+                "message": (
+                    "The demo order could not finalize inventory. "
+                    "Please try again."
+                )
+            }
 
         order.status = "Completed"
 
