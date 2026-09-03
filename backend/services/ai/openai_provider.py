@@ -16,10 +16,14 @@ logger = logging.getLogger(__name__)
 
 class OpenAIProvider(AIProvider):
     """
-    Fast AI provider.
+    AI provider.
 
     Uses Groq when GROQ_API_KEY is available.
     Falls back to OpenRouter when it is not.
+
+    Supports:
+    - Normal text generation
+    - Vision/image analysis
     """
 
     def __init__(self):
@@ -131,9 +135,13 @@ class OpenAIProvider(AIProvider):
 
             if (
                 self.provider_name == "Groq"
-                and self.model.startswith("openai/gpt-oss")
+                and self.model.startswith(
+                    "openai/gpt-oss"
+                )
             ):
-                request_kwargs["reasoning_effort"] = "low"
+                request_kwargs[
+                    "reasoning_effort"
+                ] = "low"
 
             response = None
             content = ""
@@ -236,3 +244,133 @@ class OpenAIProvider(AIProvider):
                 f"{self.provider_name} "
                 f"request failed: {exc}"
             ) from exc
+
+    def analyze_image(
+        self,
+        image_data_url,
+        prompt,
+        max_tokens=220,
+    ):
+        """
+        Analyze an image using a Groq vision-capable model.
+
+        Uses non-thinking mode so that internal reasoning is
+        not returned as visible text.
+        """
+
+        if not image_data_url:
+            raise ValueError(
+                "Image data URL is required."
+            )
+
+        if self.provider_name != "Groq":
+            raise RuntimeError(
+                "Vision image analysis currently "
+                "requires the Groq provider."
+            )
+
+        vision_model = os.getenv(
+            "GROQ_VISION_MODEL",
+            "qwen/qwen3.6-27b",
+        )
+
+        messages = [
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": str(prompt),
+                    },
+                    {
+                        "type": "image_url",
+                        "image_url": {
+                            "url": image_data_url,
+                        },
+                    },
+                ],
+            }
+        ]
+
+        try:
+
+            ai_start = time.perf_counter()
+
+            response = (
+                self.client
+                .chat
+                .completions
+                .create(
+                    model=vision_model,
+                    messages=messages,
+                    max_tokens=max_tokens,
+                    reasoning_effort="none",
+                )
+            )
+
+            if not response.choices:
+
+                raise RuntimeError(
+                    "The vision model returned "
+                    "no choices."
+                )
+
+            content = (
+                response.choices[0]
+                .message
+                .content
+                or ""
+            ).strip()
+
+            if not content:
+
+                raise RuntimeError(
+                    "The vision model returned "
+                    "empty text."
+                )
+
+            # Defensive cleanup in case a provider/model
+            # still returns reasoning tags.
+            if "<think>" in content:
+
+                content = (
+                    content.split(
+                        "<think>",
+                        1
+                    )[0]
+                    .strip()
+                )
+
+            if not content:
+
+                raise RuntimeError(
+                    "The vision model returned "
+                    "no usable final text."
+                )
+
+            elapsed = (
+                time.perf_counter()
+                - ai_start
+            )
+
+            logger.warning(
+                "[PERF] %s vision %.2fs model=%s",
+                self.provider_name,
+                elapsed,
+                vision_model,
+            )
+
+            return content
+
+        except Exception as exc:
+
+            logger.exception(
+                "%s vision request failed",
+                self.provider_name,
+            )
+
+            raise RuntimeError(
+                f"{self.provider_name} "
+                f"vision request failed: {exc}"
+            ) from exc
+

@@ -2083,9 +2083,9 @@ def translate_order_preview_for_customer(
     ):
 
         translations = {
-    "Your order:": "Votre commande :",
-    "Your updated order:": "Votre commande mise à jour :",
-    "Please confirm your order.": (
+            "Your order:": "Votre commande :",
+            "Your updated order:": "Votre commande mise à jour :",
+            "Please confirm your order.": (
                 "Veuillez confirmer votre commande."
             ),
             "Total:": "Total :",
@@ -2137,9 +2137,12 @@ def translate_order_preview_for_customer(
 
         for line in lines:
 
-            translated_line = line
+            translated_line = str(line)
 
-            # Complete system phrases.
+            # ------------------------------------------------
+            # COMPLETE SYSTEM PHRASES
+            # ------------------------------------------------
+
             if translated_line in translations:
 
                 translated_line = translations[
@@ -2148,18 +2151,11 @@ def translate_order_preview_for_customer(
 
             else:
 
-                # Menu names while preserving Markdown.
-                for (
-                    english_name,
-                    french_name,
-                ) in translations.items():
+                # ------------------------------------------------
+                # MENU ITEM NAMES
+                # ------------------------------------------------
 
-                    if english_name in (
-                        "Your order:",
-                        "Please confirm your order.",
-                        "Total:",
-                    ):
-                        continue
+                for english_name, french_name in translations.items():
 
                     translated_line = translated_line.replace(
                         f"*{english_name}*",
@@ -2171,15 +2167,98 @@ def translate_order_preview_for_customer(
                         french_name,
                     )
 
-                # Total line.
-                if translated_line.startswith(
-                    "Total:"
-                ):
+                # ------------------------------------------------
+                # TOTAL LINE
+                # ------------------------------------------------
+
+                if translated_line.startswith("Total:"):
 
                     translated_line = translated_line.replace(
                         "Total:",
                         "Total :",
                         1,
+                    )
+
+                # ------------------------------------------------
+                # DYNAMIC COMPLEMENTARY SUGGESTIONS
+                # ------------------------------------------------
+
+                lower_line = translated_line.lower()
+
+                drink_prefix = "you could also add "
+                drink_suffixes = (
+                    " if you'd like a drink.",
+                    " if you would like a drink.",
+                    " if you'd like something to drink.",
+                    " if you would like something to drink.",
+                )
+
+                if lower_line.startswith(drink_prefix):
+
+                    for suffix in drink_suffixes:
+
+                        if lower_line.endswith(suffix):
+
+                            item_name = translated_line[
+                                len(drink_prefix):
+                                len(translated_line) - len(suffix)
+                            ].strip()
+
+                            translated_line = (
+                                "Vous pouvez également ajouter "
+                                f"{item_name} si vous souhaitez une boisson."
+                            )
+
+                            break
+
+                dessert_prefix = "you could also add "
+                dessert_suffixes = (
+                    " if you'd like something sweet.",
+                    " if you would like something sweet.",
+                )
+
+                lower_line = translated_line.lower()
+
+                if lower_line.startswith(dessert_prefix):
+
+                    for suffix in dessert_suffixes:
+
+                        if lower_line.endswith(suffix):
+
+                            item_name = translated_line[
+                                len(dessert_prefix):
+                                len(translated_line) - len(suffix)
+                            ].strip()
+
+                            translated_line = (
+                                "Vous pouvez également ajouter "
+                                f"{item_name} si vous souhaitez quelque chose de sucré."
+                            )
+
+                            break
+
+                # ------------------------------------------------
+                # ADD-TO-ORDER QUESTION
+                # ------------------------------------------------
+
+                lower_line = translated_line.lower()
+
+                question_prefix = "would you like to add "
+                question_suffix = " to your order?"
+
+                if (
+                    lower_line.startswith(question_prefix)
+                    and lower_line.endswith(question_suffix)
+                ):
+
+                    item_name = translated_line[
+                        len(question_prefix):
+                        len(translated_line) - len(question_suffix)
+                    ].strip()
+
+                    translated_line = (
+                        "Souhaitez-vous ajouter "
+                        f"{item_name} à votre commande ?"
                     )
 
             translated_lines.append(
@@ -3095,103 +3174,99 @@ Return ONLY the customer-facing message.
 # ============================================================
 
 @lru_cache(maxsize=128)
-def _translate_menu_text_cached(
-    menu_text,
-    language_name,
-):
+def _translate_menu_text_cached(menu_text, language_name):
     """
-    Translate identical menu text only once.
+    Deterministically translate known restaurant menu text.
+
+    This avoids an unnecessary LLM call for the common supported languages
+    while preserving prices, emojis, Markdown, and menu structure.
     """
+    if language_name == "French":
+        translations = {
+            "Our Menu": "Notre Menu",
+            "Fast Food & Restaurant Specialties": "Fast Food & Spécialités de Restaurant",
+            "Italian Gelato & Desserts": "Glaces italiennes & Desserts",
+            "Italian Ice Creams & Desserts": "Glaces italiennes & Desserts",
+            "Drinks": "Boissons",
+            "Beverages": "Boissons",
+            "Drink": "Boisson",
+            "Desserts": "Desserts",
+            "Dessert": "Dessert",
+            "Burgers": "Burgers",
+            "Burger": "Burger",
+            "Pizzas": "Pizzas",
+            "Pizza": "Pizza",
+            "Chicken": "Poulet",
+            "Sandwiches": "Sandwichs",
+            "Sandwich": "Sandwich",
+            "Fries": "Frites",
+            "Sides": "Accompagnements",
+            "Rice": "Riz",
+            "Salads": "Salades",
+            "Salad": "Salade",
+            "Snacks": "Snacks",
+            "Snack": "Snack",
+            "Pasta": "Pâtes",
+            "Fish": "Poisson",
+            "Seafood": "Fruits de mer",
+            "Meat": "Viande",
+            "Breakfast": "Petit-déjeuner",
+            "Other": "Autres",
+            "Lemonade": "Limonade",
+            "Classic Margherita Pizza": "Pizza Margherita Classique",
+            "Loaded Chicken & Cheese Pizza": "Pizza Poulet & Fromage Garnie",
+            "Crispy French Fries": "Frites Croquantes",
+            "Assorted Club Sandwich": "Club Sandwich Varié",
+            "Classic Vanilla Cornetto Cone": "Cornetto Classique à la Vanille",
+            "Chocolate Overload Scoop / Cone": "Glace au Chocolat Intense / Cornet",
+            "Strawberry Fruit Gelato": "Gelato aux Fraises",
+            "Caramel Crunch Sundae": "Sundae Caramel Croquant",
+            "Mixed Fruit-Flavored Ice Cream Cup": "Coupe de Glace aux Fruits Mélangés",
+            "Signature Lebanese Shawarma": "Shawarma Libanais Signature",
+            "What would you like to order?": "Que souhaitez-vous commander ?",
+        }
 
-    provider = OpenAIProvider()
+        translated = menu_text
 
-    prompt = f"""
-Translate the following restaurant menu into {language_name}.
+        for source, target in sorted(
+            translations.items(),
+            key=lambda pair: len(pair[0]),
+            reverse=True,
+        ):
+            translated = translated.replace(source, target)
 
-STRICT RULES:
-- Translate ALL natural-language text.
-- Translate the menu title.
-- Translate category names.
-- Translate menu item names when appropriate.
-- Translate the final question.
-- Keep prices exactly unchanged.
-- Keep "FCFA" exactly unchanged.
-- Keep emojis exactly unchanged.
-- Keep WhatsApp Markdown such as *bold* exactly intact.
-- Do NOT add explanations.
-- Do NOT remove menu items.
-- Return ONLY the translated menu.
+        return translated
 
-MENU:
-{menu_text}
-"""
-
-    try:
-
-        translated = provider.generate(
-            prompt,
-            temperature=0,
-            max_tokens=800,
-        )
-
-        translated = clean_text(
-            translated
-        )
-
-        if translated:
-            return translated
-
-    except Exception:
-
-        logger.exception(
-            "Failed to translate menu to %s",
-            language_name,
-        )
-
-    return ""
+    return menu_text
 
 
-def translate_menu_for_customer(
-    lines,
-    language,
-    provider=None,
-):
+def translate_menu_for_customer(lines, language, provider=None):
     """
-    Translate menu lines only when necessary.
+    Translate a structured menu while preserving its exact prices,
+    emojis, Markdown, and item count.
 
-    Reuses the existing provider when available and falls
-    back to cached translation for repeated identical menus.
+    French is handled deterministically because the restaurant's known
+    menu vocabulary has stable translations. Other languages continue
+    using the existing provider-based translation path.
     """
-
-    if not language or not lines:
+    if not lines:
         return lines
 
-    language_name = str(
-        language
-    ).strip()
-
-    if (
-        not language_name
-        or language_name.lower()
-        in (
-            "english",
-            "en",
-            "en-us",
-            "en-gb",
-        )
-    ):
+    if language == "English":
         return lines
 
-    menu_text = "\n".join(
-        lines
-    )
+    menu_text = "\n".join(lines)
 
-    # --------------------------------------------------------
-    # REUSE EXISTING PROVIDER
-    # --------------------------------------------------------
+    if language == "French":
+        translated = _translate_menu_text_cached(
+            menu_text,
+            "French",
+        )
+        return translated.splitlines()
+
+    language_name = clean_text(language) or "English"
 
     if provider is not None:
-
         prompt = f"""
 Translate the following restaurant menu into {language_name}.
 
@@ -3214,32 +3289,13 @@ MENU:
 """
 
         try:
-
-            translated = provider.generate(
-                prompt,
-                temperature=0,
-                max_tokens=800,
-            )
-
-            translated = clean_text(
-                translated
-            )
+            translated = provider.generate(prompt)
 
             if translated:
                 return translated.splitlines()
 
         except Exception:
-
-            logger.exception(
-                "Failed to translate menu to %s",
-                language_name,
-            )
-
-        return lines
-
-    # --------------------------------------------------------
-    # CACHED FALLBACK
-    # --------------------------------------------------------
+            pass
 
     translated = _translate_menu_text_cached(
         menu_text,
@@ -3250,7 +3306,6 @@ MENU:
         return translated.splitlines()
 
     return lines
-
 
 def build_menu_response(
     tool_result,

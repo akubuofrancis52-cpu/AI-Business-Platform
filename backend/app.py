@@ -37,9 +37,16 @@ from models.order import Order
 from models.payment import Payment
 from models.order_item import OrderItem
 from models.customer import Customer
+from models.ingredient import Ingredient
+from models.menu_ingredient import MenuIngredient
+from models.customer_preference import CustomerPreference
+from services.customer_memory import (learn_customer_preferences_from_order, learn_explicit_customer_preference)
 from models.conversation import Conversation
 from models.pending_order import PendingOrder
 from models.support_ticket import SupportTicket
+from models.customer_interaction import CustomerInteraction
+from models.inventory_reservation import InventoryReservation
+from services.inventory import reserve_inventory_for_order, consume_inventory_for_order, release_inventory_for_order
 from threading import Thread
 
 from services.ai.prompt_builder import build_restaurant_prompt
@@ -103,19 +110,26 @@ def send_n8n_webhook_async(
                 "message_type": message_type,
                 "text": text_body,
             },
-            timeout=10
+            timeout=3
         )
+
+        if response.ok:
+            app.logger.info(
+                "[n8n] Webhook delivered: %s",
+                response.status_code,
+            )
+        else:
+            app.logger.warning(
+                "[n8n] Webhook returned %s: %s",
+                response.status_code,
+                response.text[:500],
+            )
+
+    except Exception as exc:
 
         app.logger.warning(
-            "[n8n] Response: %s %s",
-            response.status_code,
-            response.text
-        )
-
-    except Exception:
-
-        app.logger.exception(
-            "[n8n] Background webhook failed"
+            "[n8n] Optional webhook unavailable: %s",
+            exc,
         )
 
 WHATSAPP_IN_FLIGHT = set()
@@ -563,6 +577,28 @@ app.config[
 
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
+# ============================================================
+# POSTGRES CONNECTION POOL
+# ============================================================
+#
+# Keep database connections warm between WhatsApp requests.
+# This avoids repeatedly establishing a new PostgreSQL connection
+# and detects stale connections before using them.
+
+app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
+    "pool_size": 5,
+    "max_overflow": 2,
+    "pool_timeout": 5,
+    "pool_recycle": 1800,
+    "pool_pre_ping": True,
+    "connect_args": {
+        "keepalives": 1,
+        "keepalives_idle": 30,
+        "keepalives_interval": 10,
+        "keepalives_count": 3,
+    },
+}
+
 app.config["SESSION_COOKIE_HTTPONLY"] = True
 
 app.config["SESSION_COOKIE_SAMESITE"] = os.environ.get(
@@ -694,6 +730,8 @@ def send_whatsapp_message(
             f"{WHATSAPP_PHONE_NUMBER_ID}/messages"
         )
 
+        _wa_start = time.perf_counter()
+
         response = requests.post(
 
             url,
@@ -717,6 +755,12 @@ def send_whatsapp_message(
             },
 
             timeout=10
+        )
+
+        app.logger.warning(
+            "[PERF WA] Graph API request: %.3fs status=%s",
+            time.perf_counter() - _wa_start,
+            response.status_code,
         )
 
         if response.ok:
@@ -854,6 +898,116 @@ def download_whatsapp_audio(
 
         app.logger.exception(
             "WhatsApp audio download failed."
+        )
+
+        raise
+
+
+def download_whatsapp_image(
+    media_id
+):
+    """
+    Download a WhatsApp image from Meta.
+
+    Returns:
+        tuple:
+            image_bytes,
+            mime_type
+    """
+
+    if (
+        not WHATSAPP_TOKEN
+        or not media_id
+    ):
+        raise RuntimeError(
+            "WhatsApp credentials or media ID are missing."
+        )
+
+    try:
+
+        media_url = (
+            f"https://graph.facebook.com/v23.0/"
+            f"{media_id}"
+        )
+
+        media_response = requests.get(
+            media_url,
+            headers={
+                "Authorization":
+                    f"Bearer {WHATSAPP_TOKEN}"
+            },
+            timeout=10
+        )
+
+        if not media_response.ok:
+
+            app.logger.error(
+                "WhatsApp image media lookup failed %s: %s",
+                media_response.status_code,
+                media_response.text[:1000]
+            )
+
+            raise RuntimeError(
+                "Could not retrieve WhatsApp image."
+            )
+
+        media_data = (
+            media_response.json()
+        )
+
+        download_url = (
+            media_data.get("url")
+        )
+
+        mime_type = (
+            media_data.get(
+                "mime_type",
+                "image/jpeg"
+            )
+        )
+
+        if not download_url:
+
+            raise RuntimeError(
+                "WhatsApp did not return an image URL."
+            )
+
+        image_response = requests.get(
+            download_url,
+            headers={
+                "Authorization":
+                    f"Bearer {WHATSAPP_TOKEN}"
+            },
+            timeout=30
+        )
+
+        if not image_response.ok:
+
+            app.logger.error(
+                "WhatsApp image download failed %s: %s",
+                image_response.status_code,
+                image_response.text[:1000]
+            )
+
+            raise RuntimeError(
+                "Could not download WhatsApp image."
+            )
+
+        if not image_response.content:
+
+            raise RuntimeError(
+                "WhatsApp returned an empty image."
+            )
+
+        return (
+            image_response.content,
+            mime_type
+        )
+
+    except Exception:
+
+        app.logger.exception(
+            "WhatsApp image download failed."
         )
 
         raise
@@ -1163,7 +1317,8 @@ def run_customer_agent(
     business,
     phone,
     message,
-    customer_name=None
+    customer_name=None,
+    image_context=None,
 ):
 
     """
@@ -1171,10 +1326,17 @@ def run_customer_agent(
     AI agent and save conversation.
     """
 
+    _rca_start = time.perf_counter()
+
     customer = Customer.query.filter_by(
         phone=phone,
         business_id=business.id
     ).first()
+
+    app.logger.warning(
+        "[PERF RCA] customer lookup: %.3fs",
+        time.perf_counter() - _rca_start,
+    )
 
     if not customer:
 
@@ -1203,15 +1365,24 @@ def run_customer_agent(
     # DETECT CURRENT CUSTOMER LANGUAGE
     # ========================================================
 
+    _rca_stage = time.perf_counter()
+
     detected_language = detect_customer_language(
         message,
         fallback=customer.language or "English"
+    )
+
+    app.logger.warning(
+        "[PERF RCA] language detection: %.3fs",
+        time.perf_counter() - _rca_stage,
     )
 
     if detected_language != customer.language:
 
         customer.language = detected_language
         
+    _rca_stage = time.perf_counter()
+
     previous_conversations = (
         Conversation.query
         .options(
@@ -1230,6 +1401,11 @@ def run_customer_agent(
         .all()
     )
 
+    app.logger.warning(
+        "[PERF RCA] conversation history: %.3fs",
+        time.perf_counter() - _rca_stage,
+    )
+
     history = [
         {
             "message": chat.message,
@@ -1239,13 +1415,20 @@ def run_customer_agent(
             previous_conversations
         )
     ]
+    _rca_stage = time.perf_counter()
 
     result = run_agent(
         business.id,
         customer.phone,
         message,
         detected_language,
-        history
+        history,
+        image_context,
+    )
+
+    app.logger.warning(
+        "[PERF RCA] run_agent: %.3fs",
+        time.perf_counter() - _rca_stage,
     )
 
     if not isinstance(
@@ -1275,7 +1458,19 @@ def run_customer_agent(
 
     db.session.add(conversation)
 
+    _rca_stage = time.perf_counter()
+
     db.session.commit()
+
+    app.logger.warning(
+        "[PERF RCA] conversation commit: %.3fs",
+        time.perf_counter() - _rca_stage,
+    )
+
+    app.logger.warning(
+        "[PERF RCA] TOTAL run_customer_agent: %.3fs",
+        time.perf_counter() - _rca_start,
+    )
 
     return (
         result,
@@ -2751,7 +2946,81 @@ def update_order_status(
 
         return "Invalid order status.", 400
 
+    old_status = order.status
+
+    # Prevent inventory from being consumed/released twice
+    # or a terminal order from being moved backwards.
+    if old_status == "Completed" and new_status != "Completed":
+
+        return (
+            "Completed orders cannot be moved to another status.",
+            400,
+        )
+
+    if old_status == "Cancelled" and new_status != "Cancelled":
+
+        return (
+            "Cancelled orders cannot be moved to another status.",
+            400,
+        )
+
+    # ==========================================
+    # INVENTORY STATE TRANSITION
+    # ==========================================
+
+    if new_status == "Completed" and old_status != "Completed":
+
+        try:
+            consume_inventory_for_order(order.id)
+
+        except Exception:
+
+            db.session.rollback()
+
+            logger.exception(
+                "Inventory consumption failed for order %s.",
+                order.id,
+            )
+
+            return (
+                "Could not complete the order because "
+                "inventory could not be finalized.",
+                500,
+            )
+
+    elif new_status == "Cancelled" and old_status != "Cancelled":
+
+        try:
+            release_inventory_for_order(order.id)
+
+        except Exception:
+
+            db.session.rollback()
+
+            logger.exception(
+                "Inventory release failed for order %s.",
+                order.id,
+            )
+
+            return (
+                "Could not cancel the order because "
+                "inventory could not be released.",
+                500,
+            )
+
     order.status = new_status
+
+    # Learn customer preferences only after the order is completed.
+    if new_status == "Completed":
+
+        try:
+            learn_customer_preferences_from_order(order)
+
+        except Exception:
+            logger.exception(
+                "Customer preference learning failed for order %s.",
+                order.id,
+            )
 
     db.session.commit()
 
@@ -4280,36 +4549,58 @@ def ai_order(
                                 order_item
                             )
 
-                        db.session.commit()
+                        # ====================================
+                        # RESERVE INVENTORY
+                        # ====================================
 
-                        session.pop(
-                            "pending_ai_order",
-                            None
+                        inventory_result = (
+                            reserve_inventory_for_order(order)
                         )
 
-                        result = {
+                        if not inventory_result["success"]:
 
-                            "confirmed":
-                                True,
+                            db.session.rollback()
 
-                            "order_id":
-                                order.id,
+                            result = {
+                                "error": (
+                                    "This order cannot be confirmed "
+                                    "because one or more ingredients "
+                                    "are no longer available."
+                                )
+                            }
 
-                            "restaurant":
-                                business.name,
+                        else:
 
-                            "phone":
-                                customer.phone,
+                            db.session.commit()
 
-                            "items":
-                                final_items,
+                            session.pop(
+                                "pending_ai_order",
+                            None
+                            )
 
-                            "total":
-                                final_total,
+                            result = {
 
-                            "payment_status":
-                                PAYMENT_UNPAID
-                        }
+                                "confirmed":
+                                    True,
+
+                                "order_id":
+                                    order.id,
+
+                                "restaurant":
+                                    business.name,
+
+                                "phone":
+                                    customer.phone,
+
+                                "items":
+                                    final_items,
+
+                                "total":
+                                    final_total,
+
+                                "payment_status":
+                                    PAYMENT_UNPAID
+                            }
 
                 except Exception as e:
 
@@ -4842,6 +5133,126 @@ def agent_chat():
             }
         }
 
+def process_whatsapp_image_async(
+    business_id,
+    from_phone,
+    media_id,
+    caption,
+    contact_name,
+    message_id,
+):
+    """
+    Download and analyze a WhatsApp image, then pass the
+    result into the central restaurant agent.
+    """
+
+    with app.app_context():
+
+        try:
+
+            app.logger.warning(
+                "[ASYNC IMAGE] Starting image processing for %s",
+                from_phone
+            )
+
+            image_bytes, mime_type = (
+                download_whatsapp_image(
+                    media_id
+                )
+            )
+
+            import base64
+
+            image_data_url = (
+                "data:"
+                f"{mime_type};base64,"
+                f"{base64.b64encode(image_bytes).decode('utf-8')}"
+            )
+
+            vision_prompt = """
+You are analyzing a photo sent to a restaurant AI assistant.
+
+Return concise visual context that can help the restaurant assistant
+understand why the customer may have sent the image.
+
+Focus only on clearly visible information:
+- Is this food or a meal?
+- Is it a restaurant dish, packaged order, drink, or another
+  restaurant-related image?
+- Describe broad visible characteristics only.
+- Mention an obvious visible quality/problem only when it is
+  genuinely visible.
+
+Do NOT:
+- guess the exact dish name unless it is clearly identifiable;
+- guess ingredients that cannot be clearly seen;
+- guess taste, freshness, temperature, or safety;
+- guess prices;
+- guess the customer's feelings;
+- claim something is wrong unless it is visually evident.
+
+Return only concise visual context.
+"""
+
+            provider = OpenAIProvider()
+
+            image_context = provider.analyze_image(
+                image_data_url,
+                vision_prompt,
+                max_tokens=180,
+            )
+
+            customer_message = (
+                caption.strip()
+                if caption
+                and caption.strip()
+                else "Customer sent a photo."
+            )
+
+            app.logger.warning(
+                "[ASYNC IMAGE] Caption: %s",
+                customer_message
+            )
+
+            app.logger.warning(
+                "[ASYNC IMAGE] Vision context: %s",
+                image_context
+            )
+
+            process_whatsapp_message_async(
+                business_id,
+                from_phone,
+                customer_message,
+                contact_name,
+                message_id,
+                image_context=image_context,
+            )
+
+        except Exception:
+
+            db.session.rollback()
+
+            app.logger.exception(
+                "[ASYNC IMAGE] Failed to process image "
+                "from %s",
+                from_phone
+            )
+
+            send_whatsapp_message(
+                from_phone,
+                "Sorry, I couldn't process that image right now. "
+                "Please try again."
+            )
+
+        finally:
+
+            with WHATSAPP_IN_FLIGHT_LOCK:
+
+                WHATSAPP_IN_FLIGHT.discard(
+                    message_id
+                )
+
+
 def process_whatsapp_audio_async(
     business_id,
     from_phone,
@@ -4907,6 +5318,233 @@ def process_whatsapp_audio_async(
                 )
 
 # ============================================================
+# FAST WHATSAPP RESPONSE PATH
+# ============================================================
+
+def fast_whatsapp_response(
+    business_id,
+    phone,
+    message,
+):
+    """
+    Handle deterministic, high-frequency WhatsApp messages without
+    loading conversation history or running the full AI agent.
+
+    Returns:
+        dict | None
+    """
+
+    from services.ai.agent import (
+        CUSTOMER_LANGUAGE,
+        clean_text,
+        normalize_text,
+        detect_customer_language,
+        customer_response,
+        classify_message_fast,
+        update_pending_order_quantity,
+        modify_pending_order,
+    )
+
+    message = clean_text(message)
+
+    if not message:
+        return None
+
+    normalized = normalize_text(message)
+
+    # --------------------------------------------------------
+    # FAST LANGUAGE DETECTION
+    # --------------------------------------------------------
+
+    language = detect_customer_language(
+        message,
+        fallback="English",
+    )
+
+    CUSTOMER_LANGUAGE.set(language)
+
+    # --------------------------------------------------------
+    # FAST GREETINGS
+    # --------------------------------------------------------
+
+    greeting_responses = {
+        "English": {
+            "hi": "Hi! How can I help you today?",
+            "hello": "Hello! How can I help you today?",
+            "hey": "Hey! How can I help you today?",
+            "good morning": "Good morning! How can I help you today?",
+            "good afternoon": "Good afternoon! How can I help you today?",
+            "good evening": "Good evening! How can I help you today?",
+        },
+        "French": {
+            "bonjour": "Bonjour ! Comment puis-je vous aider ?",
+            "bonsoir": "Bonsoir ! Comment puis-je vous aider ?",
+            "salut": "Salut ! Comment puis-je vous aider ?",
+        },
+        "Spanish": {
+            "hola": "¡Hola! ¿Cómo puedo ayudarte?",
+        },
+        "Portuguese": {
+            "olá": "Olá! Como posso ajudá-lo?",
+        },
+        "Italian": {
+            "ciao": "Ciao! Come posso aiutarti?",
+        },
+        "German": {
+            "hallo": "Hallo! Wie kann ich Ihnen helfen?",
+        },
+    }
+
+    response = (
+        greeting_responses
+        .get(language, greeting_responses["English"])
+        .get(normalized)
+    )
+
+    if response:
+        return {
+            "type": "response",
+            "message": customer_response(
+                response,
+                message,
+            ),
+        }
+
+    # --------------------------------------------------------
+    # FAST QUANTITY-CHANGE DETECTION
+    # --------------------------------------------------------
+    #
+    # Only call the database-backed quantity handler when the
+    # message actually looks like a quantity update.
+
+    quantity_pattern = re.compile(
+        r"^(?:"
+        r"make(?:\s+it|\s+that|\s+the)?|"
+        r"change(?:\s+it|\s+the)?(?:\s+to)?|"
+        r"set(?:\s+the)?|"
+        r"actually\s+make(?:\s+it|\s+that|\s+the)?|"
+        r"actually\s+change(?:\s+it|\s+the)?(?:\s+to)?|"
+        r"actually\s+set(?:\s+the)?|"
+        r"mets(?:\s+en)?|"
+        r"met"
+        r")\s+.+\s+"
+        r"(?:\d+|one|two|three|four|five)"
+        r"(?:\s+please)?$"
+    )
+
+    quantity_only_pattern = re.compile(
+        r"^(?:"
+        r"make\s+(?:it|that)|"
+        r"change\s+it(?:\s+to)?|"
+        r"set"
+        r")\s+"
+        r"(?:\d+|one|two|three|four|five)"
+        r"(?:\s+please)?$"
+    )
+
+    looks_like_quantity_update = (
+        bool(quantity_pattern.fullmatch(normalized))
+        or bool(quantity_only_pattern.fullmatch(normalized))
+    )
+
+    if looks_like_quantity_update:
+
+        result = update_pending_order_quantity(
+            business_id,
+            phone,
+            message,
+        )
+
+        if result:
+            return result
+
+    # --------------------------------------------------------
+    # FAST PENDING-ORDER MODIFICATION
+    # --------------------------------------------------------
+    #
+    # "add", "remove", and similar modifications are already
+    # classified locally. Try the existing pending-order handler
+    # without invoking Groq.
+
+    classification = classify_message_fast(
+        message
+    )
+
+    if classification == "modify_order":
+
+        result = modify_pending_order(
+            business_id,
+            phone,
+            message,
+            language,
+        )
+
+        if result is not None:
+            return result
+
+    return None
+
+
+def save_fast_whatsapp_conversation(
+    business_id,
+    phone,
+    message,
+    response_message,
+    customer_name=None,
+):
+    """
+    Persist a fast-path WhatsApp conversation after the response
+    has already been sent to the customer.
+    """
+
+    try:
+
+        customer = Customer.query.filter_by(
+            phone=phone,
+            business_id=business_id,
+        ).first()
+
+        if not customer:
+
+            customer = Customer(
+                name=customer_name or "New Customer",
+                phone=phone,
+                language="English",
+                business_id=business_id,
+            )
+
+            db.session.add(customer)
+            db.session.flush()
+
+        elif (
+            customer_name
+            and (
+                not customer.name
+                or customer.name == "New Customer"
+            )
+        ):
+
+            customer.name = customer_name
+
+        conversation = Conversation(
+            customer_id=customer.id,
+            message=message,
+            response=response_message,
+        )
+
+        db.session.add(conversation)
+        db.session.commit()
+
+    except Exception:
+
+        db.session.rollback()
+
+        app.logger.exception(
+            "[FAST] Conversation persistence failed."
+        )
+
+
+# ============================================================
 # WHATSAPP WEBHOOK
 # ============================================================
 
@@ -4916,6 +5554,7 @@ def process_whatsapp_message_async(
     text_body,
     contact_name,
     message_id,
+    image_context=None,
 ):
 
     with app.app_context():
@@ -4928,19 +5567,77 @@ def process_whatsapp_message_async(
 
         try:
 
-            business = db.session.get(
-                Business,
-                business_id
+            # The webhook already resolved the business before
+            # submitting this worker. Avoid another PostgreSQL query
+            # on the critical WhatsApp response path.
+            business = type(
+                "WhatsAppBusinessRef",
+                (),
+                {"id": business_id},
+            )()
+
+            # ====================================================
+            # FAST DETERMINISTIC WHATSAPP PATH
+            # ====================================================
+
+            fast_start = time.perf_counter()
+
+            fast_result = fast_whatsapp_response(
+                business_id,
+                from_phone,
+                text_body,
             )
 
-            if not business:
+            fast_elapsed = time.perf_counter() - fast_start
 
-                app.logger.error(
-                    "[ASYNC] Business %s not found",
-                    business_id
+            if fast_result is not None:
+
+                reply_text = (
+                    fast_result.get("message")
+                    or fast_result.get("response")
+                    or ""
+                )
+
+                app.logger.warning(
+                    "[PERF FAST] handler: %.3fs",
+                    fast_elapsed,
+                )
+
+                send_start = time.perf_counter()
+
+                send_whatsapp_message(
+                    from_phone,
+                    reply_text,
+                )
+
+                app.logger.warning(
+                    "[PERF FAST] WhatsApp send: %.3fs",
+                    time.perf_counter() - send_start,
+                )
+
+                # Persist after the customer has already received
+                # the response, so database writes are not on the
+                # critical response path.
+                save_start = time.perf_counter()
+
+                save_fast_whatsapp_conversation(
+                    business_id=business_id,
+                    phone=from_phone,
+                    message=text_body,
+                    response_message=reply_text,
+                    customer_name=contact_name,
+                )
+
+                app.logger.warning(
+                    "[PERF FAST] conversation save: %.3fs",
+                    time.perf_counter() - save_start,
                 )
 
                 return
+
+            # ====================================================
+            # FULL AI PATH
+            # ====================================================
 
             app.logger.warning(
                 "[ASYNC] Starting run_customer_agent"
@@ -4956,7 +5653,8 @@ def process_whatsapp_message_async(
                 business,
                 from_phone,
                 text_body,
-                contact_name
+                contact_name,
+                image_context=image_context,
             )
 
             app.logger.info(
@@ -5281,6 +5979,63 @@ def whatsapp_webhook():
                                 )
 
                             continue
+
+                    # ------------------------------------------------
+                    # IMAGE MESSAGE
+                    # ------------------------------------------------
+
+                    elif message_type == "image":
+
+                        image_data = (
+                            wa_message.get(
+                                "image",
+                                {}
+                            )
+                            or {}
+                        )
+
+                        media_id = image_data.get(
+                            "id"
+                        )
+
+                        caption = (
+                            image_data.get(
+                                "caption",
+                                ""
+                            )
+                            or ""
+                        ).strip()
+
+                        if not media_id:
+
+                            app.logger.warning(
+                                "WhatsApp image message "
+                                "has no media ID."
+                            )
+
+                            with WHATSAPP_IN_FLIGHT_LOCK:
+
+                                WHATSAPP_IN_FLIGHT.discard(
+                                    message_id
+                                )
+
+                            continue
+
+                        WHATSAPP_EXECUTOR.submit(
+                            process_whatsapp_image_async,
+                            business.id,
+                            from_phone,
+                            media_id,
+                            caption,
+                            (
+                                contact_name
+                                if "contact_name" in locals()
+                                else "New Customer"
+                            ),
+                            message_id,
+                        )
+
+                        continue
 
                     # ------------------------------------------------
                     # UNSUPPORTED MESSAGE TYPE

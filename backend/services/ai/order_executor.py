@@ -1,4 +1,5 @@
 from database.db import db
+from services.inventory import check_menu_item_stock
 import traceback
 
 from models.order import Order
@@ -304,6 +305,32 @@ def execute_order_action(
             menu.name
         )
 
+        resulting_quantity = (
+            (existing.quantity or 0) + quantity
+            if existing
+            else quantity
+        )
+
+        stock_check = check_menu_item_stock(
+            menu_id=menu.id,
+            quantity=resulting_quantity,
+        )
+
+        if not stock_check["available"]:
+
+            if not stock_check.get("inventory_configured"):
+                pass
+
+            else:
+                return {
+                    "success": False,
+                    "message": (
+                        f"{menu.name} cannot be added right now "
+                        "because the required ingredients are unavailable."
+                    ),
+                    "inventory": stock_check,
+                }
+
         if existing:
 
             existing.quantity += quantity
@@ -398,6 +425,24 @@ def execute_order_action(
             old_item.quantity or 1
         )
 
+        stock_check = check_menu_item_stock(
+            menu_id=menu.id,
+            quantity=old_quantity,
+        )
+
+        if (
+            not stock_check["available"]
+            and stock_check.get("inventory_configured")
+        ):
+            return {
+                "success": False,
+                "message": (
+                    f"{menu.name} cannot be used as a replacement "
+                    "because the required ingredients are unavailable."
+                ),
+                "inventory": stock_check,
+            }
+
         old_item.name = menu.name
         old_item.price = float(
             menu.price
@@ -478,6 +523,24 @@ def confirm_pending_order(business_id: int, customer_phone: str, draft_items: li
 
             if quantity <= 0:
                 continue
+
+            stock_check = check_menu_item_stock(
+                menu_id=menu_item.id,
+                quantity=quantity,
+            )
+
+            if (
+                not stock_check["available"]
+                and stock_check.get("inventory_configured")
+            ):
+                return {
+                    "success": False,
+                    "message": (
+                        f"{menu_item.name} is not currently "
+                        "available in the required quantity."
+                    ),
+                    "inventory": stock_check,
+                }
 
             subtotal = float(menu_item.price) * quantity
 

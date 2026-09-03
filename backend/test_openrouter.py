@@ -1,33 +1,34 @@
 import os
+
+import pytest
 from dotenv import load_dotenv
 from openai import OpenAI
 
+
 load_dotenv()
 
-client = OpenAI(
-    api_key=os.getenv("OPENROUTER_API_KEY"),
-    base_url="https://openrouter.ai/api/v1"
-)
 
-response = client.chat.completions.create(
-    model=os.getenv("OPENROUTER_MODEL", "openrouter/free"),
-    messages=[
-        {
-            "role": "user",
-            "content": "Reply with exactly: Hello, this is a test."
-        }
-    ]
-)
+def test_openrouter_connection():
+    api_key = os.getenv("OPENROUTER_API_KEY")
 
-print("TYPE:", type(response))
-print("\nFULL RESPONSE:")
-print(response)
+    if not api_key:
+        pytest.skip("OPENROUTER_API_KEY is not configured")
 
-print("\nMESSAGE:")
-print(response.choices[0].message)
+    client = OpenAI(
+        api_key=api_key,
+        base_url="https://openrouter.ai/api/v1",
+    )
 
-print("\nCONTENT:")
-print(repr(response.choices[0].message.content))
+    response = client.chat.completions.create(
+        model=os.getenv("OPENROUTER_MODEL", "openrouter/free"),
+        messages=[
+            {
+                "role": "user",
+                "content": "Reply with exactly: Hello, this is a test.",
+            }
+        ],
+        max_tokens=32,
+    )
 
-print("\nFINISH REASON:")
-print(response.choices[0].finish_reason)
+    assert response.choices
+    assert response.choices[0].message.content is not None
