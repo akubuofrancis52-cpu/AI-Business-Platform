@@ -591,12 +591,6 @@ app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
     "pool_timeout": 5,
     "pool_recycle": 1800,
     "pool_pre_ping": True,
-    "connect_args": {
-        "keepalives": 1,
-        "keepalives_idle": 30,
-        "keepalives_interval": 10,
-        "keepalives_count": 3,
-    },
 }
 
 app.config["SESSION_COOKIE_HTTPONLY"] = True
@@ -5059,7 +5053,9 @@ def agent_chat():
 
             language,
 
-            history
+            history,
+
+            customer=customer,
         )
 
     except Exception:
@@ -6075,7 +6071,14 @@ def whatsapp_webhook():
                         "N8N_WEBHOOK_URL"
                     )
 
-                    if n8n_webhook_url:
+                    # n8n is optional. Do not attempt localhost/127.0.0.1
+                    # webhooks when the local n8n service is not running.
+                    if (
+                        n8n_webhook_url
+                        and not n8n_webhook_url.startswith(
+                            ("http://localhost:", "http://127.0.0.1:")
+                        )
+                    ):
 
                         WHATSAPP_EXECUTOR.submit(
                             send_n8n_webhook_async,
