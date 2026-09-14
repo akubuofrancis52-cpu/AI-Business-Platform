@@ -6414,13 +6414,56 @@ def run_agent(
         # KEEP VERY SIMPLE CHAT FAST AND LOCAL
         # ----------------------------------------------------
 
+        # Restaurant-specific greetings are handled dynamically so every
+        # restaurant gets a warm welcome using its own name.
+        greeting_context = get_restaurant_context(business_id)
+        greeting_business = greeting_context.get("business", {})
+        restaurant_name = greeting_business.get("name") or "our restaurant"
+
+        if normalized_message in {
+            "hi",
+            "hello",
+            "hey",
+            "good morning",
+            "good afternoon",
+            "good evening",
+            "bonjour",
+            "bonsoir",
+            "salut",
+        }:
+            if language == "French":
+                greeting_map = {
+                    "bonjour": f"Bienvenue chez {restaurant_name} ! Nous sommes ravis de vous accueillir. Que puis-je vous servir aujourd’hui ?",
+                    "bonsoir": f"Bonsoir et bienvenue chez {restaurant_name} ! C’est un plaisir de vous recevoir. Qu’est-ce qui vous ferait plaisir aujourd’hui ?",
+                    "salut": f"Bienvenue chez {restaurant_name} ! Nous sommes heureux de vous accueillir. Que puis-je vous proposer ?",
+                }
+                direct_chat_response = greeting_map.get(
+                    normalized_message,
+                    f"Bienvenue chez {restaurant_name} ! Nous sommes ravis de vous accueillir. Que puis-je vous servir aujourd’hui ?",
+                )
+            else:
+                greeting_map = {
+                    "hi": f"Welcome to {restaurant_name}! We're delighted to have you here and ready to serve you. What can I get for you today?",
+                    "hello": f"Welcome to {restaurant_name}! It's a pleasure to have you with us. What can I get started for you today?",
+                    "hey": f"Welcome to {restaurant_name}! We're happy to have you here. What are you in the mood for today?",
+                    "good morning": f"Good morning, and welcome to {restaurant_name}! We're ready to serve you. What would you like to enjoy today?",
+                    "good afternoon": f"Good afternoon, and welcome to {restaurant_name}! It's a pleasure to have you here. What can I get for you today?",
+                    "good evening": f"Good evening, and welcome to {restaurant_name}! We're delighted to have you with us. What can I serve you today?",
+                }
+                direct_chat_response = greeting_map.get(
+                    normalized_message,
+                    f"Welcome to {restaurant_name}! We're delighted to have you here and ready to serve you. What can I get for you today?",
+                )
+
+            return {
+                "type": "response",
+                "message": customer_response(
+                    direct_chat_response,
+                    message,
+                ),
+            }
+
         chat_responses = {
-            "hi": "Hi! How can I help you today?",
-            "hello": "Hello! How can I help you today?",
-            "hey": "Hey! How can I help you today?",
-            "good morning": "Good morning! How can I help you today?",
-            "good afternoon": "Good afternoon! How can I help you today?",
-            "good evening": "Good evening! How can I help you today?",
 
             "thanks": (
                 "You're welcome! "
@@ -6439,9 +6482,6 @@ def run_agent(
             "ok": "Alright! Let me know if you need anything.",
             "alright": "Alright! Let me know if you need anything.",
 
-            "bonjour": "Bonjour ! Comment puis-je vous aider ?",
-            "bonsoir": "Bonsoir ! Comment puis-je vous aider ?",
-            "salut": "Salut ! Comment puis-je vous aider ?",
             "merci": "Avec plaisir ! N'hésitez pas si vous avez besoin de quoi que ce soit.",
 
             "hallo": "Hallo! Wie kann ich Ihnen helfen?",
