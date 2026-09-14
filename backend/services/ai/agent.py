@@ -5945,6 +5945,9 @@ def run_agent(
     history=None,
     image_context=None,
 ):
+    # Always initialize optional greeting response before conditional routing.
+    greeting_response = None
+
 
     message = clean_text(
         message
