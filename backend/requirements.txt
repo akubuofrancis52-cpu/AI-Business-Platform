@@ -31,3 +31,4 @@ langdetect==1.0.9
 requests==2.34.2
 
 psycopg[binary]==3.3.4
+groq==0.37.1

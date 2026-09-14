@@ -1028,11 +1028,9 @@ def process_whatsapp_audio(
     """
     Download and transcribe a WhatsApp voice message.
 
-    Returns the transcribed text.
+    The returned transcript is passed directly into the normal
+    text-message agent pipeline.
     """
-
-    import os
-    import shutil
 
     audio_path = None
 
@@ -1042,112 +1040,38 @@ def process_whatsapp_audio(
             media_id
         )
 
-        shutil.copy(
-            audio_path,
-            "/tmp/whatsapp-test.ogg"
-        )
-
-        app.logger.info(
-            "Saved WhatsApp audio test file: %s",
-            audio_path
-        )
+        if not audio_path:
+            raise RuntimeError(
+                "WhatsApp audio download returned no file."
+            )
 
         transcript = transcribe_audio(
             audio_path
         )
 
-        return transcript.strip()
+        transcript = (
+            transcript
+            or ""
+        ).strip()
 
+        if not transcript:
+            raise RuntimeError(
+                "Speech-to-text returned empty text."
+            )
+
+        return transcript
 
     finally:
 
         if audio_path:
 
             try:
-                os.remove(audio_path)
+                os.remove(
+                    audio_path
+                )
 
             except OSError:
                 pass
-
-def transcribe_audio(
-    audio_path
-):
-    """
-    Transcribe WhatsApp audio using Groq Whisper.
-    """
-
-    import os
-
-    from groq import Groq
-
-    if not audio_path:
-        raise RuntimeError(
-            "Audio file path is missing."
-        )
-
-    api_key = os.getenv(
-        "GROQ_API_KEY"
-    )
-
-    if not api_key:
-        raise RuntimeError(
-            "GROQ_API_KEY is not configured."
-        )
-
-    try:
-
-        client = Groq(
-            api_key=api_key
-        )
-
-        app.logger.info(
-            "[VOICE] Starting Groq transcription: %s",
-            audio_path
-        )
-
-        with open(
-            audio_path,
-            "rb"
-        ) as audio_file:
-
-            transcription = (
-                client.audio.transcriptions.create(
-                    file=audio_file,
-                    model="whisper-large-v3-turbo",
-                    response_format="json",
-                )
-            )
-
-        text = (
-            getattr(
-                transcription,
-                "text",
-                ""
-            )
-            or ""
-        ).strip()
-
-        if not text:
-
-            raise RuntimeError(
-                "Groq returned an empty transcription."
-            )
-
-        app.logger.info(
-            "[VOICE] Groq transcript: %s",
-            text
-        )
-
-        return text
-
-    except Exception as exc:
-
-        app.logger.exception(
-            "[VOICE] Groq transcription failed: %s",
-            exc
-        )
-
-        raise
 
 # ============================================================
 # SUPPORT EMAIL
