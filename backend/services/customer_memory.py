@@ -498,7 +498,7 @@ def get_customer_reengagement_status(
             "reason": "recent_negative_feedback",
         }
 
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
 
     days_since_order = (
         now - last_completed_order.created_at
@@ -763,7 +763,7 @@ def has_recent_reengagement(
 
     from models.customer_interaction import CustomerInteraction
 
-    cutoff = datetime.utcnow() - timedelta(
+    cutoff = datetime.now(timezone.utc) - timedelta(
         days=cooldown_days
     )
 

@@ -980,12 +980,13 @@ def recommend_menu(
                 "strength": strength,
             })
 
+            # An explicit customer dislike is a hard exclusion for
+            # preference-based recommendations. Penalizing the score
+            # is not sufficient because the item could still appear
+            # when the recommendation list is large enough.
             if preference_type == "explicit_dislike":
-
-                score -= min(
-                    0.75,
-                    0.45 + (0.05 * strength),
-                )
+                score = None
+                break
 
             elif preference_type == "favorite_item":
 
@@ -1021,6 +1022,10 @@ def recommend_menu(
                     0.12,
                     0.06 + (0.02 * strength),
                 )
+
+        # Explicit dislikes are hard exclusions.
+        if score is None:
+            continue
 
         scored_items.append(
             (

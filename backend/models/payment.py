@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
 from database.db import db
 
@@ -41,6 +41,12 @@ class Payment(db.Model):
 
     transaction_id = db.Column(
         db.String(255),
+        nullable=True,
+        unique=True
+    )
+
+    checkout_url = db.Column(
+        db.String(500),
         nullable=True
     )
 
@@ -51,7 +57,7 @@ class Payment(db.Model):
 
     created_at = db.Column(
         db.DateTime,
-        default=datetime.utcnow,
+        default=lambda: datetime.now(timezone.utc),
         nullable=False
     )
 
@@ -77,7 +83,7 @@ class Payment(db.Model):
         if transaction_id:
             self.transaction_id = transaction_id
 
-        self.paid_at = datetime.utcnow()
+        self.paid_at = datetime.now(timezone.utc)
 
     def __repr__(self):
 

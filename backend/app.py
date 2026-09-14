@@ -8,10 +8,12 @@ load_dotenv()
 
 from langdetect import detect, DetectorFactory
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from concurrent.futures import ThreadPoolExecutor
 from threading import Lock
 from sqlalchemy.orm import load_only
+
+from sqlalchemy.exc import IntegrityError
 
 from flask import (
     Flask,
@@ -46,6 +48,7 @@ from models.pending_order import PendingOrder
 from models.support_ticket import SupportTicket
 from models.customer_interaction import CustomerInteraction
 from models.inventory_reservation import InventoryReservation
+from models.whatsapp_message import WhatsAppMessage
 from services.inventory import reserve_inventory_for_order, consume_inventory_for_order, release_inventory_for_order
 from threading import Thread
 
@@ -585,13 +588,18 @@ app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 # This avoids repeatedly establishing a new PostgreSQL connection
 # and detects stale connections before using them.
 
-app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
-    "pool_size": 5,
-    "max_overflow": 2,
-    "pool_timeout": 5,
-    "pool_recycle": 1800,
-    "pool_pre_ping": True,
-}
+# PostgreSQL connection-pool tuning is only valid for PostgreSQL.
+# SQLite uses StaticPool/SingletonThreadPool and rejects these options.
+if database_url.startswith("postgresql"):
+    app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
+        "pool_size": 5,
+        "max_overflow": 2,
+        "pool_timeout": 5,
+        "pool_recycle": 1800,
+        "pool_pre_ping": True,
+    }
+else:
+    app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {}
 
 app.config["SESSION_COOKIE_HTTPONLY"] = True
 
@@ -1270,7 +1278,7 @@ def mark_order_as_paid(
 
     order.payment_status = PAYMENT_PAID
 
-    order.paid_at = datetime.utcnow()
+    order.paid_at = datetime.now(timezone.utc)
 
     if payment_method:
 
@@ -2474,7 +2482,7 @@ def business_dashboard(
     # 7-DAY REVENUE
     # --------------------------------------------------------
 
-    today = datetime.utcnow().date()
+    today = datetime.now(timezone.utc).date()
 
     revenue_chart = []
 
@@ -5129,6 +5137,49 @@ def agent_chat():
             }
         }
 
+
+def _mark_whatsapp_message_completed(message_id):
+    """Mark an inbound WhatsApp message as successfully processed."""
+    if not message_id:
+        return
+
+    try:
+        record = WhatsAppMessage.query.filter_by(
+            message_id=message_id
+        ).first()
+
+        if record:
+            record.mark_completed()
+            db.session.commit()
+    except Exception:
+        db.session.rollback()
+        app.logger.exception(
+            "Failed to mark WhatsApp message %s as completed",
+            message_id,
+        )
+
+
+def _mark_whatsapp_message_failed(message_id, error):
+    """Mark an inbound WhatsApp message as failed so a retry can reclaim it."""
+    if not message_id:
+        return
+
+    try:
+        record = WhatsAppMessage.query.filter_by(
+            message_id=message_id
+        ).first()
+
+        if record:
+            record.mark_failed(error)
+            db.session.commit()
+    except Exception:
+        db.session.rollback()
+        app.logger.exception(
+            "Failed to mark WhatsApp message %s as failed",
+            message_id,
+        )
+
+
 def process_whatsapp_image_async(
     business_id,
     from_phone,
@@ -5224,7 +5275,8 @@ Return only concise visual context.
                 image_context=image_context,
             )
 
-        except Exception:
+        except Exception as error:
+            _mark_whatsapp_message_failed(message_id, error)
 
             db.session.rollback()
 
@@ -5289,7 +5341,8 @@ def process_whatsapp_audio_async(
                 message_id
             )
 
-        except Exception:
+        except Exception as error:
+            _mark_whatsapp_message_failed(message_id, error)
 
             db.session.rollback()
 
@@ -5554,6 +5607,7 @@ def process_whatsapp_message_async(
 ):
 
     with app.app_context():
+        whatsapp_processing_succeeded = False
 
         app.logger.warning(
             "[ASYNC] Worker started for %s: %s",
@@ -5629,6 +5683,7 @@ def process_whatsapp_message_async(
                     time.perf_counter() - save_start,
                 )
 
+                whatsapp_processing_succeeded = True
                 return
 
             # ====================================================
@@ -5670,23 +5725,33 @@ def process_whatsapp_message_async(
                 time.perf_counter() - send_start
             )
 
-        except Exception:
-
+        except Exception as error:
             db.session.rollback()
+
+            _mark_whatsapp_message_failed(
+                message_id,
+                error,
+            )
 
             app.logger.exception(
                 "Async WhatsApp processing failed for %s",
                 from_phone
             )
 
+        else:
+            whatsapp_processing_succeeded = True
+
         finally:
+            if whatsapp_processing_succeeded:
+                _mark_whatsapp_message_completed(
+                    message_id
+                )
 
             with WHATSAPP_IN_FLIGHT_LOCK:
-
                 WHATSAPP_IN_FLIGHT.discard(
                     message_id
                 )
-                
+
 @app.route(
     "/webhook/whatsapp",
     methods=["GET", "POST"]
@@ -5831,6 +5896,8 @@ def whatsapp_webhook():
 
                 for wa_message in messages:
 
+                    contact_name = "New Customer"
+
                     if not isinstance(
                         wa_message,
                         dict
@@ -5850,6 +5917,124 @@ def whatsapp_webhook():
                         )
 
                         continue
+
+                    # ------------------------------------------------
+                    # DURABLE WHATSAPP IDEMPOTENCY
+                    # ------------------------------------------------
+                    #
+                    # The in-memory set protects against duplicates inside
+                    # this Python process. The database record protects
+                    # against duplicates across workers, restarts and
+                    # deployments.
+                    #
+                    # A unique message_id is the final authority.
+
+                    durable_message = WhatsAppMessage.query.filter_by(
+                        message_id=message_id
+                    ).first()
+
+                    if durable_message:
+
+                        # A completed message must never be processed again.
+                        if durable_message.status == "completed":
+
+                            app.logger.info(
+                                "Skipping completed duplicate WhatsApp "
+                                "message: %s",
+                                message_id,
+                            )
+
+                            continue
+
+                        # A processing record may belong to another live
+                        # worker. Only reclaim it when it is stale.
+                        if durable_message.status == "processing":
+
+                            now = datetime.now(timezone.utc)
+                            updated_at = durable_message.updated_at
+
+                            if updated_at is not None and updated_at.tzinfo is None:
+                                updated_at = updated_at.replace(
+                                    tzinfo=timezone.utc
+                                )
+
+                            processing_age = (
+                                now - updated_at
+                                if updated_at is not None
+                                else timedelta.max
+                            )
+
+                            if processing_age <= timedelta(minutes=10):
+
+                                app.logger.info(
+                                    "Skipping in-progress duplicate WhatsApp "
+                                    "message: %s",
+                                    message_id,
+                                )
+
+                                continue
+
+                            app.logger.warning(
+                                "Reclaiming stale WhatsApp message: %s "
+                                "(age=%s)",
+                                message_id,
+                                processing_age,
+                            )
+
+                            durable_message.status = "processing"
+                            durable_message.attempts = (
+                                durable_message.attempts or 0
+                            ) + 1
+                            durable_message.updated_at = now
+                            durable_message.error = None
+
+                            db.session.commit()
+
+                            app.logger.info(
+                                "Stale WhatsApp message reclaimed: %s",
+                                message_id,
+                            )
+
+                            # Continue through the normal dispatch path.
+
+                        # Failed messages are allowed to retry.
+                        durable_message.status = "processing"
+                        durable_message.attempts = (
+                            durable_message.attempts or 0
+                        ) + 1
+                        durable_message.updated_at = (
+                            datetime.now(timezone.utc)
+                        )
+                        durable_message.error = None
+                        db.session.commit()
+
+                    else:
+
+                        durable_message = WhatsAppMessage(
+                            message_id=message_id,
+                            business_id=business.id,
+                            from_phone=wa_message.get("from"),
+                            status="processing",
+                            attempts=1,
+                        )
+
+                        db.session.add(durable_message)
+
+                        try:
+
+                            db.session.commit()
+
+                        except IntegrityError:
+
+                            db.session.rollback()
+
+                            app.logger.info(
+                                "Skipping concurrently claimed WhatsApp "
+                                "message: %s",
+                                message_id,
+                            )
+
+                            continue
 
                     with WHATSAPP_IN_FLIGHT_LOCK:
 
@@ -5921,6 +6106,11 @@ def whatsapp_webhook():
                                 "has no media ID."
                             )
 
+                            _mark_whatsapp_message_failed(
+                                message_id,
+                                "Audio message has no media ID.",
+                            )
+
                             with WHATSAPP_IN_FLIGHT_LOCK:
 
                                 WHATSAPP_IN_FLIGHT.discard(
@@ -5929,18 +6119,35 @@ def whatsapp_webhook():
 
                             continue
 
-                        WHATSAPP_EXECUTOR.submit(
-                            process_whatsapp_audio_async,
-                            business.id,
-                            from_phone,
-                            media_id,
-                            (
-                                contact_name
-                                if "contact_name" in locals()
-                                else "New Customer"
-                            ),
-                            message_id,
-                        )
+                        try:
+
+                            WHATSAPP_EXECUTOR.submit(
+                                process_whatsapp_audio_async,
+                                business.id,
+                                from_phone,
+                                media_id,
+                                contact_name,
+                                message_id,
+                            )
+
+                        except Exception as exc:
+
+                            _mark_whatsapp_message_failed(
+                                message_id,
+                                f"Failed to submit WhatsApp audio worker: {exc}",
+                            )
+
+                            with WHATSAPP_IN_FLIGHT_LOCK:
+
+                                WHATSAPP_IN_FLIGHT.discard(
+                                    message_id
+                                )
+
+                            app.logger.exception(
+                                "Failed to submit WhatsApp audio worker "
+                                "for message %s",
+                                message_id,
+                            )
 
                         continue
 
@@ -6009,6 +6216,11 @@ def whatsapp_webhook():
                                 "has no media ID."
                             )
 
+                            _mark_whatsapp_message_failed(
+                                message_id,
+                                "Image message has no media ID.",
+                            )
+
                             with WHATSAPP_IN_FLIGHT_LOCK:
 
                                 WHATSAPP_IN_FLIGHT.discard(
@@ -6017,19 +6229,36 @@ def whatsapp_webhook():
 
                             continue
 
-                        WHATSAPP_EXECUTOR.submit(
-                            process_whatsapp_image_async,
-                            business.id,
-                            from_phone,
-                            media_id,
-                            caption,
-                            (
-                                contact_name
-                                if "contact_name" in locals()
-                                else "New Customer"
-                            ),
-                            message_id,
-                        )
+                        try:
+
+                            WHATSAPP_EXECUTOR.submit(
+                                process_whatsapp_image_async,
+                                business.id,
+                                from_phone,
+                                media_id,
+                                caption,
+                                contact_name,
+                                message_id,
+                            )
+
+                        except Exception as exc:
+
+                            _mark_whatsapp_message_failed(
+                                message_id,
+                                f"Failed to submit WhatsApp image worker: {exc}",
+                            )
+
+                            with WHATSAPP_IN_FLIGHT_LOCK:
+
+                                WHATSAPP_IN_FLIGHT.discard(
+                                    message_id
+                                )
+
+                            app.logger.exception(
+                                "Failed to submit WhatsApp image worker "
+                                "for message %s",
+                                message_id,
+                            )
 
                         continue
 
@@ -6045,6 +6274,10 @@ def whatsapp_webhook():
                             message_type
                         )
 
+                        _mark_whatsapp_message_completed(
+                            message_id
+                        )
+
                         with WHATSAPP_IN_FLIGHT_LOCK:
 
                             WHATSAPP_IN_FLIGHT.discard(
@@ -6054,6 +6287,11 @@ def whatsapp_webhook():
                         continue
 
                     if not from_phone or not text_body:
+
+                        _mark_whatsapp_message_failed(
+                            message_id,
+                            "WhatsApp text message is missing sender or body.",
+                        )
 
                         with WHATSAPP_IN_FLIGHT_LOCK:
 
@@ -6122,14 +6360,35 @@ def whatsapp_webhook():
                                 "New Customer"
                             )
 
-                            WHATSAPP_EXECUTOR.submit(
-                       process_whatsapp_message_async,
-                       business.id,
-                       from_phone,
-                       text_body,
-                       contact_name,
-                       message_id,
-)
+                            try:
+
+                                WHATSAPP_EXECUTOR.submit(
+                                    process_whatsapp_message_async,
+                                    business.id,
+                                    from_phone,
+                                    text_body,
+                                    contact_name,
+                                    message_id,
+                                )
+
+                            except Exception as exc:
+
+                                _mark_whatsapp_message_failed(
+                                    message_id,
+                                    f"Failed to submit WhatsApp worker: {exc}",
+                                )
+
+                                with WHATSAPP_IN_FLIGHT_LOCK:
+
+                                    WHATSAPP_IN_FLIGHT.discard(
+                                        message_id
+                                    )
+
+                                app.logger.exception(
+                                    "Failed to submit WhatsApp worker "
+                                    "for message %s",
+                                    message_id,
+                                )
 
     except Exception:
 
@@ -6690,6 +6949,98 @@ def create_paydunya_invoice(order):
 
     try:
 
+        # ========================================================
+        # SERIALIZE INVOICE CREATION PER ORDER
+        # ========================================================
+        #
+        # The first lightweight checks above are only advisory.
+        # The authoritative state check happens after acquiring
+        # the PostgreSQL row lock below.
+        #
+        # Holding this lock until the PayDunya request and local
+        # commit complete guarantees that concurrent workers cannot
+        # both create invoices for the same order.
+
+        locked_order = (
+            Order.query
+            .filter_by(id=order.id)
+            .populate_existing()
+            .with_for_update()
+            .first()
+        )
+
+        if not locked_order:
+            db.session.rollback()
+            return {
+                "success": False,
+                "error": "Order not found."
+            }
+
+        order = locked_order
+
+        # Re-check all mutable payment/order state AFTER the lock.
+        if order.payment_status == "Paid":
+            payment_record = Payment.query.filter_by(
+                order_id=order.id
+            ).first()
+
+            return {
+                "success": False,
+                "error": "This order has already been paid.",
+                "already_paid": True,
+                "order_id": order.id,
+                "payment_token": order.payment_token,
+                "checkout_url": (
+                    payment_record.checkout_url
+                    if payment_record
+                    else None
+                )
+            }
+
+        if order.status in {
+            "Cancelled",
+            "Rejected",
+            "Delivered",
+            "Completed",
+        }:
+            return {
+                "success": False,
+                "error": (
+                    "This order cannot receive a new payment "
+                    f"because its status is {order.status}."
+                ),
+                "order_id": order.id,
+                "status": order.status
+            }
+
+        # Another worker may have completed invoice creation while
+        # this worker was waiting for the row lock.
+        if order.payment_token:
+            payment_record = Payment.query.filter_by(
+                order_id=order.id
+            ).first()
+
+            if payment_record and payment_record.status == "Paid":
+                return {
+                    "success": False,
+                    "error": "This order has already been paid.",
+                    "already_paid": True,
+                    "order_id": order.id,
+                    "payment_token": order.payment_token,
+                    "checkout_url": payment_record.checkout_url
+                }
+
+            return {
+                "success": True,
+                "token": str(order.payment_token),
+                "checkout_url": (
+                    payment_record.checkout_url
+                    if payment_record
+                    else None
+                ),
+                "already_exists": True
+            }
+
         app.logger.warning(
             "========== PAYDUNYA CREATE FUNCTION REACHED =========="
         )
@@ -6887,6 +7238,10 @@ def create_paydunya_invoice(order):
                 payment_record.status = "Pending"
 
             payment_record.method = "PayDunya"
+
+        # Persist the checkout URL so concurrent requests that
+        # discover the existing invoice can reuse the same URL.
+        payment_record.checkout_url = checkout_url
 
         db.session.commit()
 

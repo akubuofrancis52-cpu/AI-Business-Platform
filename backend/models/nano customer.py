@@ -31,4 +31,4 @@ class Customer(db.Model):
 
 
     def __repr__(self):
-        return f"<Customer {self.phone}>"w
+        return f"<Customer {self.phone}>"

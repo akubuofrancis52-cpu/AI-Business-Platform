@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
 from database.db import db
 
@@ -73,7 +73,7 @@ class Order(db.Model):
 
     created_at = db.Column(
         db.DateTime,
-        default=datetime.utcnow,
+        default=lambda: datetime.now(timezone.utc),
         nullable=True
     )
 
@@ -126,7 +126,7 @@ class Order(db.Model):
         self.payment_status = "Paid"
 
         if not self.paid_at:
-            self.paid_at = datetime.utcnow()
+            self.paid_at = datetime.now(timezone.utc)
 
         if payment_method:
             self.payment_method = payment_method
