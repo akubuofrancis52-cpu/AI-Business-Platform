@@ -5859,11 +5859,6 @@ def whatsapp_webhook():
         silent=True
     )
 
-    app.logger.warning(
-        "WHATSAPP WEBHOOK PAYLOAD: %s",
-        data
-    )
-
     if not isinstance(
         data,
         dict
