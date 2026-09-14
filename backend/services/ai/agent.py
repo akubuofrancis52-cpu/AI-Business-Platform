@@ -1726,7 +1726,14 @@ You are a helpful restaurant assistant, not a rigid command interface.
 
 CONVERSATION RULES:
 - Understand what the customer is actually saying before responding.
-- Respond naturally and conversationally.
+- Respond naturally and conversationally, like a warm and attentive restaurant employee.
+- Avoid robotic, generic, scripted, or repetitive phrases.
+- Vary wording naturally while keeping the restaurant facts exact.
+- When greeting a customer, welcome them using the actual restaurant name when it is available.
+- A welcome should feel personal and service-oriented, not like a generic "Hi, how can I help?".
+- When answering menu questions, briefly connect the answer to what the customer appears to want or ask a useful follow-up when appropriate.
+- If the customer expresses a mood, craving, preference, or casual comment, acknowledge it naturally before answering.
+- Do not invent feelings or claims about the customer. For example, do not assume they are hungry unless their message supports that.
 - Use the recent conversation to understand context.
 - If the customer is casually commenting, acknowledge the comment naturally.
 - If the customer says they were only browsing, checking the menu, deciding,
@@ -6080,42 +6087,69 @@ def run_agent(
         message
     )
 
-    greeting_responses = {
-        "English": {
-            "hi": "Hi! How can I help you today?",
-            "hello": "Hello! How can I help you today?",
-            "hey": "Hey! How can I help you today?",
-            "good morning": "Good morning! How can I help you today?",
-            "good afternoon": "Good afternoon! How can I help you today?",
-            "good evening": "Good evening! How can I help you today?",
-        },
-        "French": {
-            "bonjour": "Bonjour ! Comment puis-je vous aider ?",
-            "bonsoir": "Bonsoir ! Comment puis-je vous aider ?",
-            "salut": "Salut ! Comment puis-je vous aider ?",
-        },
-        "Spanish": {
-            "hola": "¡Hola! ¿Cómo puedo ayudarte?",
-        },
-        "Portuguese": {
-            "olá": "Olá! Como posso ajudá-lo?",
-        },
-        "Italian": {
-            "ciao": "Ciao! Come posso aiutarti?",
-        },
-        "German": {
-            "hallo": "Hallo! Wie kann ich Ihnen helfen?",
-        },
+    greeting_phrases = {
+        "hi",
+        "hello",
+        "hey",
+        "good morning",
+        "good afternoon",
+        "good evening",
+        "bonjour",
+        "bonsoir",
+        "salut",
+        "hola",
+        "olá",
+        "ciao",
+        "hallo",
     }
 
-    language_greetings = greeting_responses.get(
-        language,
-        greeting_responses["English"]
-    )
+    if normalized_message in greeting_phrases:
+        # Use the same restaurant context already used by the AI response layer.
+        # This keeps greetings tenant-specific without hardcoding a restaurant name.
+        greeting_context = get_restaurant_context(business_id)
+        business_data = greeting_context.get("business", {})
+        restaurant_name = (
+            business_data.get("name")
+            or "our restaurant"
+        )
 
-    greeting_response = language_greetings.get(
-        normalized_message
-    )
+        if language == "French":
+            greeting_variants = [
+                f"Bienvenue chez {restaurant_name} ! Nous sommes ravis de vous accueillir. Que puis-je vous servir aujourd’hui ?",
+                f"Bienvenue chez {restaurant_name} ! C’est un plaisir de vous recevoir. Qu’est-ce qui vous ferait plaisir aujourd’hui ?",
+                f"Bonjour et bienvenue chez {restaurant_name} ! Nous sommes prêts à vous servir. Que puis-je vous proposer ?",
+            ]
+        elif language == "Spanish":
+            greeting_variants = [
+                f"¡Bienvenido a {restaurant_name}! Nos alegra mucho recibirte. ¿Qué te gustaría disfrutar hoy?",
+                f"¡Hola y bienvenido a {restaurant_name}! Estamos listos para atenderte. ¿Qué te apetece hoy?",
+            ]
+        elif language == "Portuguese":
+            greeting_variants = [
+                f"Bem-vindo ao {restaurant_name}! É um prazer receber você. O que gostaria de pedir hoje?",
+                f"Olá e bem-vindo ao {restaurant_name}! Estamos prontos para atendê-lo. O que gostaria de experimentar?",
+            ]
+        elif language == "Italian":
+            greeting_variants = [
+                f"Benvenuto da {restaurant_name}! Siamo felici di averti qui. Cosa posso servirti oggi?",
+                f"Ciao e benvenuto da {restaurant_name}! Siamo pronti a servirti. Cosa ti andrebbe oggi?",
+            ]
+        elif language == "German":
+            greeting_variants = [
+                f"Willkommen bei {restaurant_name}! Schön, dass Sie da sind. Was darf ich Ihnen heute anbieten?",
+                f"Herzlich willkommen bei {restaurant_name}! Wir freuen uns, Sie zu bedienen. Was möchten Sie heute genießen?",
+            ]
+        else:
+            greeting_variants = [
+                f"Welcome to {restaurant_name}! We're delighted to have you here and ready to serve you. What can I get for you today?",
+                f"Welcome to {restaurant_name}! It's lovely to have you here. What are you in the mood for today?",
+                f"Welcome to {restaurant_name}! We're happy to have you with us. What can I help you find today?",
+            ]
+
+        # Rotate naturally instead of returning the same canned sentence every time.
+        greeting_response = greeting_variants[
+            sum(ord(char) for char in normalized_message) % len(greeting_variants)
+        ]
 
     if greeting_response:
         return {
