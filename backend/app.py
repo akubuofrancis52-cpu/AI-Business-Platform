@@ -1,3 +1,5 @@
+import hashlib
+import hmac
 import os
 import re
 import time
@@ -625,7 +627,12 @@ db.init_app(app)
 
 WHATSAPP_VERIFY_TOKEN = os.environ.get(
     "WHATSAPP_VERIFY_TOKEN",
-    "my_verify_token"
+    ""
+)
+
+META_APP_SECRET = os.environ.get(
+    "META_APP_SECRET",
+    ""
 )
 
 WHATSAPP_TOKEN = os.environ.get(
@@ -5752,6 +5759,59 @@ def process_whatsapp_message_async(
                     message_id
                 )
 
+def verify_whatsapp_webhook_signature():
+    """
+    Verify Meta's X-Hub-Signature-256 header using the configured
+    Meta App Secret.
+
+    Fail closed when the secret is missing or the signature is invalid.
+    """
+    if not META_APP_SECRET:
+        app.logger.error(
+            "WhatsApp webhook rejected: META_APP_SECRET is not configured."
+        )
+        return False
+
+    signature = request.headers.get(
+        "X-Hub-Signature-256",
+        ""
+    ).strip()
+
+    if not signature.startswith("sha256="):
+        app.logger.warning(
+            "WhatsApp webhook rejected: missing or malformed "
+            "X-Hub-Signature-256 header."
+        )
+        return False
+
+    provided_digest = signature[len("sha256="):]
+
+    if len(provided_digest) != 64:
+        app.logger.warning(
+            "WhatsApp webhook rejected: invalid signature length."
+        )
+        return False
+
+    try:
+        int(provided_digest, 16)
+    except ValueError:
+        app.logger.warning(
+            "WhatsApp webhook rejected: signature is not valid hex."
+        )
+        return False
+
+    expected_digest = hmac.new(
+        META_APP_SECRET.encode("utf-8"),
+        request.get_data(),
+        hashlib.sha256,
+    ).hexdigest()
+
+    return hmac.compare_digest(
+        provided_digest,
+        expected_digest,
+    )
+
+
 @app.route(
     "/webhook/whatsapp",
     methods=["GET", "POST"]
@@ -5784,6 +5844,14 @@ def whatsapp_webhook():
 
         return (
             "Verification failed",
+            403
+        )
+
+    # Meta signs POST webhook bodies with the App Secret.
+    # Reject unsigned/invalid requests before touching the payload.
+    if not verify_whatsapp_webhook_signature():
+        return (
+            "Invalid webhook signature",
             403
         )
 
