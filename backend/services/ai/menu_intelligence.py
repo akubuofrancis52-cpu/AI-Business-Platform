@@ -162,6 +162,67 @@ def token_overlap(
     )
 
 
+def _normalize_menu_token(token):
+    """
+    Normalize a single menu-search token.
+
+    Keeps this generic: no restaurant-specific product names or
+    hardcoded categories are required.
+    """
+
+    token = normalize_text(token)
+
+    if len(token) <= 3:
+        return token
+
+    # Common plural forms.
+    if token.endswith("ies") and len(token) > 4:
+        return token[:-3] + "y"
+
+    if token.endswith("s") and not token.endswith("ss"):
+        return token[:-1]
+
+    return token
+
+
+def _semantic_tokens(text):
+    """
+    Convert text into normalized searchable tokens.
+    """
+
+    return {
+        _normalize_menu_token(token)
+        for token in normalize_text(text).split()
+        if token
+    }
+
+
+def _query_token_coverage(query, candidate):
+    """
+    Measure how much of the customer's query is represented
+    in the candidate text.
+
+    Example:
+        pizza -> Margherita Pizza = 1.0
+        pizzas -> Margherita Pizza = 1.0
+        strawberry -> Strawberry Ice Cream = 1.0
+
+    This is intentionally query-focused. A customer does not
+    need to type the complete menu item name.
+    """
+
+    query_tokens = _semantic_tokens(query)
+    candidate_tokens = _semantic_tokens(candidate)
+
+    if not query_tokens or not candidate_tokens:
+        return 0.0
+
+    matched = query_tokens & candidate_tokens
+
+    return len(matched) / len(query_tokens)
+
+
+
 # ==========================
 # SCORE MENU ITEM
 # ==========================
@@ -214,7 +275,23 @@ def score_menu_item(
             cleaned_query,
             name_normalized,
         ),
+        _query_token_coverage(
+            cleaned_query,
+            name_normalized,
+        ),
     )
+
+    # A complete query-token match inside the real item name is
+    # strong evidence even when the customer only supplied a
+    # category/product concept.
+    if _query_token_coverage(
+        cleaned_query,
+        name_normalized,
+    ) >= 1.0:
+        name_score = max(
+            name_score,
+            0.82,
+        )
 
     # --------------------------------------------------------
     # DESCRIPTION
@@ -234,6 +311,10 @@ def score_menu_item(
                 description_normalized,
             ),
             _token_overlap_normalized(
+                cleaned_query,
+                description_normalized,
+            ),
+            _query_token_coverage(
                 cleaned_query,
                 description_normalized,
             ),
@@ -257,6 +338,10 @@ def score_menu_item(
                 category_normalized,
             ),
             _token_overlap_normalized(
+                cleaned_query,
+                category_normalized,
+            ),
+            _query_token_coverage(
                 cleaned_query,
                 category_normalized,
             ),

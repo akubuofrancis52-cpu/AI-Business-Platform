@@ -274,6 +274,13 @@ class OpenAIProvider(AIProvider):
             "qwen/qwen3.6-27b",
         )
 
+        logger.warning(
+            "[VISION] provider=%s model=%s image_bytes=%s",
+            self.provider_name,
+            vision_model,
+            len(image_data_url),
+        )
+
         messages = [
             {
                 "role": "user",
@@ -306,6 +313,11 @@ class OpenAIProvider(AIProvider):
                     max_tokens=max_tokens,
                     reasoning_effort="none",
                 )
+            )
+
+            logger.warning(
+                "[VISION] request completed in %.2fs",
+                time.perf_counter() - ai_start,
             )
 
             if not response.choices:

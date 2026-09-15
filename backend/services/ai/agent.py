@@ -5039,6 +5039,7 @@ def resolve_contextual_menu_query(
         "which is cheaper",
         "what is cheaper",
         "what's cheaper",
+        "what s cheaper",
         "which one costs less",
         "which costs less",
         "what costs less",
@@ -5050,6 +5051,7 @@ def resolve_contextual_menu_query(
         "which is the cheapest",
         "what is the cheapest",
         "what's the cheapest",
+        "what s the cheapest",
         "cheapest",
 
         # French
@@ -5073,6 +5075,7 @@ def resolve_contextual_menu_query(
         "which is more expensive",
         "what is more expensive",
         "what's more expensive",
+        "what s more expensive",
         "give me the more expensive one",
         "give me a more expensive one",
         "the more expensive one",
@@ -5081,6 +5084,7 @@ def resolve_contextual_menu_query(
         "which is the most expensive",
         "what is the most expensive",
         "what's the most expensive",
+        "what s the most expensive",
         "most expensive",
         "which costs more",
         "what costs more",

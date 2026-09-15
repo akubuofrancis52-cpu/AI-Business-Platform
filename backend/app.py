@@ -55,9 +55,13 @@ from services.inventory import reserve_inventory_for_order, consume_inventory_fo
 from threading import Thread
 
 from services.ai.prompt_builder import build_restaurant_prompt
-from services.ai.openai_provider import OpenAIProvider
+from services.ai.provider import get_provider
 from services.ai.voice_transcriber import (
     transcribe_audio
+)
+
+from services.ai.tts_service import (
+    synthesize_speech
 )
 
 
@@ -791,6 +795,224 @@ def send_whatsapp_message(
 
         return False
 
+
+
+def send_whatsapp_audio(
+    to_phone,
+    audio_path,
+    mime_type=None,
+):
+    """
+    Normalize generated TTS audio and send it through
+    the WhatsApp Cloud API.
+
+    Piper normally produces WAV/PCM audio. WhatsApp receives
+    a normalized MP3 so the outbound format is predictable.
+    """
+
+    if (
+        not WHATSAPP_TOKEN
+        or not WHATSAPP_PHONE_NUMBER_ID
+    ):
+        app.logger.warning(
+            "WhatsApp credentials are not configured."
+        )
+        return False
+
+    if not audio_path or not os.path.isfile(audio_path):
+        app.logger.warning(
+            "WhatsApp audio path is missing or invalid."
+        )
+        return False
+
+    normalized_path = None
+
+    try:
+        import mimetypes
+        import requests
+        import subprocess
+        import tempfile
+
+        source_path = Path(audio_path)
+
+        # ----------------------------------------------------
+        # Normalize TTS audio for WhatsApp.
+        # ----------------------------------------------------
+        fd, normalized_name = tempfile.mkstemp(
+            prefix="botify_tts_",
+            suffix=".mp3",
+        )
+        os.close(fd)
+
+        normalized_path = normalized_name
+
+        ffmpeg_result = subprocess.run(
+            [
+                "ffmpeg",
+                "-y",
+                "-loglevel",
+                "error",
+                "-i",
+                str(source_path),
+                "-vn",
+                "-ac",
+                "1",
+                "-ar",
+                "24000",
+                "-codec:a",
+                "libmp3lame",
+                "-b:a",
+                "64k",
+                normalized_path,
+            ],
+            capture_output=True,
+            text=True,
+            timeout=60,
+            check=False,
+        )
+
+        if (
+            ffmpeg_result.returncode != 0
+            or not os.path.isfile(normalized_path)
+            or os.path.getsize(normalized_path) == 0
+        ):
+            app.logger.error(
+                "TTS audio normalization failed: %s",
+                (
+                    ffmpeg_result.stderr
+                    or "empty output"
+                )[-2000:],
+            )
+            return False
+
+        upload_mime_type = "audio/mpeg"
+
+        base_url = (
+            f"https://graph.facebook.com/v23.0/"
+            f"{WHATSAPP_PHONE_NUMBER_ID}"
+        )
+
+        headers = {
+            "Authorization": (
+                f"Bearer {WHATSAPP_TOKEN}"
+            )
+        }
+
+        # ----------------------------------------------------
+        # Upload normalized media to WhatsApp.
+        # ----------------------------------------------------
+        upload_start = time.perf_counter()
+
+        with open(normalized_path, "rb") as audio_file:
+            upload_response = requests.post(
+                f"{base_url}/media",
+                headers=headers,
+                data={
+                    "messaging_product": "whatsapp",
+                    "type": upload_mime_type,
+                },
+                files={
+                    "file": (
+                        os.path.basename(normalized_path),
+                        audio_file,
+                        upload_mime_type,
+                    )
+                },
+                timeout=30,
+            )
+
+        app.logger.warning(
+            "[PERF WA] Audio upload: %.3fs status=%s",
+            time.perf_counter() - upload_start,
+            upload_response.status_code,
+        )
+
+        if not upload_response.ok:
+            app.logger.error(
+                "WhatsApp audio upload failed %s: %s",
+                upload_response.status_code,
+                upload_response.text[:1000],
+            )
+            return False
+
+        try:
+            media_data = upload_response.json()
+        except ValueError:
+            app.logger.error(
+                "WhatsApp audio upload returned invalid JSON."
+            )
+            return False
+
+        media_id = media_data.get("id")
+
+        if not media_id:
+            app.logger.error(
+                "WhatsApp audio upload returned no media ID."
+            )
+            return False
+
+        # ----------------------------------------------------
+        # Send the uploaded media.
+        # ----------------------------------------------------
+        send_start = time.perf_counter()
+
+        send_response = requests.post(
+            f"{base_url}/messages",
+            headers={
+                **headers,
+                "Content-Type": "application/json",
+            },
+            json={
+                "messaging_product": "whatsapp",
+                "to": to_phone,
+                "type": "audio",
+                "audio": {
+                    "id": media_id,
+                },
+            },
+            timeout=30,
+        )
+
+        app.logger.warning(
+            "[PERF WA] Audio send: %.3fs status=%s",
+            time.perf_counter() - send_start,
+            send_response.status_code,
+        )
+
+        if send_response.ok:
+            return True
+
+        app.logger.error(
+            "WhatsApp audio send failed %s: %s",
+            send_response.status_code,
+            send_response.text[:1000],
+        )
+
+        return False
+
+    except subprocess.TimeoutExpired:
+        app.logger.error(
+            "TTS audio normalization timed out."
+        )
+        return False
+
+    except Exception:
+        app.logger.exception(
+            "WhatsApp audio delivery failed."
+        )
+        return False
+
+    finally:
+        if normalized_path:
+            try:
+                Path(normalized_path).unlink(
+                    missing_ok=True
+                )
+            except Exception:
+                app.logger.warning(
+                    "Could not remove temporary normalized TTS audio."
+                )
+
 # ============================================================
 # WHATSAPP AUDIO TRANSCRIPTION
 # ============================================================
@@ -1045,8 +1267,25 @@ def process_whatsapp_audio(
                 "WhatsApp audio download returned no file."
             )
 
+        # Load the restaurant's currently available menu so
+        # Whisper receives real restaurant vocabulary context.
+        menu_items = (
+            Menu.query
+            .filter(
+                Menu.business_id == business_id,
+                Menu.available.is_(True),
+            )
+            .order_by(
+                Menu.category.asc(),
+                Menu.name.asc(),
+            )
+            .limit(100)
+            .all()
+        )
+
         transcript = transcribe_audio(
-            audio_path
+            audio_path,
+            menu_items=menu_items,
         )
 
         transcript = (
@@ -5172,7 +5411,7 @@ Do NOT:
 Return only concise visual context.
 """
 
-            provider = OpenAIProvider()
+            provider = get_provider()
 
             image_context = provider.analyze_image(
                 image_data_url,
@@ -5217,10 +5456,33 @@ Return only concise visual context.
                 from_phone
             )
 
+            # Keep the failure concise and human, but make it
+            # language-aware instead of exposing a generic backend
+            # error message.
+            failure_language = "French"
+
+            try:
+                failure_language = detect_customer_language(
+                    caption or "",
+                    fallback_language="fr",
+                )
+            except Exception:
+                pass
+
+            if failure_language == "French":
+                failure_message = (
+                    "Je n’arrive pas à lire cette photo pour le moment. "
+                    "Vous pouvez me la renvoyer ?"
+                )
+            else:
+                failure_message = (
+                    "I couldn't read that photo just now. "
+                    "Could you send it again?"
+                )
+
             send_whatsapp_message(
                 from_phone,
-                "Sorry, I couldn't process that image right now. "
-                "Please try again."
+                failure_message,
             )
 
         finally:
@@ -5269,7 +5531,8 @@ def process_whatsapp_audio_async(
                 from_phone,
                 text_body,
                 contact_name,
-                message_id
+                message_id,
+                prefer_audio=True,
             )
 
         except Exception as error:
@@ -5346,49 +5609,6 @@ def fast_whatsapp_response(
     # --------------------------------------------------------
     # FAST GREETINGS
     # --------------------------------------------------------
-
-    greeting_responses = {
-        "English": {
-            "hi": "Hi! How can I help you today?",
-            "hello": "Hello! How can I help you today?",
-            "hey": "Hey! How can I help you today?",
-            "good morning": "Good morning! How can I help you today?",
-            "good afternoon": "Good afternoon! How can I help you today?",
-            "good evening": "Good evening! How can I help you today?",
-        },
-        "French": {
-            "bonjour": "Bonjour ! Comment puis-je vous aider ?",
-            "bonsoir": "Bonsoir ! Comment puis-je vous aider ?",
-            "salut": "Salut ! Comment puis-je vous aider ?",
-        },
-        "Spanish": {
-            "hola": "¡Hola! ¿Cómo puedo ayudarte?",
-        },
-        "Portuguese": {
-            "olá": "Olá! Como posso ajudá-lo?",
-        },
-        "Italian": {
-            "ciao": "Ciao! Come posso aiutarti?",
-        },
-        "German": {
-            "hallo": "Hallo! Wie kann ich Ihnen helfen?",
-        },
-    }
-
-    response = (
-        greeting_responses
-        .get(language, greeting_responses["English"])
-        .get(normalized)
-    )
-
-    if response:
-        return {
-            "type": "response",
-            "message": customer_response(
-                response,
-                message,
-            ),
-        }
 
     # --------------------------------------------------------
     # FAST QUANTITY-CHANGE DETECTION
@@ -5528,6 +5748,85 @@ def save_fast_whatsapp_conversation(
 # WHATSAPP WEBHOOK
 # ============================================================
 
+def send_whatsapp_response(
+    to_phone,
+    response_text,
+    language=None,
+    prefer_audio=False,
+):
+    """
+    Deliver a restaurant-agent response.
+
+    Text remains the authoritative fallback. TTS is deliberately
+    optional so a voice-generation/provider failure can never
+    break the restaurant agent.
+    """
+
+    response_text = (
+        str(response_text or "")
+        .strip()
+    )
+
+    if not response_text:
+        app.logger.warning(
+            "Attempted to send an empty WhatsApp response."
+        )
+        return False
+
+    # --------------------------------------------------------
+    # Default behavior remains text.
+    # --------------------------------------------------------
+    if not prefer_audio:
+        return send_whatsapp_message(
+            to_phone,
+            response_text,
+        )
+
+    audio_path = None
+
+    try:
+        audio_path = synthesize_speech(
+            response_text,
+            language=language,
+        )
+
+        if not audio_path:
+            raise RuntimeError(
+                "TTS returned no audio file."
+            )
+
+        audio_sent = send_whatsapp_audio(
+            to_phone,
+            audio_path,
+        )
+
+        if audio_sent:
+            return True
+
+        app.logger.warning(
+            "[VOICE] Audio delivery failed; "
+            "falling back to text."
+        )
+
+    except Exception:
+        app.logger.exception(
+            "[VOICE] TTS failed; falling back to text."
+        )
+
+    finally:
+        if audio_path:
+            try:
+                import os
+                os.remove(audio_path)
+            except OSError:
+                pass
+
+    return send_whatsapp_message(
+        to_phone,
+        response_text,
+    )
+
+
 def process_whatsapp_message_async(
     business_id,
     from_phone,
@@ -5535,10 +5834,16 @@ def process_whatsapp_message_async(
     contact_name,
     message_id,
     image_context=None,
+    prefer_audio=False,
 ):
 
     with app.app_context():
         whatsapp_processing_succeeded = False
+
+        customer_language = detect_customer_language(
+            text_body,
+            fallback_language="fr",
+        )
 
         app.logger.warning(
             "[ASYNC] Worker started for %s: %s",
@@ -5586,9 +5891,11 @@ def process_whatsapp_message_async(
 
                 send_start = time.perf_counter()
 
-                send_whatsapp_message(
+                send_whatsapp_response(
                     from_phone,
                     reply_text,
+                    language=customer_language,
+                    prefer_audio=prefer_audio,
                 )
 
                 app.logger.warning(
@@ -5646,9 +5953,11 @@ def process_whatsapp_message_async(
 
             send_start = time.perf_counter()
 
-            send_whatsapp_message(
+            send_whatsapp_response(
                 from_phone,
-                reply_text
+                reply_text,
+                language=customer_language,
+                prefer_audio=prefer_audio,
             )
 
             app.logger.info(
