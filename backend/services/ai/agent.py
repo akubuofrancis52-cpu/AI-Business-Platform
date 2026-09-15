@@ -4340,6 +4340,965 @@ Write the response now.
     )
 
 
+
+
+# ============================================================
+# CONTEXTUAL ORDER MODIFICATION REFERENCES
+# ============================================================
+
+def resolve_contextual_modify_reference(
+    business_id,
+    message,
+    history=None,
+    phone=None,
+):
+    """
+    Resolve conversational order references against the customer's
+    actual pending/active order first, using conversation history only
+    to determine which ordered item a vague reference points to.
+
+    Examples:
+        "make it two"
+        "make the first one two"
+        "remove that one"
+        "take the second one"
+        "mets le deuxième à deux"
+
+    Database order state is authoritative. This function only resolves
+    the reference and never mutates an order.
+    """
+
+    from services.ai.menu_intelligence import get_menu_items
+
+    message = clean_text(message)
+    normalized = normalize_text(message)
+    history = history or []
+
+    if not message or not normalized:
+        return None
+
+    # --------------------------------------------------------
+    # REFERENCE PHRASES
+    # --------------------------------------------------------
+
+    reference_phrases = (
+        "that one",
+        "this one",
+        "the one",
+        "the first one",
+        "the second one",
+        "the third one",
+        "the fourth one",
+        "first one",
+        "second one",
+        "third one",
+        "fourth one",
+        "that",
+        "this",
+        "celui la",
+        "celui-là",
+        "celle la",
+        "celle-là",
+        "celui ci",
+        "celui-ci",
+        "celle ci",
+        "celle-ci",
+        "retire celui",
+        "retire celle",
+        "enlève celui",
+        "enleve celui",
+        "enlève celle",
+        "enleve celle",
+        "supprime celui",
+        "supprime celle",
+        "le premier",
+        "la première",
+        "le deuxième",
+        "la deuxième",
+        "le second",
+        "la seconde",
+        "le troisième",
+        "la troisième",
+        "le quatrième",
+        "la quatrième",
+    )
+
+    ordinal_map = {
+        "first one": 0,
+        "the first one": 0,
+        "second one": 1,
+        "the second one": 1,
+        "third one": 2,
+        "the third one": 2,
+        "fourth one": 3,
+        "the fourth one": 3,
+        "le premier": 0,
+        "la première": 0,
+        "le deuxième": 1,
+        "la deuxième": 1,
+        "le second": 1,
+        "la seconde": 1,
+        "le troisième": 2,
+        "la troisième": 2,
+        "le quatrième": 3,
+        "la quatrième": 3,
+    }
+
+    has_reference = any(
+        phrase in normalized
+        for phrase in reference_phrases
+    )
+
+    # "make it two" / "mets-en deux" also needs context.
+    quantity_reference_phrases = (
+        "make it",
+        "make that",
+        "make this",
+        "change it to",
+        "change that to",
+        "change this to",
+        "set it to",
+        "set that to",
+        "set this to",
+        "mets le à",
+        "mets la à",
+        "mets en",
+        "mets-en",
+        "met le à",
+        "met la à",
+        "mets ça à",
+        "mets ca a",
+        "mets-le à",
+        "mets-la à",
+    )
+
+    has_quantity_reference = any(
+        phrase in normalized
+        for phrase in quantity_reference_phrases
+    )
+
+    if not has_reference and not has_quantity_reference:
+        return None
+
+    # --------------------------------------------------------
+    # LOAD REAL MENU
+    # --------------------------------------------------------
+
+    try:
+        menu_items = get_menu_items(business_id)
+    except Exception:
+        logger.exception(
+            "Contextual modify reference: menu load failed."
+        )
+        return None
+
+    if not menu_items:
+        return None
+
+    menu_by_normalized_name = {}
+
+    for item in menu_items:
+        item_name = clean_text(item.name)
+
+        if not item_name:
+            continue
+
+        normalized_name = normalize_text(item_name)
+
+        if normalized_name:
+            menu_by_normalized_name[normalized_name] = item
+
+    # --------------------------------------------------------
+    # LOAD CUSTOMER'S REAL CURRENT ORDER
+    #
+    # PendingOrder is checked first because this resolver is used
+    # during the conversational preview flow. If no pending preview
+    # exists, fall back to the active Order.
+    # --------------------------------------------------------
+
+    ordered_items = []
+
+    if phone:
+        try:
+            from models.customer import Customer
+            from models.pending_order import PendingOrder
+
+            customer = Customer.query.filter_by(
+                business_id=business_id,
+                phone=phone,
+            ).first()
+
+            if customer:
+
+                preview = (
+                    PendingOrder.query
+                    .filter_by(
+                        business_id=business_id,
+                        customer_id=customer.id,
+                        status="pending",
+                    )
+                    .order_by(
+                        PendingOrder.id.desc()
+                    )
+                    .first()
+                )
+
+                if preview:
+                    try:
+                        preview_items = json.loads(
+                            preview.items_json or "[]"
+                        )
+                    except (
+                        json.JSONDecodeError,
+                        TypeError,
+                    ):
+                        preview_items = []
+
+                    if isinstance(preview_items, list):
+                        for item_data in preview_items:
+                            if not isinstance(item_data, dict):
+                                continue
+
+                            item_name = clean_text(
+                                item_data.get("name") or ""
+                            )
+
+                            normalized_name = normalize_text(
+                                item_name
+                            )
+
+                            real_item = (
+                                menu_by_normalized_name.get(
+                                    normalized_name
+                                )
+                            )
+
+                            if real_item is not None:
+                                ordered_items.append(real_item)
+
+                # No pending preview: inspect the latest active order.
+                if not ordered_items:
+                    from models.order import Order
+
+                    active_order = (
+                        Order.query
+                        .filter(
+                            Order.business_id == business_id,
+                            Order.customer_id == customer.id,
+                            Order.status.in_([
+                                "Pending",
+                                "Preparing",
+                            ]),
+                        )
+                        .order_by(
+                            Order.id.desc()
+                        )
+                        .first()
+                    )
+
+                    if active_order:
+                        for order_item in active_order.items:
+                            item_name = clean_text(
+                                order_item.name or ""
+                            )
+
+                            normalized_name = normalize_text(
+                                item_name
+                            )
+
+                            real_item = (
+                                menu_by_normalized_name.get(
+                                    normalized_name
+                                )
+                            )
+
+                            if real_item is not None:
+                                ordered_items.append(real_item)
+
+        except Exception:
+            logger.exception(
+                "Contextual modify reference: "
+                "customer order lookup failed."
+            )
+
+    # --------------------------------------------------------
+    # BUILD HISTORY CONTEXT
+    #
+    # Keep history for conversational recency, but never let an item
+    # that is not in the customer's current order become the target.
+    # --------------------------------------------------------
+
+    contextual_items = []
+
+    for entry in history[-8:]:
+        if not isinstance(entry, dict):
+            continue
+
+        customer_text = clean_text(
+            entry.get("message")
+        )
+        assistant_text = clean_text(
+            entry.get("response")
+        )
+
+        conversation_text = " ".join(
+            part
+            for part in (
+                customer_text,
+                assistant_text,
+            )
+            if part
+        )
+
+        normalized_conversation = normalize_text(
+            conversation_text
+        )
+
+        if not normalized_conversation:
+            continue
+
+        # Prefer actual ordered items as the allowed candidate set.
+        candidate_items = (
+            ordered_items
+            if ordered_items
+            else menu_items
+        )
+
+        for item in candidate_items:
+            item_name = clean_text(item.name)
+            normalized_name = normalize_text(item_name)
+
+            if (
+                normalized_name
+                and normalized_name
+                in normalized_conversation
+            ):
+                if item not in contextual_items:
+                    contextual_items.append(item)
+
+    # --------------------------------------------------------
+    # IMPORTANT:
+    # If we have a real order, contextual candidates are restricted
+    # to items actually present in that order.
+    # --------------------------------------------------------
+
+    if ordered_items:
+        allowed_names = {
+            normalize_text(clean_text(item.name))
+            for item in ordered_items
+        }
+
+        contextual_items = [
+            item
+            for item in contextual_items
+            if normalize_text(clean_text(item.name))
+            in allowed_names
+        ]
+
+    if not contextual_items and ordered_items:
+        # We have a real order but the history did not explicitly name
+        # its items. For generic quantity references, the latest ordered
+        # item is the safest conversational target.
+        contextual_items = list(ordered_items)
+
+    if not contextual_items:
+        return None
+
+    # --------------------------------------------------------
+    # DETERMINE EXPLICIT ORDINAL FIRST
+    # --------------------------------------------------------
+
+    selected = None
+
+    for phrase, index in sorted(
+        ordinal_map.items(),
+        key=lambda pair: len(pair[0]),
+        reverse=True,
+    ):
+        if phrase in normalized:
+            if index < len(contextual_items):
+                selected = contextual_items[index]
+            break
+
+    # --------------------------------------------------------
+    # GENERIC REFERENCES
+    # --------------------------------------------------------
+
+    if selected is None and has_quantity_reference:
+        # Quantity-only references such as "make it two" refer to
+        # the most recently ordered/contextually referenced item.
+        selected = contextual_items[-1]
+
+    if selected is None and has_reference:
+        generic_reference = any(
+            phrase in normalized
+            for phrase in (
+                "that one",
+                "this one",
+                "the one",
+                "that",
+                "this",
+                "celui la",
+                "celui-là",
+                "celle la",
+                "celle-là",
+                "celui ci",
+                "celui-ci",
+                "celle ci",
+                "celle-ci",
+                "retire celui",
+                "retire celle",
+                "enlève celui",
+                "enleve celui",
+                "enlève celle",
+                "enleve celle",
+                "supprime celui",
+                "supprime celle",
+            )
+        )
+
+        if generic_reference:
+            selected = contextual_items[-1]
+
+    if selected is None:
+        return None
+
+    selected_name = clean_text(
+        selected.name
+    )
+
+    # --------------------------------------------------------
+    # EXTRACT EXPLICIT QUANTITY
+    # --------------------------------------------------------
+
+    quantity = None
+
+    number_words = {
+        "one": 1,
+        "two": 2,
+        "three": 3,
+        "four": 4,
+        "five": 5,
+        "un": 1,
+        "une": 1,
+        "deux": 2,
+        "trois": 3,
+        "quatre": 4,
+        "cinq": 5,
+    }
+
+    # First handle explicit ordinal references with a quantity:
+    #
+    #   "make the first one two"
+    #   "make the second one 3"
+    #   "change the first one to four"
+    #   "mets le deuxième à trois"
+    #
+    # This must run before the generic "make it two" extraction.
+    ordinal_quantity_match = re.search(
+        r"\b(?:make|change|set)\s+(?:the\s+)?"
+        r"(?:first|second|third|fourth)\s+one"
+        r"(?:\s+to)?\s+(\d+|one|two|three|four|five)\b",
+        normalized,
+    )
+
+    if ordinal_quantity_match:
+        raw_quantity = ordinal_quantity_match.group(1)
+        quantity = (
+            int(raw_quantity)
+            if raw_quantity.isdigit()
+            else number_words.get(raw_quantity)
+        )
+
+    if quantity is None:
+        # normalize_text() removes accents, so:
+        # "mets le deuxième à trois"
+        # becomes:
+        # "mets le deuxieme a trois"
+        #
+        # Match the normalized form directly.
+        french_ordinal_quantity_match = re.search(
+            r"\b(?:mets|met)\s+(?:le|la)\s+"
+            r"(?:premier|première|premiere|deuxième|deuxieme|"
+            r"second|seconde|troisième|troisieme|"
+            r"quatrième|quatrieme)\s+(?:à|a)\s+"
+            r"(\d+|un|une|deux|trois|quatre|cinq)\b",
+            message,
+            re.IGNORECASE,
+        )
+
+        if french_ordinal_quantity_match:
+            raw_quantity = french_ordinal_quantity_match.group(1)
+
+            quantity = (
+                int(raw_quantity)
+                if raw_quantity.isdigit()
+                else number_words.get(raw_quantity)
+            )
+
+    if quantity is None:
+        match = re.search(
+            r"\b(?:make\s+(?:it|that|this)|"
+            r"change\s+(?:it|that|this)\s+to|"
+            r"mets(?:[- ]en)?|met(?:s)?(?:[- ]en)?|"
+            r"set(?:\s+it)?\s+to)\s+"
+            r"(\d+|one|two|three|four|five|un|une|deux|trois|quatre|cinq)\b",
+            normalized,
+        )
+
+        if match:
+            raw_quantity = match.group(1)
+            quantity = (
+                int(raw_quantity)
+                if raw_quantity.isdigit()
+                else number_words.get(raw_quantity)
+            )
+
+    if quantity is None:
+        for word, value in number_words.items():
+            if re.search(
+                rf"\b{re.escape(word)}\b",
+                normalized,
+            ):
+                if (
+                    has_quantity_reference
+                    or "quantity" in normalized
+                    or "quantité" in normalized
+                ):
+                    quantity = value
+                    break
+
+    if quantity is not None:
+        return (
+            f"change the quantity of "
+            f"{quantity} {selected_name}"
+        )
+
+    return (
+        f"{message} "
+        f"(the referenced menu item is "
+        f"{selected_name})"
+    )
+
+
+# ============================================================
+# CONTEXTUAL MENU INTELLIGENCE
+# ============================================================
+
+def resolve_contextual_menu_query(
+    business_id,
+    message,
+    history=None,
+):
+    """
+    Resolve natural menu questions using the real restaurant
+    menu and recent conversation context.
+
+    Important:
+    Contextual comparisons first identify actual menu items
+    mentioned in the previous conversation. They never fall
+    back to unrelated menu items when the customer says
+    "which one" or similar contextual language.
+    """
+
+    from services.ai.menu_intelligence import (
+        get_menu_items,
+        search_menu,
+        recommend_menu,
+    )
+
+    history = history or []
+    message = clean_text(message)
+    normalized = normalize_text(message)
+
+    if not normalized:
+        return None
+
+    try:
+        menu_items = get_menu_items(
+            business_id
+        )
+    except Exception:
+        logger.exception(
+            "Contextual menu query: menu load failed."
+        )
+        return None
+
+    if not menu_items:
+        return None
+
+    def item_dict(item):
+        return {
+            "id": item.id,
+            "name": item.name,
+            "description": item.description or "",
+            "category": item.category or "Other",
+            "price": float(item.price or 0),
+            "currency": "FCFA",
+        }
+
+    # --------------------------------------------------------
+    # Exact menu-item extraction from conversation.
+    #
+    # Instead of asking search_menu() to understand an entire
+    # previous sentence, compare every real menu item against
+    # the actual conversation text.
+    # --------------------------------------------------------
+
+    contextual_items = []
+    contextual_ids = set()
+
+    recent_history = history[-8:]
+
+    for entry in recent_history:
+
+        if not isinstance(entry, dict):
+            continue
+
+        customer_text = clean_text(
+            entry.get("message")
+        )
+
+        assistant_text = clean_text(
+            entry.get("response")
+        )
+
+        conversation_text = " ".join(
+            part
+            for part in (
+                customer_text,
+                assistant_text,
+            )
+            if part
+        )
+
+        if not conversation_text:
+            continue
+
+        normalized_conversation = normalize_text(
+            conversation_text
+        )
+
+        for menu_item in menu_items:
+
+            item_name = normalize_text(
+                menu_item.name
+            )
+
+            if not item_name:
+                continue
+
+            # Exact normalized menu-name occurrence.
+            if item_name in normalized_conversation:
+
+                if menu_item.id not in contextual_ids:
+
+                    contextual_ids.add(
+                        menu_item.id
+                    )
+
+                    contextual_items.append(
+                        item_dict(menu_item)
+                    )
+
+                continue
+
+            # Also allow the complete item name to be found
+            # through search_menu for natural references such
+            # as shortened names.
+            matches = search_menu(
+                business_id,
+                customer_text,
+                limit=3,
+                menu_items=menu_items,
+            ) if customer_text else []
+
+            matched = any(
+                match.get("id") == menu_item.id
+                and float(match.get("score", 0)) >= 0.70
+                for match in matches
+            )
+
+            if matched and menu_item.id not in contextual_ids:
+
+                contextual_ids.add(
+                    menu_item.id
+                )
+
+                contextual_items.append(
+                    item_dict(menu_item)
+                )
+
+    # --------------------------------------------------------
+    # Comparative language.
+    # --------------------------------------------------------
+
+    cheaper_phrases = (
+        # English
+        "which one is cheaper",
+        "which is cheaper",
+        "what is cheaper",
+        "what's cheaper",
+        "which one costs less",
+        "which costs less",
+        "what costs less",
+        "give me the cheaper one",
+        "give me a cheaper one",
+        "the cheaper one",
+        "cheaper one",
+        "cheapest one",
+        "which is the cheapest",
+        "what is the cheapest",
+        "what's the cheapest",
+        "cheapest",
+
+        # French
+        "laquelle est moins chère",
+        "lequel est moins cher",
+        "laquelle coûte moins cher",
+        "lequel coûte moins cher",
+        "donne moi la moins chère",
+        "donne-moi la moins chère",
+        "donne moi le moins cher",
+        "donne-moi le moins cher",
+        "la moins chère",
+        "le moins cher",
+        "moins chère",
+        "moins cher",
+    )
+
+    more_expensive_phrases = (
+        # English
+        "which one is more expensive",
+        "which is more expensive",
+        "what is more expensive",
+        "what's more expensive",
+        "give me the more expensive one",
+        "give me a more expensive one",
+        "the more expensive one",
+        "more expensive one",
+        "most expensive one",
+        "which is the most expensive",
+        "what is the most expensive",
+        "what's the most expensive",
+        "most expensive",
+        "which costs more",
+        "what costs more",
+
+        # French
+        "laquelle est plus chère",
+        "lequel est plus cher",
+        "laquelle coûte plus cher",
+        "lequel coûte plus cher",
+        "donne moi la plus chère",
+        "donne-moi la plus chère",
+        "donne moi le plus cher",
+        "donne-moi le plus cher",
+        "la plus chère",
+        "le plus cher",
+        "plus chère",
+        "plus cher",
+    )
+
+    is_cheaper_question = any(
+        phrase in normalized
+        for phrase in cheaper_phrases
+    )
+
+    is_more_expensive_question = any(
+        phrase in normalized
+        for phrase in more_expensive_phrases
+    )
+
+    if is_cheaper_question or is_more_expensive_question:
+
+        # ----------------------------------------------------
+        # If the customer says "which one", context is required.
+        #
+        # Never compare the whole menu if we have a contextual
+        # conversation but failed to identify the candidates.
+        # Let the normal agent handle clarification instead.
+        # ----------------------------------------------------
+
+        if not contextual_items:
+
+            return None
+
+        if is_cheaper_question:
+
+            contextual_items.sort(
+                key=lambda item: float(
+                    item.get("price", 0)
+                )
+            )
+
+            return {
+                "type": "price_comparison",
+                "comparison": "cheapest",
+                "items": contextual_items,
+            }
+
+        contextual_items.sort(
+            key=lambda item: float(
+                item.get("price", 0)
+            ),
+            reverse=True,
+        )
+
+        return {
+            "type": "price_comparison",
+            "comparison": "most_expensive",
+            "items": contextual_items,
+        }
+
+    # --------------------------------------------------------
+    # Natural menu/category requests.
+    # --------------------------------------------------------
+
+    menu_question_phrases = (
+        "do you have",
+        "do you sell",
+        "what do you have",
+        "what kind of",
+        "what type of",
+        "show me",
+        "give me",
+        "anything with",
+        "something with",
+        "something fruity",
+        "something sweet",
+        "something spicy",
+        "something filling",
+        "something light",
+        "something refreshing",
+        "what pizza",
+        "what pizzas",
+        "what burger",
+        "what burgers",
+        "what drinks",
+        "what drink",
+        "what dessert",
+        "what desserts",
+        "what ice cream",
+        "what gelato",
+        "quelle pizza",
+        "quelles pizzas",
+        "quelle glace",
+        "quelles glaces",
+        "quel dessert",
+        "quels desserts",
+        "quelle boisson",
+        "quelles boissons",
+        "vous avez",
+        "avez-vous",
+    )
+
+    if not any(
+        phrase in normalized
+        for phrase in menu_question_phrases
+    ):
+        return None
+
+    matches = search_menu(
+        business_id,
+        message,
+        limit=8,
+        menu_items=menu_items,
+    )
+
+    if not matches or max(
+        float(item.get("score", 0))
+        for item in matches
+    ) < 0.50:
+
+        matches = recommend_menu(
+            business_id,
+            query=message,
+            limit=8,
+            menu_items=menu_items,
+        )
+
+    if not matches:
+        return None
+
+    return {
+        "type": "menu_matches",
+        "items": matches,
+    }
+
+def build_contextual_menu_response(
+    result,
+    language="English",
+):
+    """Build a concise customer-facing response from grounded data."""
+
+    if not isinstance(result, dict):
+        return None
+
+    items = [
+        item
+        for item in (result.get("items") or [])
+        if isinstance(item, dict)
+    ]
+
+    if not items:
+        return None
+
+    if result.get("type") == "price_comparison":
+        selected = items[0]
+        name = clean_text(
+            selected.get("name")
+        )
+        price = float(
+            selected.get("price", 0)
+        )
+
+        if result.get("comparison") == "cheapest":
+            if language == "French":
+                return (
+                    f"Le moins cher est {name} "
+                    f"à {price:,.0f} FCFA."
+                )
+
+            return (
+                f"The cheapest is {name} "
+                f"at {price:,.0f} FCFA."
+            )
+
+        if language == "French":
+            return (
+                f"Le plus cher est {name} "
+                f"à {price:,.0f} FCFA."
+            )
+
+        return (
+            f"The most expensive is {name} "
+            f"at {price:,.0f} FCFA."
+        )
+
+    if result.get("type") == "menu_matches":
+        if language == "French":
+            lines = [
+                "Oui, voici les options du menu qui correspondent :"
+            ]
+        else:
+            lines = [
+                "Yes — these are the menu options that match:"
+            ]
+
+        for item in items[:5]:
+            name = clean_text(item.get("name"))
+            price = float(item.get("price", 0))
+
+            lines.append(
+                f"• {name} — {price:,.0f} FCFA"
+            )
+
+        return "\n".join(lines)
+
+    return None
+
+
 # ============================================================
 # FAST INTENT CLASSIFICATION
 # ============================================================
@@ -4442,6 +5401,85 @@ def classify_message_fast(message):
     # --------------------------------------------------------
     # MODIFY ORDER
     # --------------------------------------------------------
+
+    # Natural conversational modifications must stay on the
+    # deterministic order-modification path. These phrases often
+    # contain no explicit menu item, so they cannot rely on the
+    # normal add/remove keyword lists alone.
+    contextual_modify_phrases = (
+        # English quantity follow-ups
+        "make it ",
+        "make that ",
+        "make this ",
+        "change it to ",
+        "change that to ",
+        "change this to ",
+        "set it to ",
+        "set that to ",
+        "set this to ",
+
+        # English contextual item references
+        "that one",
+        "this one",
+        "the first one",
+        "the second one",
+        "the third one",
+        "the fourth one",
+        "first one",
+        "second one",
+        "third one",
+        "fourth one",
+        "remove that",
+        "remove this",
+        "take off that",
+        "take off this",
+        "delete that",
+        "delete this",
+
+        # French quantity follow-ups
+        "mets en ",
+        "mets-en ",
+        "mets le à ",
+        "mets la à ",
+        "mets-le à ",
+        "mets-la à ",
+        "met le à ",
+        "met la à ",
+        "change la quantité de ",
+
+        # French contextual references
+        "celui-là",
+        "celui la",
+        "celle-là",
+        "celle la",
+        "celui-ci",
+        "celui ci",
+        "celle-ci",
+        "celle ci",
+        "le premier",
+        "la première",
+        "le deuxième",
+        "la deuxième",
+        "le second",
+        "la seconde",
+        "le troisième",
+        "la troisième",
+        "le quatrième",
+        "la quatrième",
+        "supprime celui",
+        "supprime celle",
+        "retire celui",
+        "retire celle",
+        "enlève celui",
+        "enleve celui",
+        "enlève celle",
+        "enleve celle",
+    )
+
+    if contains_any(
+        contextual_modify_phrases
+    ):
+        return "modify_order"
 
     if contains_any(
         FAST_MODIFY_PHRASES
@@ -6328,6 +7366,34 @@ def run_agent(
     )
 
     # ========================================================
+    # CONTEXTUAL MENU INTELLIGENCE
+    # ========================================================
+    #
+    # Resolve menu questions against real menu data and recent
+    # conversation before normal intent-specific handling.
+
+    contextual_menu_result = resolve_contextual_menu_query(
+        business_id=business_id,
+        message=message,
+        history=history,
+    )
+
+    if contextual_menu_result:
+        contextual_menu_response = build_contextual_menu_response(
+            contextual_menu_result,
+            language=language,
+        )
+
+        if contextual_menu_response:
+            return {
+                "type": "response",
+                "message": customer_response(
+                    contextual_menu_response,
+                    message,
+                ),
+            }
+
+    # ========================================================
     # CUSTOMER FEEDBACK / RELATIONSHIP RESPONSE
     # ========================================================
 
@@ -7122,10 +8188,42 @@ RULES:
 
     if classification == "modify_order":
 
+        modification_message = message
+
+        try:
+            contextual_modification = (
+                resolve_contextual_modify_reference(
+                    business_id=business_id,
+                    message=message,
+                    history=history,
+                    phone=phone,
+                )
+            )
+
+            if contextual_modification:
+                modification_message = (
+                    contextual_modification
+                )
+
+                logger.info(
+                    "Contextual modification resolved: "
+                    "business_id=%s phone=%s "
+                    "original=%r resolved=%r",
+                    business_id,
+                    phone,
+                    message,
+                    modification_message,
+                )
+
+        except Exception:
+            logger.exception(
+                "Contextual modification resolution failed."
+            )
+
         pending_modification = modify_pending_order(
             business_id,
             phone,
-            message,
+            modification_message,
             language,
         )
 
@@ -7137,7 +8235,7 @@ RULES:
             result = modify_active_order(
                 business_id,
                 phone,
-                message,
+                modification_message,
             )
 
             if not result.get("success"):
