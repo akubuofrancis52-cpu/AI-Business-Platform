@@ -271,7 +271,7 @@ class OpenAIProvider(AIProvider):
 
         vision_model = os.getenv(
             "GROQ_VISION_MODEL",
-            "qwen/qwen3.6-27b",
+            "qwen/qwen3.8-27b",
         )
 
         logger.warning(
