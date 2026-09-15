@@ -1815,7 +1815,7 @@ def generate_image_only_response(
     image_context,
     recent_order=None,
 ):
-    """Generate a warm, neutral response for an image with no caption."""
+    """Generate a short, natural restaurant response to an image-only message."""
 
     try:
         order_context = (
@@ -1832,24 +1832,37 @@ def generate_image_only_response(
         )
 
         prompt = f"""
-You are a warm restaurant customer relationship assistant.
+You are the restaurant's WhatsApp assistant.
+Write the reply a real restaurant employee would naturally send.
 
-The customer sent an image without a caption.
-Respond naturally based on the visual context and recent conversation.
+The customer sent an image with no caption.
 
-IMPORTANT:
-- Do not assume the customer is praising the food just because they sent a photo.
-- Do not invent what is visible.
-- Do not guess taste, freshness, temperature, safety, or customer feelings.
-- NEVER describe food as delicious, tasty, amazing, good, fresh, or appealing unless the customer explicitly said so.
-- A food photo alone is not evidence that the customer enjoyed the food.
-- If the image appears to show their meal, acknowledge the photo naturally.
-- If the image is unclear or unusable, politely ask them to resend it.
-- If it clearly shows a possible issue, acknowledge only what is visibly supported
-  and ask what happened.
+Your job is NOT to describe the image.
+Use the image context and recent conversation only to understand what the
+customer may be communicating, then reply naturally.
+
+RESPONSE STYLE:
+- Short, casual, warm, and human.
+- Usually 1 short sentence or 2 very short sentences.
+- Do not sound like an AI assistant.
+- Do not start with "Thanks for sharing the photo".
+- Do not say "I can see", "I see that", "the image shows", or similar image-analysis wording.
+- Do not mention visual analysis, AI, vision, or image processing.
+- Do not force a question if the customer's likely intent is already clear.
+- Do not force a response about the image if it does not help the conversation.
+- Match the tone of the recent conversation.
+- Reply naturally in {language}.
+
+TRUTH RULES:
+- Never invent anything visible in the image.
+- Never guess ingredients, taste, freshness, temperature, safety, price,
+  availability, or the customer's feelings.
+- A food photo does not mean the customer likes or dislikes the food.
+- If the image is clearly related to a problem with an order, mention only
+  what is actually supported and ask what happened.
+- If the image is unclear, keep the reply simple and ask for another photo
+  only when that is actually necessary.
 - Do not advertise, upsell, or invent promotions.
-- Keep the response concise and human.
-- Reply in {language}.
 
 RECENT ORDER:
 {order_context}
@@ -1859,12 +1872,14 @@ RECENT CONVERSATION:
 
 IMAGE CONTEXT:
 {image_context or "No usable visual context was produced."}
+
+Write ONLY the customer-facing reply.
 """
 
         response = provider.generate(
             prompt,
-            temperature=0.5,
-            max_tokens=120,
+            temperature=0.65,
+            max_tokens=100,
         )
 
         response = clean_text(response)
@@ -1877,11 +1892,9 @@ IMAGE CONTEXT:
             "Image-only natural response failed."
         )
 
-    return (
-        "Thanks for sharing the photo. "
-        "If there's anything you'd like me to know about it, "
-        "feel free to tell me."
-    )
+    if str(language).lower().startswith("fr"):
+        return "Je suis là si vous avez besoin d’aide avec votre commande."
+    return "I’m here if you need help with your order."
 
 
 # ============================================================
