@@ -5464,7 +5464,7 @@ Return only concise visual context.
             try:
                 failure_language = detect_customer_language(
                     caption or "",
-                    fallback_language="fr",
+                    fallback="French",
                 )
             except Exception:
                 pass
@@ -5842,7 +5842,7 @@ def process_whatsapp_message_async(
 
         customer_language = detect_customer_language(
             text_body,
-            fallback_language="fr",
+            fallback="French",
         )
 
         app.logger.warning(
