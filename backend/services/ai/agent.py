@@ -5476,6 +5476,191 @@ def classify_message_fast(message):
         "enleve celle",
     )
 
+    # --------------------------------------------------------
+    # CONTEXTUAL NEW-ORDER REFERENCES
+    #
+    # Reference words such as "that one" or "the first one"
+    # are not modifications by themselves. The action matters.
+    #
+    # New order:
+    #   "I'll take that one"
+    #   "give me the first one"
+    #   "I want the second one"
+    #   "je prends celui-là"
+    #
+    # Modification:
+    #   "remove that one"
+    #   "make the first one two"
+    #   "supprime le premier"
+    #
+    # This override comes before contextual_modify_phrases because
+    # that tuple intentionally contains the bare reference phrases
+    # for the modification resolver.
+    # --------------------------------------------------------
+
+    contextual_order_reference_phrases = (
+        # English — normalized forms
+        "i ll take that",
+        "i will take that",
+        "i ll have that",
+        "i will have that",
+        "give me that",
+        "i want that",
+
+        "i ll take the first one",
+        "i will take the first one",
+        "i ll take the second one",
+        "i will take the second one",
+        "i ll take the third one",
+        "i will take the third one",
+        "i ll take the fourth one",
+        "i will take the fourth one",
+
+        "give me the first one",
+        "give me the second one",
+        "give me the third one",
+        "give me the fourth one",
+
+        "i want the first one",
+        "i want the second one",
+        "i want the third one",
+        "i want the fourth one",
+
+        # French — normalized forms
+        "je prends celui la",
+        "je prends celle la",
+
+        # Explicit French contextual-order forms using "celui/celle"
+        "je prends celui",
+        "je prends celle",
+        "je veux celui",
+        "je veux celle",
+        "donne moi celui",
+        "donne moi celle",
+        "je prends le premier",
+        "je prends la premiere",
+        "je prends le deuxieme",
+        "je prends la deuxieme",
+        "je prends le second",
+        "je prends la seconde",
+        "je prends le troisieme",
+        "je prends la troisieme",
+        "je prends le quatrieme",
+        "je prends la quatrieme",
+
+        "donne moi celui la",
+        "donne moi celle la",
+
+        "je veux celui la",
+        "je veux celle la",
+        "je veux le premier",
+        "je veux la premiere",
+        "je veux le deuxieme",
+        "je veux la deuxieme",
+        "je veux le second",
+        "je veux la seconde",
+    )
+
+    if contains_any(
+        contextual_order_reference_phrases
+    ):
+        return "order"
+
+    # --------------------------------------------------------
+    # CONTEXTUAL NEW-ORDER INTENT
+    #
+    # Bare references such as "that one", "the first one",
+    # "celui-là", etc. also exist in the modification resolver.
+    # The customer's action must determine the intent.
+    #
+    # New order:
+    #   "I'll take that one"
+    #   "I'll have that"
+    #   "give me the first one"
+    #   "je prends celui-là"
+    #
+    # Modification:
+    #   "remove that one"
+    #   "make the first one two"
+    #   "supprime celui-là"
+    # --------------------------------------------------------
+
+    contextual_order_reference_phrases = (
+        # English
+        "i'll take that",
+        "ill take that",
+        "i will take that",
+        "i'll have that",
+        "ill have that",
+        "i will have that",
+        "give me that",
+        "i want that",
+
+        "i'll take the first one",
+        "ill take the first one",
+        "i will take the first one",
+        "i'll take the second one",
+        "ill take the second one",
+        "i will take the second one",
+        "i'll take the third one",
+        "ill take the third one",
+        "i will take the third one",
+        "i'll take the fourth one",
+        "ill take the fourth one",
+        "i will take the fourth one",
+
+        "give me the first one",
+        "give me the second one",
+        "give me the third one",
+        "give me the fourth one",
+
+        "i want the first one",
+        "i want the second one",
+        "i want the third one",
+        "i want the fourth one",
+
+        # French
+        "je prends celui-là",
+        "je prends celui la",
+        "je prends celle-là",
+        "je prends celle la",
+        "je prends le premier",
+        "je prends la première",
+        "je prends le deuxième",
+        "je prends la deuxième",
+        "je prends le second",
+        "je prends la seconde",
+        "je prends le troisième",
+        "je prends la troisième",
+        "je prends le quatrième",
+        "je prends la quatrième",
+
+        "donne-moi celui-là",
+        "donne moi celui-là",
+        "donne-moi celui la",
+        "donne moi celui la",
+        "donne-moi celle-là",
+        "donne moi celle-là",
+        "donne-moi celle la",
+        "donne moi celle la",
+
+        "je veux celui-là",
+        "je veux celui la",
+        "je veux celle-là",
+        "je veux celle la",
+        "je veux le premier",
+        "je veux la première",
+        "je veux le deuxième",
+        "je veux la deuxième",
+        "je veux le second",
+        "je veux la seconde",
+    )
+
+    if contains_any(
+        contextual_order_reference_phrases
+    ):
+        return "order"
+
     if contains_any(
         contextual_modify_phrases
     ):
