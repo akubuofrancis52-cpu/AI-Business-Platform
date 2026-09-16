@@ -95,6 +95,334 @@ def detect_customer_language(message, fallback="English"):
     if not text:
         return fallback
 
+    # Broad informal French vocabulary.
+    #
+    # These are language signals, NOT word-for-word replacements.
+    # They help recognize French when customers use slang, Verlan,
+    # texting shorthand, phonetic spelling, or casual speech.
+    french_slang_markers = (
+        # Food / hunger / restaurant slang
+        "bouffe",
+        "bouffer",
+        "bouff",
+        "miam",
+        "dalle",
+        "j ai la dalle",
+        "jai la dalle",
+        "creve la dalle",
+        "creve de faim",
+        "crever de faim",
+        "j ai faim",
+        "jai faim",
+        "j ai la dalle",
+        "jai la dalle",
+        "jveux",
+        "jveut",
+        "jvoudrais",
+        "j aimerais",
+        "jaimerais",
+        "jprends",
+        "j prends",
+        "jte prends",
+        "jte",
+        "t as",
+        "tas",
+        "t as quoi",
+        "tas quoi",
+        "c est quoi",
+        "c quoi",
+        "koi",
+        "pk",
+        "pq",
+        "jsp",
+        "jpp",
+        "stp",
+        "slt",
+        "bjr",
+        "bsr",
+        "cv",
+        "cava",
+        "graille",
+        "grailler",
+        "graill",
+        "se faire un resto",
+        "resto",
+        "boui boui",
+
+        # Common slang / Verlan
+        "wesh",
+        "wech",
+        "weche",
+        "reuf",
+        "reufr",
+        "frerot",
+        "frero",
+        "frérot",
+        "meuf",
+        "keum",
+        "keuf",
+        "teuf",
+        "teufeur",
+        "ouf",
+        "oufissime",
+        "chelou",
+        "relou",
+        "zarbi",
+        "vener",
+        "venere",
+        "vénère",
+        "chanme",
+        "chanmé",
+        "cimer",
+        "merci",
+        "kiffer",
+        "kiff",
+        "kiffe",
+        "kiffant",
+        "dar",
+        "daron",
+        "darone",
+        "daronne",
+        "miskine",
+        "boloss",
+        "bolos",
+        "poucave",
+        "poucav",
+        "mytho",
+        "mytho",
+        "crari",
+        "carna",
+        "tarpin",
+        "degun",
+        "degain",
+        "go",
+        "gosse",
+        "zebi",
+        "zeub",
+        "bail",
+        "bails",
+        "truc de ouf",
+        "de ouf",
+        "de fou",
+
+        # Looking / pointing / reacting
+        "tema",
+        "t e m a",
+        "t éma",
+        "téma",
+        "t emas",
+        "temas",
+        "t as vu",
+        "tas vu",
+        "mate",
+        "mater",
+        "matte",
+        "regarde",
+        "regardes",
+        "check",
+        "checker",
+
+        # Casual agreement / reaction
+        "grave",
+        "carrément",
+        "carrement",
+        "de ouf",
+        "abuse",
+        "abusé",
+        "abuse",
+        "sah",
+        "wallah",
+        "wlh",
+        "walla",
+        "inchallah",
+        "incha",
+        "hamdoulah",
+        "hamdoullah",
+        "mashallah",
+        "machaallah",
+
+        # Money
+        "fric",
+        "thune",
+        "thunes",
+        "oseille",
+        "blé",
+        "ble",
+        "balles",
+        "baller",
+        "pognon",
+
+        # People / relationships
+        "mec",
+        "gars",
+        "type",
+        "pote",
+        "potes",
+        "copain",
+        "copine",
+        "sista",
+        "sis",
+        "bro",
+        "bros",
+        "bg",
+        "bege",
+        "belle gosse",
+        "beaugoss",
+        "beau gosse",
+
+        # Mood / state
+        "flemme",
+        "j ai la flemme",
+        "jai la flemme",
+        "la flemme",
+        "saoule",
+        "soule",
+        "soulant",
+        "vénère",
+        "enerve",
+        "énervé",
+        "enervé",
+        "deg",
+        "dég",
+        "degoute",
+        "dégoûté",
+        "blasé",
+        "blase",
+        "choque",
+        "choqué",
+
+        # Casual descriptions
+        "lourd",
+        "lourde",
+        "lourd de ouf",
+        "c est lourd",
+        "c est carré",
+        "c est carre",
+        "carre",
+        "ça régale",
+        "ca regale",
+        "regale",
+        "regaler",
+        "ça passe",
+        "ca passe",
+        "ça le fait",
+        "ca le fait",
+        "nickel",
+        "nimp",
+        "n importe quoi",
+        "osef",
+        "osef de",
+        "osef",
+        "tkt",
+        "tqt",
+        "tranquille",
+        "trkl",
+        "posé",
+        "pose",
+        "vasy",
+        "vas y",
+        "vas-y",
+        "go",
+        "let s go",
+        "lets go",
+
+        # WhatsApp / SMS shorthand
+        "c koi",
+        "c quoi",
+        "koi",
+        "quoi",
+        "pk",
+        "pq",
+        "prk",
+        "pcq",
+        "pck",
+        "parce que",
+        "jsp",
+        "jsp",
+        "jpp",
+        "stp",
+        "svp",
+        "slt",
+        "bjr",
+        "bsr",
+        "cc",
+        "re",
+        "tfk",
+        "tkt",
+        "tqt",
+        "cv",
+        "ca va",
+        "cava",
+        "kom",
+        "comme",
+        "keskia",
+        "keski",
+        "keske",
+        "cmt",
+        "cmnt",
+        "vrm",
+        "vraiment",
+        "bcp",
+        "beaucoup",
+        "ajd",
+        "auj",
+        "demain",
+        "mtn",
+        "maintenant",
+        "aprem",
+        "rdv",
+        "msg",
+        "stp",
+        "svp",
+
+        # Casual expressions
+        "ça dit quoi",
+        "ca dit quoi",
+        "sa dit koi",
+        "ça raconte quoi",
+        "ca raconte quoi",
+        "quoi de neuf",
+        "bien ou bien",
+        "tranquille ou quoi",
+        "t es chaud",
+        "tes chaud",
+        "t es chaud pour",
+        "tes chaud pour",
+        "on est bien",
+        "c est comment",
+        "c est quoi ça",
+        "c quoi ca",
+        "ça donne quoi",
+        "ca donne quoi",
+        "ça vaut quoi",
+        "ca vaut quoi",
+        "t as quoi",
+        "tas quoi",
+        "y a quoi",
+        "ya quoi",
+        "y a quoi comme",
+        "ya quoi comme",
+        "je prends",
+        "j prends",
+        "jte prends",
+        "j te prends",
+        "mets moi",
+        "met moi",
+        "mettez moi",
+        "envoie",
+        "envoi",
+        "balance",
+        "balance moi",
+        "file moi",
+        "donne moi",
+        "donne-moi",
+        "fais moi",
+        "fais-moi",
+        "vas y",
+        "vazy",
+        "vasy",
+    )
+
     french_markers = (
         "bonjour",
         "bonsoir",
@@ -131,6 +459,12 @@ def detect_customer_language(message, fallback="English"):
     if any(
         marker in text
         for marker in french_markers
+    ):
+        return "French"
+
+    if any(
+        marker in text
+        for marker in french_slang_markers
     ):
         return "French"
 
@@ -1526,6 +1860,141 @@ def build_customer_memory_context(
 # RESTAURANT PROMPT
 # ============================================================
 
+def detect_conversational_register(message):
+    """
+    Detect conversational style for response wording.
+
+    This is a style signal only. It does not determine intent,
+    restaurant facts, order state, prices, or availability.
+    """
+
+    text = clean_text(message or "").lower()
+
+    if not text:
+        return "neutral"
+
+    # Exact informal words/phrases. Short tokens use word boundaries
+    # so "yo" does not match "you" or "your".
+    slang_patterns = (
+        r"\bwesh\b", r"\bwech\b", r"\bfrérot\b", r"\bfrero\b",
+        r"\bbro\b", r"\bbruh\b", r"\btwin\b", r"\btwan\b",
+        r"\bgang\b", r"\bfam\b", r"\bmy guy\b", r"\bmy man\b",
+        r"\byo\b", r"\byoo\b", r"\bayy\b", r"\bhey yo\b",
+        r"\bgimme\b", r"\blemme\b", r"\bima\b", r"\bi'ma\b",
+        r"\bboutta\b", r"\bwhatcha\b", r"\by'all\b", r"\byall\b",
+        r"\bwhat's good\b", r"\bwhats good\b",
+        r"\bwhat's fire\b", r"\bwhats fire\b",
+        r"\bbussin\b", r"\bfireee\b",
+        r"\bngl\b", r"\bfr\b", r"\brn\b",
+        r"\blol\b", r"\blmao\b", r"\blmfao\b",
+        r"\bidk\b", r"\bidc\b", r"\bimo\b", r"\bimho\b",
+        r"\btbh\b", r"\bbtw\b", r"\bwyd\b", r"\bwya\b",
+        r"\bcuz\b", r"\bcoz\b", r"\btho\b",
+        r"\bsmth\b", r"\bsth\b", r"\bppl\b",
+        r"\bc koi\b", r"\bc quoi\b", r"\bpk\b", r"\bpq\b",
+        r"\bjsp\b", r"\bjpp\b", r"\bstp\b", r"\bslt\b",
+        r"\bbjr\b", r"\bcv\b", r"\bcava\b",
+        r"\bvrm\b", r"\bbcp\b", r"\bmtn\b", r"\bajd\b",
+        r"\brdv\b", r"\bmsg\b", r"\bgrave\b", r"\bde ouf\b",
+        r"\bsah\b", r"\bwallah\b", r"\bcimer\b", r"\bkiffer\b",
+        r"\bdaron\b", r"\bmiskine\b", r"\bchelou\b", r"\brelou\b",
+        r"\bzarbi\b", r"\bvénère\b", r"\bvenere\b", r"\bchanmé\b",
+        r"\btema\b", r"\btéma\b", r"\bbouffe\b", r"\bgraille\b",
+        r"\bj'ai la dalle\b", r"\bjai la dalle\b",
+        r"\bça régale\b", r"\bca régale\b",
+        r"\bc'est carré\b", r"\bcest carré\b",
+        r"\bjveux\b", r"\bjvoudrais\b", r"\bjprends\b",
+    )
+
+    abbreviation_patterns = (
+        r"\bidk\b", r"\bidc\b", r"\bimo\b", r"\bimho\b",
+        r"\bngl\b", r"\brn\b", r"\btbh\b", r"\bbtw\b",
+        r"\bwyd\b", r"\bwya\b", r"\bsmth\b", r"\bsth\b",
+        r"\bppl\b", r"\bpls\b", r"\bplz\b",
+        r"\bc koi\b", r"\bpk\b", r"\bpq\b",
+        r"\bjsp\b", r"\bjpp\b", r"\bvrm\b", r"\bbcp\b",
+        r"\bmtn\b", r"\bajd\b", r"\bu\b", r"\bur\b", r"\br\b",
+    )
+
+    formal_patterns = (
+        r"\bplease\b",
+        r"\bcould you\b",
+        r"\bwould you\b",
+        r"\bi would like\b",
+        r"\bi'd like\b",
+        r"\bmay i\b",
+        r"\bcould i\b",
+        r"\bwould it be possible\b",
+        r"\bthank you\b",
+        r"\bthanks\b",
+        r"\bveuillez\b",
+        r"\bpourriez[- ]vous\b",
+        r"\bpourrais[- ]je\b",
+        r"\bj'aimerais\b",
+        r"\bje voudrais\b",
+        r"\bserait[- ]il possible\b",
+        r"\bs'il vous plaît\b",
+        r"\bsvp\b",
+        r"\bbonjour monsieur\b",
+        r"\bbonjour madame\b",
+    )
+
+    slang_hits = sum(
+        1 for pattern in slang_patterns
+        if re.search(pattern, text)
+    )
+
+    abbreviation_hits = sum(
+        1 for pattern in abbreviation_patterns
+        if re.search(pattern, text)
+    )
+
+    formal_hits = sum(
+        1 for pattern in formal_patterns
+        if re.search(pattern, text)
+    )
+
+    french_hits = sum(
+        1 for marker in (
+            "bonjour", "merci", "vous", "avec", "pour",
+            "une", "des", "dans", "commande", "restaurant",
+            "menu", "prix", "livraison", "glace", "pizza",
+        )
+        if marker in text
+    )
+
+    english_hits = sum(
+        1 for marker in (
+            "hello", "thanks", "please", "with", "for",
+            "order", "restaurant", "menu", "price",
+            "delivery", "food", "pizza", "ice cream",
+        )
+        if marker in text
+    )
+
+    # Polite language wins unless the customer is explicitly slang-heavy.
+    if formal_hits >= 1 and slang_hits == 0:
+        return "formal"
+
+    if abbreviation_hits >= 1 and slang_hits >= 1:
+        return "abbreviated/slang-heavy"
+
+    if abbreviation_hits >= 1:
+        return "abbreviated/slang-heavy"
+
+    if slang_hits >= 2:
+        return "slang-heavy"
+
+    if slang_hits == 1:
+        return "casual"
+
+    if french_hits and english_hits:
+        return "mixed"
+
+    return "neutral"
+
+
+
 def build_agent_prompt(
     business_id,
     phone,
@@ -1542,6 +2011,10 @@ def build_agent_prompt(
     model latency while preserving the information needed
     for restaurant conversations.
     """
+
+    conversational_register = detect_conversational_register(
+        message
+    )
 
     restaurant = get_restaurant_context(
         business_id
@@ -1709,6 +2182,7 @@ CUSTOMER:
 Phone: {phone}
 Language: {language}
 Relationship stage: {relationship_stage}
+Conversational register: {conversational_register}
 
 CUSTOMER MEMORY:
 {customer_memory}
@@ -1795,8 +2269,25 @@ STYLE:
   backend processing.
 - Reply in the customer's language.
 
-CURRENT CUSTOMER MESSAGE:
-{message}
+CONVERSATIONAL REGISTER:
+- Adapt naturally to the customer's register: formal, neutral, casual,
+  slang-heavy, abbreviated/slang-heavy, or mixed.
+- Register controls wording only. It must never change intent or restaurant facts.
+- Casual customers may receive relaxed, friendly wording.
+- Slang-heavy customers may receive occasional natural slang when it genuinely
+  fits the response.
+- Do not mechanically copy slang, abbreviations, emojis, or address terms.
+- Do not force slang into every response.
+- Never invent slang merely to sound young or trendy.
+- If the customer says "bro", "twin", "gang", "fam", "wesh", "fr", "ngl",
+  "lol", or similar expressions, understand them first; reuse them only when
+  it sounds genuinely natural.
+- Abbreviated customer messages do not require abbreviated responses.
+- Mixed French-English messages may receive natural mixed-language wording when
+  appropriate to the conversation.
+- For payments, complaints, cancellations, order corrections, important
+  instructions, and other serious situations, prioritize clarity over slang.
+- Never sacrifice clarity, factuality, or professionalism for style.
 
 CURRENT CUSTOMER MESSAGE:
 {message}
@@ -1910,6 +2401,7 @@ def generate_natural_response(
     history,
     pending,
     customer_id=None,
+    image_context=None,
 ):
     """
     Generate a concise natural customer response.
@@ -1929,6 +2421,19 @@ def generate_natural_response(
             pending=pending,
             customer_id=customer_id,
         )
+
+        if image_context:
+            prompt += (
+                "\n\nSUPPORTING IMAGE CONTEXT:\n"
+                + str(image_context)
+                + "\n\n"
+                "Use this only to understand references to the customer image. "
+                "Do not describe the image unless the customer is asking about it. "
+                "Do not turn visual observations into menu facts, prices, "
+                "availability, ingredients, order status, or other business facts. "
+                "The customer message and conversation remain the main source of intent."
+            )
+
 
     except Exception:
 
@@ -5397,6 +5902,32 @@ def classify_message_fast(message):
     if feedback_sentiment:
         return "feedback"
 
+    # Casual French reactions that are common after seeing
+    # food/menu content. These are conversational feedback,
+    # not ordering instructions by themselves.
+    french_casual_feedback = (
+        "ca regale",
+        "ça régale",
+        "c est carre",
+        "c est carré",
+        "c est lourd",
+        "c est ouf",
+        "de ouf",
+        "grave",
+        "nickel",
+        "c est nickel",
+        "ca passe",
+        "ça passe",
+        "bien lourd",
+        "lourd",
+    )
+
+    if contains_any(
+        french_casual_feedback
+    ):
+        return "feedback"
+
+
     # --------------------------------------------------------
     # HUNGER / RECOMMENDATION
     # --------------------------------------------------------
@@ -5405,6 +5936,133 @@ def classify_message_fast(message):
         FAST_RECOMMENDATION_PHRASES
     ):
         return "recommendation"
+
+    # --------------------------------------------------------
+    # INFORMAL FRENCH / ARGOT RESTAURANT INTENT
+    #
+    # Customers may express the same intent with Argot, Verlan,
+    # WhatsApp shorthand, phonetic spelling, or casual speech.
+    #
+    # These are semantic signals, not literal replacements.
+    # The whole message still determines the intent.
+    # --------------------------------------------------------
+
+    french_menu_reference_phrases = (
+        "c quoi comme bouffe",
+        "c quoi la bouffe",
+        "c est quoi comme bouffe",
+        "c est quoi la bouffe",
+        "t as quoi en bouffe",
+        "tas quoi en bouffe",
+        "t as quoi comme bouffe",
+        "tas quoi comme bouffe",
+        "vous avez quoi en bouffe",
+        "y a quoi en bouffe",
+        "ya quoi en bouffe",
+        "y a quoi comme bouffe",
+        "ya quoi comme bouffe",
+        "quelle bouffe",
+        "quelles bouffes",
+        "quelle bouffe vous avez",
+        "quoi comme bouffe",
+        "quoi comme pizza",
+        "quoi comme pizzas",
+        "t as quoi comme pizza",
+        "tas quoi comme pizza",
+        "t as quoi comme pizzas",
+        "tas quoi comme pizzas",
+        "c quoi les pizzas",
+        "c quoi les burgers",
+        "c quoi les glaces",
+        "c quoi les desserts",
+        "c quoi les boissons",
+        "c quoi les tarifs",
+        "c est quoi les tarifs",
+        "c quoi les prix",
+        "c est quoi les prix",
+        "combien ca coute",
+        "combien ca coute les",
+        "le bail avec les glaces",
+        "le bail avec les pizzas",
+        "le bail avec les burgers",
+        "le bail avec les desserts",
+        "tema les pizzas",
+        "tema les burgers",
+        "tema les glaces",
+        "tema les desserts",
+        "tema les boissons",
+        "téma les pizzas",
+        "téma les burgers",
+        "téma les glaces",
+        "téma les desserts",
+        "téma les boissons",
+        "mate les pizzas",
+        "mate les burgers",
+        "mate les glaces",
+        "mate les desserts",
+        "montre moi les pizzas",
+        "montre moi les burgers",
+        "montre moi les glaces",
+        "montre moi les desserts",
+        "balance les pizzas",
+        "balance moi les pizzas",
+        "balance les burgers",
+        "balance moi les burgers",
+        "balance les glaces",
+        "balance moi les glaces",
+    )
+
+    french_recommendation_phrases = (
+        "jveux un truc",
+        "jveux quelque chose",
+        "jveux un truc pas cher",
+        "je veux un truc pas cher",
+        "jvoudrais un truc",
+        "jvoudrais quelque chose",
+        "j ai la dalle",
+        "jai la dalle",
+        "j ai faim",
+        "jai faim",
+        "je creve la dalle",
+        "je crève la dalle",
+        "j ai trop faim",
+        "jai trop faim",
+        "j ai une dalle",
+        "jai une dalle",
+        "balance un truc",
+        "balance moi un truc",
+        "propose moi un truc",
+        "propose moi quelque chose",
+        "conseille moi un truc",
+        "conseille moi quelque chose",
+        "un truc pas cher",
+        "un truc de pas cher",
+        "pas trop cher",
+        "le moins cher",
+        "un truc qui cale",
+        "un truc qui remplit",
+        "un truc leger",
+        "un truc léger",
+        "un truc frais",
+        "un truc sucre",
+        "un truc sucré",
+        "un truc sale",
+        "un truc salé",
+    )
+
+    # Explicit menu/category slang should use grounded menu search.
+    if contains_any(
+        french_menu_reference_phrases
+    ):
+        return "menu_search"
+
+    # Informal hunger / preference language should enter the
+    # deterministic recommendation path.
+    if contains_any(
+        french_recommendation_phrases
+    ):
+        return "recommendation"
+
 
     # --------------------------------------------------------
     # CANCEL ORDER
@@ -5781,6 +6439,202 @@ cancel_order
 menu_search
 restaurant_info
 recommendation
+
+LANGUAGE UNDERSTANDING:
+The customer may use informal French, Argot, Verlan, WhatsApp/SMS shorthand,
+phonetic spelling, abbreviations, emojis, or mixed French-English.
+
+Interpret these naturally rather than literally.
+
+Examples:
+- "bouffe", "bouffer", "graille" → food / eat
+- "j'ai la dalle", "j'ai faim" → hungry
+- "téma", "tema", "mate", "mater" → look / referring attention to something
+- "reuf", "frérot", "frero", "bro" → friend / brother
+- "meuf", "keum" → person, with meaning determined by context
+- "chelou", "zarbi" → strange / unusual
+- "relou" → annoying
+- "vénère", "venere" → angry / annoyed
+- "teuf" → party
+- "tof" → photo
+- "fric", "thune", "oseille", "blé" → money
+- "flemme" → don't feel like it
+- "kiffer", "kiff" → really like / enjoy
+- "grave", "de ouf", "carrément" → strong emphasis or agreement
+- "c'est carré", "c'est carre" → sorted / good / okay
+- "ça régale", "ca regale" → strong positive reaction to food or experience
+- "tkt", "tqt" → don't worry
+- "vasy", "vazy", "vas-y" → go ahead / continue
+- "wesh", "wech" → informal greeting or conversational expression
+- "c koi", "koi", "pk", "pq", "jsp", "jpp", "stp", "svp", "cmt",
+  "vrm", "bcp", "mtn" → common French texting shorthand.
+
+IMPORTANT:
+- Do not mechanically replace slang words.
+- Interpret the whole sentence and conversation.
+- Slang can have different meanings depending on context.
+- Do not classify a message as an order merely because it contains a food-related
+  slang word.
+- Preserve the customer's actual intent.
+- Never let slang interpretation override confirmed menu, price, availability,
+  order, or payment data.
+
+RESTAURANT-SLANG INTENT PATTERNS:
+
+Understand informal French restaurant messages semantically.
+
+MENU / BROWSING:
+- "c koi comme bouffe ?" means "what kind of food do you have?"
+- "t'as quoi en bouffe ?" means "what food do you have?"
+- "c quoi les pizzas ?" means "what pizzas do you have?"
+- "tema les pizzas" / "mate les pizzas" means the customer wants to look at
+  or know about the pizzas.
+- "c quoi le bail avec les glaces ?" means the customer is asking about the
+  ice cream options.
+- "wesh c koi les tarifs ?" means the customer is asking about prices/menu pricing.
+- "la bouffe au poulet" can mean the customer is asking for food/menu items
+  involving chicken; use menu_search unless the message clearly places an order.
+
+RECOMMENDATION:
+- "jveux un truc pas cher" means the customer wants a cheap option/recommendation.
+- "j'ai la dalle frère" means the customer is hungry; this can be recommendation
+  intent when they are asking what to eat, but hunger alone is not an order.
+- "j'ai la dalle, balance les pizzas" means the customer wants pizza options;
+  interpret this as a menu/recommendation request unless a specific item is selected.
+- "balance un truc", "propose un truc", "tu me conseilles quoi" and similar
+  expressions indicate recommendation when the customer has not selected a
+  specific menu item.
+
+ORDER:
+- Treat slang as an order only when the customer clearly selects a specific
+  restaurant item, quantity, or combination.
+- "mets-moi deux [specific item]", "je prends [specific item]",
+  "balance [specific item]" can be an order.
+- "bouffe", "pizza", "burger", etc. by themselves do NOT prove that a specific
+  menu item was selected.
+- If the customer uses a vague food expression with no identifiable menu item,
+  prefer menu_search or recommendation rather than inventing an order.
+
+CASUAL REACTIONS:
+- "ça régale", "c'est carré", "grave", "de ouf" can be feedback or chat depending
+  on the surrounding message.
+- A short reaction such as "téma ça" without an explicit restaurant question
+  should remain chat unless conversation/image context establishes another intent.
+
+WHATSAPP / PHONETIC SPELLING:
+- Understand forms such as "jveux", "jvoudrais", "jprends", "c koi", "c quoi",
+  "t'as", "tas", "y'a", "ya", "pk", "pq", "jsp", "stp", "vrm", "bcp", "mtn",
+  missing apostrophes, missing accents, repeated letters, and casual punctuation.
+- Normalize the meaning mentally; do not require standard French spelling.
+- Mixed French-English messages should be classified by intent, not by the
+  presence of one English word.
+- Emojis and informal punctuation may express tone but should not override the
+  actual restaurant intent.
+
+ENGLISH INFORMAL / SLANG UNDERSTANDING:
+
+The customer may also use highly casual English, internet slang, regional
+informal speech, phonetic spelling, shortened words, texting abbreviations,
+friendly address terms, or playful expressions.
+
+Examples:
+- "whatcha got?" / "what you got?" → what is available
+- "what y'all got?" / "what do y'all have?" → what is available
+- "what you got cooking?" / "what y'all got cooking?" → what food/menu is available
+- "what's cooking?" → what food/options are available when restaurant context applies
+- "gimme" / "gimme a" → give me
+- "lemme get" / "let me get" → order when followed by a specific item
+- "ima get" / "I'ma get" → intention to order when a specific item is selected
+- "boutta order" / "about to order" → ordering intent when the item is clear
+- "grab me" / "grab us" → order request when specific items are named
+- "hook me up with" → order request when a specific item is named
+- "hit me with" → can mean order or request depending on context
+- "put me on" → recommendation or menu discovery depending on context
+- "put me on to something good" → recommendation
+- "what's good?" → recommendation or menu search depending on context
+- "what's fire?" / "what's bussin?" → recommendation or menu search
+- "that looks fire" / "looks mad good" → positive food reaction
+- "that's fire" / "fireee" → positive reaction unless clearly asking for options
+- "bro", "bruh", "twin", "twan", "gang", "fam", "my guy", "my man" → casual
+  forms of address; they do not change the underlying restaurant intent
+- "yo", "yoo", "ayy", "hey yo" → casual greeting/opening
+- "lol", "lmao", "lmfao", "haha", "😭", "😂" → laughter/tone markers
+- "idk" → I don't know
+- "idc" → I don't care
+- "imo" → in my opinion
+- "imho" → in my humble opinion
+- "ngl" → not gonna lie
+- "fr" → for real
+- "rn" → right now
+- "asap" → as soon as possible
+- "wyd" → what are you doing
+- "wya" → where are you
+- "bc" / "cuz" / "coz" → because
+- "tho" → though
+- "pls" / "plz" → please
+- "u" / "ur" / "r" → you / your / are
+- "ppl" → people
+- "btw" → by the way
+- "tbh" → to be honest
+- "smth" / "sth" → something
+- "rn" / "rn tho" → right now / right now though
+
+ENGLISH RESTAURANT-SLANG INTENT PATTERNS:
+
+MENU / BROWSING:
+- "yo what y'all got?" means the customer wants to know what is available.
+- "whatcha got cooking?" means the customer is asking about available food.
+- "what you got for wings?" means the customer wants wing/menu options.
+- "what's good here?" can mean menu discovery or recommendation depending on context.
+- "lemme see what y'all got" means menu browsing.
+- "show me what you got" means menu browsing unless the context clearly means
+  something else.
+
+RECOMMENDATION:
+- "idk what to get lol" means recommendation.
+- "what should I get?" means recommendation.
+- "what's good?" can mean recommendation when the customer is choosing food.
+- "put me on to something good" means recommendation.
+- "what's fire here?" means recommendation/menu discovery.
+- "I'm hungry lol" means recommendation only when the customer is asking or
+  implying that they want help choosing; hunger alone is not an order.
+
+ORDER:
+- "lemme get two Margheritas" is an order because a specific item and quantity
+  are identified.
+- "gimme a burger" is an order when that item exists in the grounded menu.
+- "hook me up with a Coke" is an order when the menu contains that item.
+- "I'll take that one" is an order/reference request when conversation context
+  identifies the item.
+- "gimme some food" is NOT enough to invent an order item.
+- "grab me two" is NOT enough without an identifiable item or contextual reference.
+
+CASUAL REACTIONS:
+- "lol", "lmao", "that's fire", "that's crazy", "looks good", "looks fire",
+  "bussin", and similar expressions may be chat/feedback depending on context.
+- Do not interpret laughter or slang as an order.
+- "twin", "bro", "gang", etc. are address/style markers, not restaurant entities.
+
+BILINGUAL / MIXED SLANG:
+- A customer may switch between French and English naturally within one message.
+- Examples include "wesh bro", "jveux some pizza", "yo frérot t'as quoi?",
+  "mdr that's fire", or "ngl c'est carré".
+- Determine the actual intent from the complete message.
+- Do not classify based only on which language has more words.
+- Do not translate the customer's wording mechanically before understanding it.
+
+CONVERSATIONAL REGISTER:
+- Detect whether the customer's wording is formal, neutral, casual, slang-heavy,
+  playful, abbreviated, or mixed.
+- Register is separate from intent.
+- Never let casual wording change the business meaning.
+- Do not assume every slang expression should be mirrored in the response.
+
+AMBIGUITY:
+- If a message could reasonably mean either browsing/recommendation or ordering,
+  choose the category supported by the customer's explicit wording.
+- Do not invent a menu item to force an order classification.
+- Use the conversation context when available.
 
 CATEGORY RULES:
 
@@ -6368,6 +7222,50 @@ def modify_pending_order(
     )
 
     # --------------------------------------------------------
+    # STRIP CONVERSATIONAL PREFIXES
+    #
+    # Natural WhatsApp messages often begin with:
+    #   "frère ajoute une lemonade"
+    #   "bro add a coke"
+    #   "wesh enlève la lemonade"
+    #
+    # These words are conversational style, not the operation.
+    # Remove them before detecting add/remove/set commands.
+    # --------------------------------------------------------
+
+    conversational_prefixes = (
+        "frère ",
+        "frere ",
+        "frérot ",
+        "frerot ",
+        "bro ",
+        "brother ",
+        "fam ",
+        "gang ",
+        "twin ",
+        "twan ",
+        "wesh ",
+        "wech ",
+        "yo ",
+        "yoo ",
+        "ayy ",
+        "hey ",
+        "salut ",
+        "slt ",
+    )
+
+    changed = True
+
+    while changed:
+        changed = False
+
+        for prefix in conversational_prefixes:
+            if text.startswith(prefix):
+                text = text[len(prefix):].strip()
+                changed = True
+                break
+
+    # --------------------------------------------------------
     # DETECT MODIFICATION TYPE
     # --------------------------------------------------------
 
@@ -6385,6 +7283,11 @@ def modify_pending_order(
         "add to my order ",
         "i want to add ",
         "i would like to add ",
+        "gimme ",
+        "lemme get ",
+        "give me ",
+        "hook me up with ",
+        "put me on with ",
     )
 
     remove_markers = (
@@ -6408,6 +7311,9 @@ def modify_pending_order(
         "actually take off ",
         "take it off ",
         "delete ",
+        "take off ",
+        "take it off ",
+        "take out ",
     )
 
     set_quantity_markers = (
@@ -6504,9 +7410,48 @@ def modify_pending_order(
 
     if is_add:
 
+        extraction_message = text
+
+        # Resolve common conversational menu shorthand against
+        # the actual pending-order menu. This is intentionally
+        # narrow: aliases must map to an existing menu item.
+        #
+        # Example:
+        #   "ajoute une margarita"
+        #   "2 margaritas"
+        #   "add 2 margaritas"
+        #
+        # -> Classic Margherita Pizza
+        #
+        # Keep business truth in the database; this only rewrites
+        # the customer's shorthand before extraction.
+
+        shorthand_aliases = {
+            "margarita": "Classic Margherita Pizza",
+            "margaritas": "Classic Margherita Pizza",
+            "margherita": "Classic Margherita Pizza",
+            "margheritas": "Classic Margherita Pizza",
+        }
+
+        import re
+
+        for alias, canonical_name in shorthand_aliases.items():
+            if re.search(
+                rf"\b{re.escape(alias)}\b",
+                extraction_message,
+                re.IGNORECASE,
+            ):
+                extraction_message = re.sub(
+                    rf"\b{re.escape(alias)}\b",
+                    canonical_name,
+                    extraction_message,
+                    flags=re.IGNORECASE,
+                )
+                break
+
         extracted = extract_order(
             business_id,
-            message,
+            extraction_message,
         )
 
         new_items = extracted.get(
@@ -7288,7 +8233,24 @@ def run_agent(
         "hallo",
     }
 
-    if normalized_message in greeting_phrases:
+    casual_greeting_phrases = {
+        "yo",
+        "yoo",
+        "ayy",
+        "hey yo",
+        "yo bro",
+        "yoo bro",
+        "hey bro",
+        "wesh",
+        "wech",
+        "wesh bro",
+        "salut bro",
+        "slt",
+        "slt bro",
+        "bjr",
+    }
+
+    if normalized_message in greeting_phrases | casual_greeting_phrases:
         # Use the same restaurant context already used by the AI response layer.
         # This keeps greetings tenant-specific without hardcoding a restaurant name.
         greeting_context = get_restaurant_context(business_id)
@@ -7298,12 +8260,27 @@ def run_agent(
             or "our restaurant"
         )
 
+        greeting_register = detect_conversational_register(
+            message
+        )
+
         if language == "French":
-            greeting_variants = [
-                f"Bienvenue chez {restaurant_name} ! Nous sommes ravis de vous accueillir. Que puis-je vous servir aujourd’hui ?",
-                f"Bienvenue chez {restaurant_name} ! C’est un plaisir de vous recevoir. Qu’est-ce qui vous ferait plaisir aujourd’hui ?",
-                f"Bonjour et bienvenue chez {restaurant_name} ! Nous sommes prêts à vous servir. Que puis-je vous proposer ?",
-            ]
+            if greeting_register in (
+                "casual",
+                "slang-heavy",
+                "abbreviated/slang-heavy",
+            ):
+                greeting_variants = [
+                    f"Bienvenue chez {restaurant_name} ! Qu’est-ce qui te ferait plaisir ?",
+                    f"Bienvenue chez {restaurant_name} 😄 Tu veux voir ce qu’on a ?",
+                    f"Salut ! Bienvenue chez {restaurant_name}. Tu cherches quoi aujourd’hui ?",
+                ]
+            else:
+                greeting_variants = [
+                    f"Bienvenue chez {restaurant_name} ! Nous sommes ravis de vous accueillir. Que puis-je vous servir aujourd’hui ?",
+                    f"Bienvenue chez {restaurant_name} ! C’est un plaisir de vous recevoir. Qu’est-ce qui vous ferait plaisir aujourd’hui ?",
+                    f"Bonjour et bienvenue chez {restaurant_name} ! Nous sommes prêts à vous servir. Que puis-je vous proposer ?",
+                ]
         elif language == "Spanish":
             greeting_variants = [
                 f"¡Bienvenido a {restaurant_name}! Nos alegra mucho recibirte. ¿Qué te gustaría disfrutar hoy?",
@@ -7325,11 +8302,22 @@ def run_agent(
                 f"Herzlich willkommen bei {restaurant_name}! Wir freuen uns, Sie zu bedienen. Was möchten Sie heute genießen?",
             ]
         else:
-            greeting_variants = [
-                f"Welcome to {restaurant_name}! We're delighted to have you here and ready to serve you. What can I get for you today?",
-                f"Welcome to {restaurant_name}! It's lovely to have you here. What are you in the mood for today?",
-                f"Welcome to {restaurant_name}! We're happy to have you with us. What can I help you find today?",
-            ]
+            if greeting_register in (
+                "casual",
+                "slang-heavy",
+                "abbreviated/slang-heavy",
+            ):
+                greeting_variants = [
+                    f"Welcome to {restaurant_name}! What are you feeling today?",
+                    f"Hey, welcome to {restaurant_name} 😄 What can I get you?",
+                    f"Welcome to {restaurant_name}! Wanna see what we've got?",
+                ]
+            else:
+                greeting_variants = [
+                    f"Welcome to {restaurant_name}! We're delighted to have you here and ready to serve you. What can I get for you today?",
+                    f"Welcome to {restaurant_name}! It's lovely to have you here. What are you in the mood for today?",
+                    f"Welcome to {restaurant_name}! We're happy to have you with us. What can I help you find today?",
+                ]
 
         # Rotate naturally instead of returning the same canned sentence every time.
         greeting_response = greeting_variants[
@@ -7759,6 +8747,7 @@ def run_agent(
                 if customer
                 else None
             ),
+            image_context=image_context,
         )
 
     # ========================================================
@@ -8873,4 +9862,5 @@ RULES:
             if customer
             else None
         ),
+            image_context=image_context,
     )

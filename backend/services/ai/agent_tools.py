@@ -1,3 +1,7 @@
+import logging
+import re
+
+logger = logging.getLogger(__name__)
 import json
 
 from database.db import db
@@ -57,17 +61,52 @@ def get_customer(business_id, phone):
 
 def tool_search_menu(business_id, query):
 
+    """
+    Search the restaurant menu.
+
+    Broad menu/browsing requests return the complete currently
+    available menu from the database. Specific requests use the
+    grounded menu search path.
+
+    Inventory filtering is best-effort here: a broken inventory
+    lookup must never make a valid restaurant menu disappear.
+    """
+
     query_text = str(
         query or ""
     ).strip().lower()
 
-    # ========================================================
-    # FULL MENU REQUEST
-    # ========================================================
+    if not query_text:
+        return {
+            "success": True,
+            "results": [],
+            "full_menu": False,
+        }
 
-    # ========================================================
-    # FULL MENU DETECTION — MULTILINGUAL
-    # ========================================================
+    # --------------------------------------------------------
+    # NORMALIZE CUSTOMER WORDING
+    # --------------------------------------------------------
+
+    menu_query = (
+        query_text
+        .replace("?", "")
+        .replace("!", "")
+        .replace(".", "")
+        .replace(",", "")
+        .replace(";", "")
+        .replace(":", "")
+        .replace("’", "'")
+        .replace("-", " ")
+        .strip()
+    )
+
+    menu_query = " ".join(
+        menu_query.split()
+    )
+
+    # --------------------------------------------------------
+    # BROAD / FULL MENU REQUESTS
+    # --------------------------------------------------------
 
     full_menu_phrases = (
         # English
@@ -92,13 +131,28 @@ def tool_search_menu(business_id, query):
         "what food do you guys have",
         "what foods do you guys have",
         "what do you serve",
+        "what you got",
+        "what've you got",
+        "what have you got",
+        "what yall got",
+        "what y'all got",
+        "what you guys got",
+        "what yall got for food",
+        "what y'all got for food",
+        "what you got for food",
+        "what you guys got for food",
+        "whatcha got",
+        "what are you guys serving",
+        "what's good",
+        "whats good",
+        "what's good here",
+        "whats good here",
         "list menu",
         "list the menu",
         "available menu",
         "full menu",
 
         # French
-        "menu",
         "voir le menu",
         "voir votre menu",
         "voir ton menu",
@@ -128,6 +182,46 @@ def tool_search_menu(business_id, query):
         "que servez-vous",
         "je voudrais voir le menu",
         "je veux voir le menu",
+
+        # Casual French / mixed
+        "t as quoi",
+        "t'as quoi",
+        "tu as quoi",
+        "t as quoi comme",
+        "t'as quoi comme",
+        "tu as quoi comme",
+        "vous avez quoi",
+        "vous avez quoi comme",
+        "qu est ce que t as",
+        "qu'est-ce que t'as",
+        "qu est ce que tu as",
+        "qu'est-ce que tu as",
+        "c quoi comme",
+        "c'est quoi comme",
+        "c quoi comme food",
+        "c'est quoi comme food",
+        "quoi comme food",
+        "quoi comme bouffe",
+        "wesh t as quoi",
+        "wesh t'as quoi",
+        "wesh tu as quoi",
+        "wesh vous avez quoi",
+        "wech t as quoi",
+        "wech t'as quoi",
+        "wesh t as quoi comme food",
+        "wesh t'as quoi comme food",
+        "wesh t as quoi comme bouffe",
+        "wesh t'as quoi comme bouffe",
+        "t as quoi comme food",
+        "t'as quoi comme food",
+        "t as quoi comme bouffe",
+        "t'as quoi comme bouffe",
+        "vous avez quoi comme food",
+        "vous avez quoi comme bouffe",
+        "tu proposes quoi",
+        "tu proposes quoi comme food",
+        "vous proposez quoi",
+        "vous proposez quoi comme food",
 
         # Spanish
         "ver el menu",
@@ -182,30 +276,6 @@ def tool_search_menu(business_id, query):
         "mna nini",
     )
 
-    # Normalize punctuation before checking.
-    menu_query = (
-        query_text
-        .lower()
-        .replace("?", "")
-        .replace("!", "")
-        .replace(".", "")
-        .replace(",", "")
-        .replace(";", "")
-        .replace(":", "")
-        .replace("’", "'")
-        .replace("-", " ")
-        .strip()
-    )
-
-    # Collapse repeated whitespace after punctuation cleanup.
-    menu_query = " ".join(
-        menu_query.split()
-    )
-
-    # ========================================================
-    # ROBUST MULTILINGUAL FULL MENU DETECTION
-    # ========================================================
-
     menu_words = (
         "menu",
         "menú",
@@ -213,108 +283,156 @@ def tool_search_menu(business_id, query):
         "menyu",
     )
 
-    full_menu_intent_phrases = (
-        # English
-        "show me",
-        "show your",
-        "send me",
-        "give me",
-        "see",
-        "view",
-        "list",
-        "what is on",
-        "what do you have",
-        "what do you guys have",
-        "what food do you have",
-        "what foods do you have",
-        "what food do you guys have",
-        "what foods do you guys have",
-        "what do you serve",
-
-        # French
-        "je peux voir",
-        "je veux voir",
-        "je voudrais voir",
-        "puis je voir",
-        "puis-je voir",
-        "montre moi",
-        "montre-moi",
-        "montrez moi",
-        "montrez-moi",
-        "donne moi",
-        "donne-moi",
-        "donnez moi",
-        "donnez-moi",
-        "voir",
-        "quel est",
-        "qu est ce qu il y a",
-        "qu'est-ce qu'il y a",
-
-        # Spanish
-        "puedo ver",
-        "quiero ver",
-        "muéstrame",
-        "muestrame",
-        "dame",
-        "ver",
-
-        # Portuguese
-        "posso ver",
-        "quero ver",
-        "mostre",
-        "mostre-me",
-        "me mostre",
-        "me dê",
-        "me de",
-
-        # Italian
-        "posso vedere",
-        "voglio vedere",
-        "mostrami",
-        "fammi vedere",
-
-        # German
-        "kann ich",
-        "zeig mir",
-        "zeige mir",
-        "was gibt es",
+    # Explicit broad-language signals that should work even when
+    # the exact wording contains slang, an address term, or a
+    # small mixed-language variation.
+    broad_menu_patterns = (
+        r"\bwhat\s+(?:do\s+you|you)\s+(?:guys\s+)?(?:have|got)\b",
+        r"\bwhat\s+(?:food|foods)\s+(?:do\s+you|you)\s+(?:guys\s+)?(?:have|got)\b",
+        r"\bwhat\s+(?:are\s+you\s+)?serv(?:e|ing)\b",
+        r"\bwhatcha\s+got\b",
+        r"\bwhat(?:'s|s)\s+good(?:\s+here)?\b",
+        r"\bwesh\s+(?:bro\s+|fr[eé]rot\s+)?t[' ]?as\s+quoi\b",
+        r"\bwech\s+(?:bro\s+|fr[eé]rot\s+)?t[' ]?as\s+quoi\b",
+        r"\bt[' ]?as\s+quoi\s+comme\s+(?:food|bouffe)\b",
+        r"\btu\s+as\s+quoi\s+comme\s+(?:food|bouffe)\b",
+        r"\bvous\s+avez\s+quoi\s+comme\s+(?:food|bouffe)\b",
+        r"\bc[' ]?est\s+quoi\s+comme\s+(?:food|bouffe)\b",
+        r"\bc\s+quoi\s+comme\s+(?:food|bouffe)\b",
     )
 
-    # If the customer explicitly mentions the menu together
-    # with a request to see/show/list it, return the full menu.
-    has_menu_word = any(
-        word in menu_query
-        for word in menu_words
-    )
-
-    has_full_menu_intent = any(
-        phrase in menu_query
-        for phrase in full_menu_intent_phrases
+    # A query can contain a broad-menu phrase while still asking for
+    # one specific category. Specific category intent must win.
+    #
+    # Examples:
+    #   "t'as quoi comme pizza?" -> specific: pizza
+    #   "wesh t'as quoi comme food?" -> broad: full menu
+    #
+    # Do this before broad full-menu detection so "comme pizza",
+    # "comme boissons", etc. are not swallowed by the generic
+    # "t'as quoi comme" patterns.
+    specific_category_query = bool(
+        re.search(
+            r"\b(?:t[' ]?as|tu\s+as|vous\s+avez)\s+quoi\s+"
+            r"comme\s+(?!food\b|bouffe\b)(.+)$",
+            menu_query,
+            re.IGNORECASE,
+        )
     )
 
     is_full_menu = (
-        menu_query in full_menu_phrases
-        or has_full_menu_intent
-        or (
-            has_menu_word
-            and has_full_menu_intent
+        not specific_category_query
+        and (
+            menu_query in full_menu_phrases
+            or any(
+                phrase in menu_query
+                for phrase in full_menu_phrases
+            )
+            or any(
+                re.search(pattern, menu_query)
+                for pattern in broad_menu_patterns
+            )
+            or (
+                any(
+                    word in menu_query
+                    for word in menu_words
+                )
+                and any(
+                    marker in menu_query
+                    for marker in (
+                        "show",
+                        "see",
+                        "view",
+                        "send",
+                        "give",
+                        "list",
+                        "voir",
+                        "montre",
+                        "montrez",
+                        "donne",
+                        "donnez",
+                        "propose",
+                        "proposez",
+                        "what",
+                        "quoi",
+                    )
+                )
+            )
         )
     )
-    
-    if is_full_menu:
 
-        from services.ai.menu_intelligence import (
-            get_menu_items
-        )
+    # --------------------------------------------------------
+    # LOAD THE REAL AVAILABLE MENU
+    # --------------------------------------------------------
+
+    from services.ai.menu_intelligence import (
+        get_menu_items,
+    )
+
+    try:
 
         menu_items = get_menu_items(
             business_id
         )
 
-        menu_items = filter_inventory_available_menu_items(
-            menu_items,
-            quantity=1,
+    except Exception:
+
+        logger.exception(
+            "Menu database load failed for business_id=%s",
+            business_id,
         )
+
+        return {
+            "success": False,
+            "message": (
+                "The menu is temporarily unavailable. "
+                "Please try again."
+            ),
+        }
+
+    if not menu_items:
+
+        return {
+            "success": True,
+            "results": [],
+            "full_menu": is_full_menu,
+        }
+
+    # --------------------------------------------------------
+    # INVENTORY FILTER
+    #
+    # Inventory status is useful, but a failure in the inventory
+    # subsystem must never make a healthy menu inaccessible.
+    # --------------------------------------------------------
+
+    try:
+
+        filtered_items = (
+            filter_inventory_available_menu_items(
+                menu_items,
+                quantity=1,
+            )
+        )
+
+        if filtered_items is not None:
+            menu_items = filtered_items
+
+    except Exception:
+
+        logger.exception(
+            "Menu inventory filter failed for business_id=%s; "
+            "falling back to Menu.available items.",
+            business_id,
+        )
+
+    # --------------------------------------------------------
+    # FULL MENU
+    #
+    # IMPORTANT: no search limit here. Every item returned by the
+    # grounded menu source is passed to the response builder.
+    # --------------------------------------------------------
+
+    if is_full_menu:
 
         results = []
 
@@ -332,33 +450,86 @@ def tool_search_menu(business_id, query):
                     or "Other"
                 ),
                 "price": float(
-                    item.price
+                    item.price or 0
                 ),
-                "currency": "FCFA"
+                "currency": "FCFA",
             })
 
         return {
             "success": True,
             "results": results,
-            "full_menu": True
+            "full_menu": True,
         }
 
-    # ========================================================
-    # NORMAL MENU SEARCH
-    # ========================================================
+    # --------------------------------------------------------
+    # NORMAL / SPECIFIC MENU SEARCH
+    # --------------------------------------------------------
 
-    menu_items = get_menu_items(
-        business_id
+    # --------------------------------------------------------
+    # NORMALIZE NATURAL-LANGUAGE SPECIFIC QUERIES
+    #
+    # Extract the useful menu subject from conversational
+    # questions before handing the query to the grounded search.
+    #
+    # Examples:
+    #   "what pizzas do you have?"       -> "pizzas"
+    #   "what kind of pizza do you have?" -> "pizza"
+    #   "show me your pizzas"             -> "pizzas"
+    #   "which pizzas do you have?"       -> "pizzas"
+    #   "wesh t'as quoi comme pizza?"     -> "pizza"
+    # --------------------------------------------------------
+
+    search_query = menu_query
+
+    natural_query_patterns = (
+        r"^what\s+(?:kind\s+of\s+)?(.+?)\s+do\s+(?:you|yall|you guys)\s+(?:have|got)$",
+        r"^what\s+(?:kind\s+of\s+)?(.+?)\s+(?:do\s+)?(?:you|yall|you guys)\s+have$",
+        r"^what\s+(?:kind\s+of\s+)?(.+?)\s+(?:do\s+)?(?:you|yall|you guys)\s+got$",
+        r"^which\s+(.+?)\s+do\s+(?:you|yall|you guys)\s+have$",
+        r"^which\s+(.+?)\s+do\s+(?:you|yall|you guys)\s+got$",
+        r"^show\s+me\s+(?:your\s+)?(.+)$",
+        r"^what\s+(.+?)\s+(?:are|is)\s+(?:available|on\s+the\s+menu)$",
+        r"^what\s+(.+?)\s+(?:you|yall|you guys)\s+got$",
+        r"^wesh\s+(?:bro\s+|fr[eé]rot\s+)?t[' ]?as\s+quoi\s+comme\s+(.+)$",
+        r"^wech\s+(?:bro\s+|fr[eé]rot\s+)?t[' ]?as\s+quoi\s+comme\s+(.+)$",
+        r"^t[' ]?as\s+quoi\s+comme\s+(.+)$",
+        r"^tu\s+as\s+quoi\s+comme\s+(.+)$",
+        r"^vous\s+avez\s+quoi\s+comme\s+(.+)$",
+        r"^t[' ]?as\s+quelles?\s+(.+)$",
     )
 
-    menu_items = filter_inventory_available_menu_items(
-        menu_items,
-        quantity=1,
+    for pattern in natural_query_patterns:
+        match = re.match(
+            pattern,
+            menu_query,
+            re.IGNORECASE,
+        )
+
+        if match:
+            candidate = match.group(1).strip()
+
+            if candidate:
+                search_query = candidate
+                break
+
+    # Strip conversational filler around the actual menu subject.
+    search_query = re.sub(
+        r"\b(?:please|pls|plz|stp|svp|bro|brother|fr[eé]rot|fr[eè]re|"
+        r"fam|gang|guys|yall|you guys)\b",
+        " ",
+        search_query,
+        flags=re.IGNORECASE,
     )
+
+    search_query = re.sub(
+        r"\s+",
+        " ",
+        search_query,
+    ).strip()
 
     results = search_menu(
         business_id,
-        query,
+        search_query,
         limit=5,
         menu_items=menu_items,
     )
@@ -366,7 +537,7 @@ def tool_search_menu(business_id, query):
     return {
         "success": True,
         "results": results,
-        "full_menu": False
+        "full_menu": False,
     }
 
 
@@ -525,9 +696,44 @@ def create_order_preview(
     message
 ):
 
+    # --------------------------------------------------------
+    # RESOLVE COMMON CUSTOMER MENU SHORTHAND
+    #
+    # Keep the database menu as the source of truth while allowing
+    # natural customer references such as "margaritas".
+    # --------------------------------------------------------
+
+    extraction_message = str(
+        message or ""
+    )
+
+    import re
+
+    menu_aliases = {
+        "margarita": "Classic Margherita Pizza",
+        "margaritas": "Classic Margherita Pizza",
+        "margherita": "Classic Margherita Pizza",
+        "margheritas": "Classic Margherita Pizza",
+    }
+
+    for alias, canonical_name in menu_aliases.items():
+
+        if re.search(
+            rf"\b{re.escape(alias)}\b",
+            extraction_message,
+            re.IGNORECASE,
+        ):
+            extraction_message = re.sub(
+                rf"\b{re.escape(alias)}\b",
+                canonical_name,
+                extraction_message,
+                flags=re.IGNORECASE,
+            )
+            break
+
     extracted = extract_order(
         business_id,
-        message
+        extraction_message
     )
 
     items = extracted.get(
@@ -592,38 +798,245 @@ def create_order_preview(
         db.session.flush()
 
     # --------------------------------------------------------
-    # Remove previous pending preview
+    # MERGE INTO EXISTING PENDING PREVIEW
+    #
+    # A pending preview represents the customer's current
+    # working order. A new turn such as:
+    #
+    #   "jveux some pizza"
+    #   "ajoute une lemonade"
+    #
+    # must preserve the pizza and add the lemonade.
+    #
+    # Never delete the previous pending preview merely because
+    # the customer sent another order message.
     # --------------------------------------------------------
 
-    PendingOrder.query.filter_by(
-        business_id=business_id,
-        customer_id=customer.id,
-        status="pending"
-    ).delete(
-        synchronize_session=False
+    existing_preview = (
+        PendingOrder.query
+        .filter_by(
+            business_id=business_id,
+            customer_id=customer.id,
+            status="pending"
+        )
+        .order_by(
+            PendingOrder.id.desc()
+        )
+        .first()
     )
 
-    preview = PendingOrder(
-        business_id=business_id,
-        customer_id=customer.id,
-        items_json=json.dumps(
-            items,
-            ensure_ascii=False
-        ),
-        total_price=float(
-            extracted.get(
-                "total",
-                0
+    if existing_preview:
+        try:
+            existing_items = json.loads(
+                existing_preview.items_json
             )
-        ),
-        status="pending"
-    )
+        except (
+            json.JSONDecodeError,
+            TypeError,
+        ):
+            existing_items = []
 
-    db.session.add(
-        preview
-    )
+        if not isinstance(existing_items, list):
+            existing_items = []
 
-    db.session.commit()
+        # Merge newly requested items into the existing preview.
+        for new_item in items:
+
+            if not isinstance(new_item, dict):
+                continue
+
+            new_name = str(
+                new_item.get("name") or ""
+            ).strip()
+
+            if not new_name:
+                continue
+
+            try:
+                new_quantity = max(
+                    1,
+                    int(
+                        new_item.get(
+                            "quantity",
+                            1
+                        )
+                        or 1
+                    )
+                )
+            except (
+                TypeError,
+                ValueError,
+            ):
+                new_quantity = 1
+
+            try:
+                new_price = float(
+                    new_item.get(
+                        "price",
+                        0
+                    )
+                    or 0
+                )
+            except (
+                TypeError,
+                ValueError,
+            ):
+                new_price = 0.0
+
+            existing_item = None
+
+            for current_item in existing_items:
+
+                if not isinstance(current_item, dict):
+                    continue
+
+                current_name = str(
+                    current_item.get("name") or ""
+                ).strip()
+
+                if (
+                    current_name.lower()
+                    == new_name.lower()
+                ):
+                    existing_item = current_item
+                    break
+
+            if existing_item:
+
+                try:
+                    current_quantity = max(
+                        1,
+                        int(
+                            existing_item.get(
+                                "quantity",
+                                1
+                            )
+                            or 1
+                        )
+                    )
+                except (
+                    TypeError,
+                    ValueError,
+                ):
+                    current_quantity = 1
+
+                existing_item["quantity"] = (
+                    current_quantity
+                    + new_quantity
+                )
+
+                # Keep the current grounded price when available.
+                try:
+                    current_price = float(
+                        existing_item.get(
+                            "price",
+                            new_price
+                        )
+                        or new_price
+                    )
+                except (
+                    TypeError,
+                    ValueError,
+                ):
+                    current_price = new_price
+
+                existing_item["price"] = current_price
+                existing_item["subtotal"] = (
+                    current_price
+                    * existing_item["quantity"]
+                )
+
+            else:
+
+                existing_items.append({
+                    "name": new_name,
+                    "quantity": new_quantity,
+                    "price": new_price,
+                    "subtotal": (
+                        new_price
+                        * new_quantity
+                    ),
+                })
+
+        # Recalculate the complete pending-order total.
+        merged_total = 0.0
+
+        for item in existing_items:
+
+            if not isinstance(item, dict):
+                continue
+
+            try:
+                quantity = max(
+                    1,
+                    int(
+                        item.get(
+                            "quantity",
+                            1
+                        )
+                        or 1
+                    )
+                )
+
+                price = float(
+                    item.get(
+                        "price",
+                        0
+                    )
+                    or 0
+                )
+            except (
+                TypeError,
+                ValueError,
+            ):
+                continue
+
+            item["quantity"] = quantity
+            item["price"] = price
+            item["subtotal"] = (
+                price * quantity
+            )
+
+            merged_total += item["subtotal"]
+
+        existing_preview.items_json = json.dumps(
+            existing_items,
+            ensure_ascii=False
+        )
+
+        existing_preview.total_price = float(
+            merged_total
+        )
+
+        db.session.commit()
+
+        preview = existing_preview
+        items = existing_items
+
+    else:
+
+        # No pending preview exists yet, so create the first one.
+        preview = PendingOrder(
+            business_id=business_id,
+            customer_id=customer.id,
+            items_json=json.dumps(
+                items,
+                ensure_ascii=False
+            ),
+            total_price=float(
+                extracted.get(
+                    "total",
+                    0
+                )
+            ),
+            status="pending"
+        )
+
+        db.session.add(
+            preview
+        )
+
+        db.session.commit()
 
     return {
         "success": True,
