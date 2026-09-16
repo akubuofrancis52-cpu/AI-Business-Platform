@@ -94,3 +94,89 @@ def test_order_extraction_pipeline(message):
         print("RESULT:", result)
 
         assert result is not None
+
+def test_contextual_modify_reaches_real_agent_path():
+    """
+    End-to-end routing test for contextual order modification.
+
+    Verifies:
+        customer message
+        -> modify_order classification
+        -> contextual reference resolution
+        -> pending-order modifier
+
+    This test deliberately mocks only the final DB mutation function,
+    allowing the real run_agent routing and contextual resolver to execute.
+    """
+
+    from unittest.mock import patch
+
+    from services.ai.agent import run_agent
+
+    with app.app_context():
+
+        history = [
+            {
+                "message": (
+                    "I'll take 3 Lemonades and "
+                    "one Signature Lebanese Shawarma."
+                ),
+                "response": "Your order preview is ready.",
+            }
+        ]
+
+        captured = {}
+
+        def fake_modify_pending_order(
+            business_id,
+            phone,
+            message,
+            language,
+        ):
+            captured["business_id"] = business_id
+            captured["phone"] = phone
+            captured["message"] = message
+            captured["language"] = language
+
+            return {
+                "type": "response",
+                "message": (
+                    "Your order has been updated.\n\n"
+                    "Total: 3,300 FCFA"
+                ),
+            }
+
+        with patch(
+            "services.ai.agent.modify_pending_order",
+            side_effect=fake_modify_pending_order,
+        ):
+
+            result = run_agent(
+                business_id=2,
+                phone="22962616258",
+                message="make it two",
+                language="English",
+                history=history,
+            )
+
+        print("\n" + "=" * 70)
+        print("END-TO-END CONTEXTUAL MODIFY")
+        print("=" * 70)
+        print("Captured:", captured)
+        print("Result:", result)
+
+        assert captured["business_id"] == 2
+        assert captured["phone"] == "22962616258"
+
+        # The critical assertion:
+        # run_agent must transform the vague customer message into
+        # an explicit deterministic modification before the modifier.
+        assert captured["message"] == (
+            "change the quantity of "
+            "2 Signature Lebanese Shawarma"
+        )
+
+        assert result is not None
+        assert result["type"] == "response"
+        assert "order has been updated" in result["message"].lower()
+
