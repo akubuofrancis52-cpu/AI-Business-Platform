@@ -151,10 +151,35 @@ def _try_fast_order_extraction(
         "je souhaite ajouter ",
     )
 
-    if not any(
+    # Direct quantity + item messages are also complete orders.
+    # Examples:
+    #   "2 margaritas"
+    #   "two lemonades"
+    #   "deux shawarmas"
+    #   "two fries"
+    #
+    # Only allow this shortcut when an explicit quantity is present.
+    quantity_words = (
+        "one", "two", "three", "four", "five",
+        "un", "une", "deux", "trois", "quatre", "cinq",
+    )
+
+    has_order_phrase = any(
         phrase in text
         for phrase in order_phrases
-    ):
+    )
+
+    has_direct_quantity = bool(
+        re.search(
+            r"\b(?:\d+|"
+            + "|".join(quantity_words)
+            + r")\s+\w+",
+            text,
+            re.IGNORECASE,
+        )
+    )
+
+    if not has_order_phrase and not has_direct_quantity:
         return None
 
     # --------------------------------------------------------
@@ -208,6 +233,19 @@ def _try_fast_order_extraction(
     # --------------------------------------------------------
 
     aliases = {
+        # Customer shorthand for the actual menu item.
+        "margarita": (
+            "margarita",
+            "margaritas",
+            "margherita",
+            "margheritas",
+            "margherita pizza",
+            "margherita pizzas",
+            "pizza margherita",
+            "pizzas margherita",
+            "classic margherita pizza",
+        ),
+
         "shawarma": (
             "shawarma",
             "lebanese shawarma",
@@ -331,6 +369,7 @@ def _try_fast_order_extraction(
         # Add safe aliases based on the actual menu item.
         for alias, variants in aliases.items():
 
+            # Link an alias family to the real menu item.
             if (
                 alias in normalized_name
                 or normalized_name in variants
@@ -372,10 +411,15 @@ def _try_fast_order_extraction(
             "dessert",
         }
 
-        if any(
-            term in generic_terms
+        # Generic category words alone are ambiguous.
+        # A specific alias such as "margarita" is not.
+        specific_terms = [
+            term
             for term in matched_terms
-        ):
+            if term not in generic_terms
+        ]
+
+        if not specific_terms:
             continue
 
         matched[

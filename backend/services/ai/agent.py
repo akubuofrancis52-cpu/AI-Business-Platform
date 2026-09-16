@@ -4238,6 +4238,38 @@ FAST_RESTAURANT_INFO_PHRASES = (
     "about this restaurant",
 )
 
+FAST_FRENCH_ORDER_PHRASES = (
+    "jveux ",
+    "j veux ",
+    "j'veux ",
+    "je veux ",
+    "jvoudrais ",
+    "j voudrais ",
+    "j'voudrais ",
+    "je voudrais ",
+    "j'aimerais ",
+    "j aimerais ",
+    "jaimerais ",
+    "je souhaite ",
+    "je prends ",
+    "jprends ",
+    "j prends ",
+    "j'prends ",
+    "je vais prendre ",
+    "jvais prendre ",
+    "j vais prendre ",
+    "j'vais prendre ",
+    "mets moi ",
+    "mets-moi ",
+    "met moi ",
+    "met-moi ",
+    "donne moi ",
+    "donne-moi ",
+    "rajoute moi ",
+    "rajoute-moi ",
+)
+
+
 FAST_ORDER_PHRASES = (
     # English
     "i want ",
@@ -6291,6 +6323,7 @@ def classify_message_fast(message):
     # Common natural-language additions/removals should stay
     # on the fast local path instead of falling through to the LLM.
     modify_prefixes = (
+        # English additions
         "add ",
         "add a ",
         "add an ",
@@ -6301,6 +6334,8 @@ def classify_message_fast(message):
         "i'd like to add ",
         "please add ",
         "actually add ",
+
+        # English removals
         "remove ",
         "remove a ",
         "remove an ",
@@ -6310,6 +6345,8 @@ def classify_message_fast(message):
         "actually remove ",
         "actually take off ",
         "please remove ",
+
+        # French additions/removals
         "enlève ",
         "enleve ",
         "retire ",
@@ -6320,7 +6357,57 @@ def classify_message_fast(message):
         "supprimer ",
     )
 
+    # Conversational prefixes commonly placed before a real
+    # modification request:
+    #   "wait remove the lemonade"
+    #   "actually remove the fries"
+    #   "hold on add a coke"
+    #   "wesh enlève la lemonade"
+    #   "frère ajoute une pizza"
+    #
+    # These prefixes carry conversational style, not intent.
+    conversational_modify_prefixes = (
+        "wait ",
+        "wait a sec ",
+        "wait a second ",
+        "hold on ",
+        "actually ",
+        "frère ",
+        "frere ",
+        "frérot ",
+        "frerot ",
+        "bro ",
+        "brother ",
+        "fam ",
+        "gang ",
+        "twin ",
+        "twan ",
+        "wesh ",
+        "wech ",
+        "yo ",
+        "yoo ",
+        "ayy ",
+        "hey ",
+        "salut ",
+        "slt ",
+    )
+
+    # Direct modification.
     if text.startswith(modify_prefixes):
+        return "modify_order"
+
+    # Modification with a conversational lead-in.
+    stripped_modify_text = text
+    changed = True
+    while changed:
+        changed = False
+        for prefix in conversational_modify_prefixes:
+            if stripped_modify_text.startswith(prefix):
+                stripped_modify_text = stripped_modify_text[len(prefix):].strip()
+                changed = True
+                break
+
+    if stripped_modify_text.startswith(modify_prefixes):
         return "modify_order"
 
     if (
@@ -6328,6 +6415,39 @@ def classify_message_fast(message):
         and " from my order" in text
     ):
         return "modify_order"
+
+    # --------------------------------------------------------
+    # EXPLICIT QUANTITY + MENU ITEM ORDER
+    # --------------------------------------------------------
+    #
+    # Short WhatsApp orders such as:
+    #   "2 margaritas stp"
+    #   "2 pizzas"
+    #   "three lemonades please"
+    #
+    # should not need an LLM classification round. The actual
+    # menu/order extractor remains authoritative for item matching
+    # and quantity validation.
+    #
+    # This is intentionally narrow: a number by itself is NOT
+    # enough to classify something as an order.
+    explicit_quantity_order = bool(
+        re.search(
+            r"\b(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten|"
+            r"un|une|deux|trois|quatre|cinq|six|sept|huit|neuf|dix)"
+            r"\s+"
+            r"(?:margarita|margaritas|margherita|margheritas|"
+            r"pizza|pizzas|lemonade|lemonades|limonade|limonades|"
+            r"burger|burgers|shawarma|fries|frites|sandwich|sandwiches|"
+            r"ice cream|glace|glaces)"
+            r"\b",
+            text,
+            re.IGNORECASE,
+        )
+    )
+
+    if explicit_quantity_order:
+        return "order"
 
     # --------------------------------------------------------
     # MENU SEARCH
@@ -6357,9 +6477,10 @@ def classify_message_fast(message):
     ):
         return "chat"
 
-    has_order_phrase = contains_any(
-        FAST_ORDER_PHRASES
-    )
+    has_order_phrase = (
+            any(phrase in text for phrase in FAST_ORDER_PHRASES)
+            or any(phrase in text for phrase in FAST_FRENCH_ORDER_PHRASES)
+        )
 
     has_food = contains_any(
         FAST_FOOD_PATTERNS
@@ -7252,6 +7373,11 @@ def modify_pending_order(
         "hey ",
         "salut ",
         "slt ",
+        "wait ",
+        "wait a sec ",
+        "wait a second ",
+        "hold on ",
+        "actually ",
     )
 
     changed = True
@@ -9159,6 +9285,162 @@ RULES:
                 )
 
         # --------------------------------------------------------
+        # --------------------------------------------------------
+        # AMBIGUOUS GENERIC FOOD CATEGORY ORDER
+        # --------------------------------------------------------
+        #
+        # Examples:
+        #   "I want pizza"
+        #   "jveux some pizza bro"
+        #   "2 pizzas"
+        #
+        # These express ordering intent but do not identify a
+        # specific menu item. Never let the LLM choose arbitrarily.
+        # --------------------------------------------------------
+
+        try:
+            from models.menu import Menu
+            from services.ai.order_extractor import (
+                _try_fast_order_extraction,
+            )
+
+            menu_items = (
+                Menu.query
+                .filter_by(
+                    business_id=business_id,
+                    available=True,
+                )
+                .order_by(
+                    Menu.category.asc(),
+                    Menu.name.asc(),
+                )
+                .all()
+            )
+
+            # First check whether the deterministic extractor can
+            # already resolve a specific item.
+            fast_order = _try_fast_order_extraction(
+                message,
+                menu_items,
+            )
+
+            if fast_order is None:
+                normalized_generic = normalize_text(message)
+
+                category_aliases = {
+                    "pizza": ("pizza", "pizzas"),
+                    "burger": ("burger", "burgers"),
+                    "shawarma": ("shawarma", "shawarmas"),
+                    "fries": ("fries", "frites"),
+                    "sandwich": ("sandwich", "sandwiches"),
+                    "ice cream": ("ice cream", "icecream"),
+                    "glace": ("glace", "glaces"),
+                    "dessert": ("dessert", "desserts"),
+                    "lemonade": (
+                        "lemonade",
+                        "lemonades",
+                        "limonade",
+                        "limonades",
+                    ),
+                }
+
+                detected_category = None
+
+                for category, aliases in category_aliases.items():
+                    for alias in aliases:
+                        if (
+                            alias in normalized_generic.split()
+                            or alias in normalized_generic
+                        ):
+                            detected_category = category
+                            break
+
+                    if detected_category:
+                        break
+
+                if detected_category:
+                    category_items = []
+
+                    for menu_item in menu_items:
+                        item_name = clean_text(
+                            menu_item.name or ""
+                        )
+
+                        normalized_item = normalize_text(
+                            item_name
+                        )
+
+                        if not normalized_item:
+                            continue
+
+                        aliases = category_aliases[
+                            detected_category
+                        ]
+
+                        if any(
+                            alias in normalized_item.split()
+                            for alias in aliases
+                            if " " not in alias
+                        ) or any(
+                            alias in normalized_item
+                            for alias in aliases
+                            if " " in alias
+                        ):
+                            category_items.append(
+                                menu_item
+                            )
+
+                    if len(category_items) > 1:
+                        if language.lower().startswith("fr"):
+                            intro = (
+                                f"Bien vu 😄 Voici nos options "
+                                f"{detected_category} :"
+                            )
+                            closing = "Tu veux lequel ?"
+                        else:
+                            intro = (
+                                f"Got you 😄 Here are our "
+                                f"{detected_category} options:"
+                            )
+                            closing = "Which one do you want?"
+
+                        lines = [intro, ""]
+
+                        for item in category_items:
+                            name = clean_text(
+                                item.name or "Item"
+                            )
+                            price = float(
+                                getattr(
+                                    item,
+                                    "price",
+                                    0,
+                                ) or 0
+                            )
+
+                            lines.append(
+                                f"• *{name}* — "
+                                f"{price:,.0f} FCFA"
+                            )
+
+                        lines.extend([
+                            "",
+                            closing,
+                        ])
+
+                        return {
+                            "type": "response",
+                            "message": customer_response(
+                                "\n".join(lines),
+                                message,
+                            ),
+                        }
+
+        except Exception:
+            logger.exception(
+                "Generic category order resolution failed."
+            )
+
         # NORMAL EXPLICIT ORDER PATH
         # --------------------------------------------------------
 

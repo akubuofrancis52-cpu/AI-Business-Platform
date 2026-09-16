@@ -1245,6 +1245,7 @@ def download_whatsapp_image(
 
 
 def process_whatsapp_audio(
+    business_id,
     media_id
 ):
     """
@@ -5512,6 +5513,7 @@ def process_whatsapp_audio_async(
             )
 
             text_body = process_whatsapp_audio(
+                business_id,
                 media_id
             )
 
@@ -6452,6 +6454,7 @@ def whatsapp_webhook():
 
                             text_body = (
                                 process_whatsapp_audio(
+                                    business_id,
                                     media_id
                                 )
                             )
